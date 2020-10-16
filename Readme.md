@@ -13,8 +13,11 @@ At this time the software supports
 - MLX90614 Melex temp contactless  
 - MAX30105 Maxim pulseox (in progress)
 
-## Air Quality Sensors
-https://learn.adafruit.com/gas-sensor-comparison
+The system should display the measured values on an LCD and also connect to MQTT server and publish results.
+
+## Air Quality Sensors to Consider
+There exisits many sensor for indoor air quality. If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time.
+Power consmpution will be high and the system should run of a plug in power supply. Humidity, tempterauter and pressure can be measured in low power configuration and system can run from a battery.
 
 ### Temperature, Humidity Pressure
 * **BME680**, Bosch, Temp, Humidity 8s, Pressure, 1s VOC +/-15% IAQ output, AliExpress $12  
