@@ -1,0 +1,64 @@
+WeMOS D1
+ 5V - 5V
+GND - GND
+ D4 -
+ D3 -
+ D2 - SDA
+ D1 - SCL
+33V - 3.3 250mA 
+3.3V Voltage regulator ME6211 500mA
+ESP8266 has max current consumption of 400mA
+
+Display
+VCC 5V 10-100mW
+GND
+SDA needs 5V logic
+SCL needs 5V logic
+
+SPS30 Particle Sensor
+1 5V   (location is left, away from corner) 8mA idle, 60mA average
+2 SDA - 3.3 and 5 V logic, 10k pull up to logic high
+3 SCL - 3.3 and 5 V logic, 10k pull up to logic high
+4 SEL - GND for I2C
+5 GND
+
+SGP30 VOC
+1.62-1.98V, 48mA
+GY-SGP30
+VIN  2..5V
+GND
+SCL
+SDA
+
+SCD30 CO2
+VDD - 3.3...5.5, 19mA
+GND 
+SCL - 3.3 logic
+SDA - 3.3 logic
+RDY - Out active high when data is ready
+PWM - Out if PWM is used to encode CO2 conc, NC
+SEL - GND for I2C
+
+BME680 Pressure Humidity, 1.7..3.6 1 miroA sleep,0.4..0.85mA during measurement
+CJMCU-680
+VDD   - 3.3...5.5
+VDDIO - VDDIO
+GND   - GND
+SDI   - SDA
+SCK   - SCL  
+SDO   - GND , default address
+CS    - Chip Select, active high
+
+CJMCU811 https://revspace.nl/CJMCU-811
+CCS811
+RST - reset active low in
+INT - interrupt active low out
+WAK - wake active low, sleep if high
+SCL - 0.6..VDD is high
+SDA - 0.6..VDD is high
+33V - 1.8..3.3V Power 30-60mA
+GND - GND
+NTC - negative thermal coefficient resistor, 10kOhm
+
+CJMCU-906
+MLX90614ESF
