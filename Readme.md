@@ -30,6 +30,7 @@ Power consmpution will be high and the system should run of a plug in power supp
 * TMP117, Teaxs Instruments, 3C without calibration, -40-125C
 
 ### Humidity
+* HTU21D
 * AHT20
 * SHTC3
 * Si7021
