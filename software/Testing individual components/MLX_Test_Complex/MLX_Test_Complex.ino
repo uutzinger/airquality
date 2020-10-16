@@ -415,11 +415,11 @@ void defaultSettings() {
   mySettings.forcedCalibration_SCD30_valid = (byte)         0x00;
   mySettings.forcedCalibration_SCD30       = (float)         0.0;
   strcpy(mySettings.ssid1,                 "meddev");
-  strcpy(mySettings.pw1,                   "w1ldc8ts");
+  strcpy(mySettings.pw1,                   "");
   strcpy(mySettings.ssid2,                 "AMARIE-HP_Network");
-  strcpy(mySettings.pw2,                   "catfudcasserol");
+  strcpy(mySettings.pw2,                   "");
   strcpy(mySettings.ssid3,                 "MuchoCoolioG");
-  strcpy(mySettings.pw3,                   "fluorolog");
+  strcpy(mySettings.pw3,                   "");
   strcpy(mySettings.mqtt_server,           "my.mqqtt.server.org");
 }
 
