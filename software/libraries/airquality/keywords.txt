@@ -1,0 +1,78 @@
+﻿#######################################
+# Syntax Coloring Map
+# Air Quality Index  //paulvha March 2019
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+AQI_stats	KEYWORD1
+AQI_info	KEYWORD1
+AQI_NVRAM	KEYWORD1
+AQI_region	KEYWORD1
+region_t	KEYWORD1
+regions	KEYWORD1
+AQI_CAQI_hrly	KEYWORD1
+_hrly_bnd_25um	KEYWORD1
+_hrly_bnd_10um	KEYWORD1
+_daily_bnd_25um KEYWORD1
+_daily_bnd_10um KEYWORD1
+_region KEYWORD1
+_cnt KEYWORD1
+_25um KEYWORD1
+_10um KEYWORD1
+_25um_prev	KEYWORD1
+_10um_prev	KEYWORD1
+_25um_max	KEYWORD1
+_10um_max	KEYWORD1
+aqi_index	KEYWORD1
+aqi_name	KEYWORD1
+aqi_indicator	KEYWORD1
+aqi_bnd	KEYWORD1
+aqi_bnd_low	KEYWORD1
+aqi_bnd_high	KEYWORD1
+_within_hr_25um	KEYWORD1
+_within_hr_10um	KEYWORD1
+_within_hr_cnt	KEYWORD1
+_daily_25um	KEYWORD1
+_daily_10um	KEYWORD1
+_daily_25um_max	KEYWORD1
+_daily_10um_max	KEYWORD1
+_daily_cnt	KEYWORD1
+_daily_offset	KEYWORD1
+_start_hour	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+AQI	KEYWORD2
+SetRegion	KEYWORD2
+SetStats	KEYWORD2
+Capture	KEYWORD2
+GetAqi	KEYWORD2
+ReadRam	KEYWORD2
+GetNv	KEYWORD2
+ForceUpdate	KEYWORD2
+SetHour	KEYWORD2
+GetHour	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+NOREGION	LITERAL1
+USA	LITERAL1
+EUROPE1	LITERAL1
+EUROPE2	LITERAL1
+UK	LITERAL1
+INDIA	LITERAL1
+CANADA1	LITERAL1
+CANADA2	LITERAL1
+YESTERDAY	LITERAL1
+HISTORY	LITERAL1
+PM25	LITERAL1
+PM10	LITERAL1
+
+
