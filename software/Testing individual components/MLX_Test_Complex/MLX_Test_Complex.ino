@@ -18,7 +18,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-bool fastMode = false;             // true: Measure as fast as possible, false: operate in energy efficiency mode
+bool fastMode = false;       // true: Measure as fast as possible, false: operate in energy efficiency mode
 
 /******************************************************************************************************/
 // Store Sensor Baseline Data
@@ -156,11 +156,14 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 /******************************************************************************************************/
 #include <SparkFunMLX90614.h>
 #define fhDelta 0.5                                      // difference from forehad to oral temperature
+#define mlxOffset 1.4                                    // offset to adjust for sensor inaccuracy
+#define timeToStableMLX 250                              // 250ms
+#define intervalMLXfast 250                              // 0.25 seconds
+#define intervalMLXslow 1000                             // 1 second
 bool therm_avail    = false;
 const float emissivity = 0.98;                           // emissivity of skin
-unsigned long intervalMLX = 1000;                        // readout intervall 250ms minimum
+unsigned long intervalMLX;                               // readout intervall 250ms minimum
 unsigned long lastMLX;                                   // last time we interacted with sensor
-unsigned long timeToStableMLX;
 unsigned long sleepTimeMLX;
 volatile SensorStates stateMLX = IS_IDLE; 
 IRTherm therm;
@@ -201,20 +204,20 @@ void setup() {
   if (checkI2C(0x27) == 1) {lcd_avail = true;}    else {lcd_avail = false;}     // LCD display
   if (checkI2C(0x5A) == 1) {therm_avail = true;}  else {therm_avail = false;}   // MLX IR sensor
 
-  if (lcd_avail)    {Serial.println("LCD available");}
-  if (therm_avail)  {Serial.println("MLX temperature available");}
+  Serial.print("LCD                  "); if (lcd_avail)    {Serial.println("available");} else {Serial.println("not available");}
+  Serial.print("MLX temp             "); if (therm_avail)  {Serial.println("available");} else {Serial.println("not available");}
 
   /******************************************************************************************************/
   // Intervals
   /******************************************************************************************************/
 
   if (fastMode) {
-    intervalLoop = 100;       // 0.1 sec
-    intervalLCD = 2000;       // 2 sec
+    intervalLoop    =   100;  // 0.1 sec
+    intervalLCD     =   250;  // 0.25 sec
     intervalRuntime = 60000;  // 1 minute
   } else{
-    intervalLoop = 1000;      // 1 sec
-    intervalLCD = 60000;      // 1 minute
+    intervalLoop    =   1000; // 1 sec
+    intervalLCD     =   1000; // 1 sec
     intervalRuntime = 600000; // 10 minutes
   }
 
@@ -237,16 +240,28 @@ void setup() {
     if (therm.begin() == 1) { 
       therm.setUnit(TEMP_C); // Set the library's units to Centigrade
       therm.setEmissivity(emissivity);
-      Serial.print("Emissivity: ");
+      Serial.print("MLX: Emissivity: ");
       Serial.println(therm.readEmissivity());
       stateMLX = IS_MEASURING;      
     } else {
-      Serial.println("MLX sensor not detected. Please check wiring."); 
+      Serial.println("MLX: sensor not detected. Please check wiring."); 
       stateMLX = HAS_ERROR;
       therm_avail = false;
     }
-    timeToStableMLX = 250;
-    sleepTimeMLX = intervalMLX - timeToStableMLX - 50;
+    if (fastMode == true) { 
+      intervalMLX  = intervalMLXfast; 
+      sleepTimeMLX = 0;
+    } else { 
+      intervalMLX  = intervalMLXslow;
+      sleepTimeMLX = intervalMLX - timeToStableMLX - 50;
+    }
+    Serial.print("MLX: sleep time is "); 
+    Serial.print(sleepTimeMLX); 
+    Serial.println("ms");
+    Serial.print("MLX: interval time is "); 
+    Serial.print(intervalMLX); 
+    Serial.println("ms");
+    Serial.println("MLX: Initialized");
   }
   /******************************************************************************************************/
   // Initialize Timing System
@@ -306,9 +321,11 @@ void loop() {
       case IS_MEASURING : {
         if ((currentTime - lastMLX) > intervalMLX) {
           if (therm.read()) {
+            Serial.println("MLX: temperature measured.");
             lastMLX = currentTime;
             if (fastMode == false) {
               therm.sleep();
+              Serial.println("MLX: sent to sleep.");
               stateMLX = IS_SLEEPING;
             }
           }
@@ -319,14 +336,13 @@ void loop() {
       case IS_SLEEPING : {
         if ((currentTime - lastMLX) > sleepTimeMLX) {
           therm.wake(); // takes 250ms to wake up
+          Serial.println("MLX: initiated wake up.");
           stateMLX = IS_MEASURING;
         }
         break;
       }
     } // switch
   } // if avail
-  
-
 
   /******************************************************************************************************/
   // Time Management
@@ -571,10 +587,10 @@ void updateLCD() {
   lcd.clear();
   if (therm_avail) {
 
-    sprintf(lcdbuf,"%4.1f",therm.object());
+    sprintf(lcdbuf,"%4.1f",(therm.object()+mlxOffset));
     lcd.setCursor(MLX_X, MLX_Y);
     lcd.print(lcdbuf);
-    Serial.println(therm.object());
+    Serial.println(therm.object()+mlxOffset);
 
     sprintf(lcdbuf,"%4.1f",therm.ambient());
     lcd.setCursor(MLXA_X, MLXA_Y);
@@ -584,15 +600,15 @@ void updateLCD() {
     // https://www.singlecare.com/blog/fever-temperature/
     // https://www.hopkinsmedicine.org/health/conditions-and-diseases/fever
     // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7115295/
-    if (therm.object() < (35.0 - fhDelta)) {
+    if (therm.object() < (35.0 - fhDelta - mlxOffset)) {
       sprintf(lcdbuf, "%s", "L");      
-    } else if (therm.object() <= (36.4 - fhDelta)) {
+    } else if (therm.object() <= (36.4 - fhDelta - mlxOffset)) {
       sprintf(lcdbuf, "%s", "");
-    } else if (therm.object() <  (37.2 - fhDelta)) {
+    } else if (therm.object() <  (37.2 - fhDelta - mlxOffset)) {
       sprintf(lcdbuf, "%s", "N");
-    } else if (therm.object() <  (38.3 - fhDelta)) {
+    } else if (therm.object() <  (38.3 - fhDelta - mlxOffset)) {
       sprintf(lcdbuf, "%s", "T");
-    } else if (therm.object() <  (41.5 - fhDelta)) {
+    } else if (therm.object() <  (41.5 - fhDelta - mlxOffset)) {
       sprintf(lcdbuf, "%s", "F");
     } else {
       sprintf(lcdbuf, "%s", "!");

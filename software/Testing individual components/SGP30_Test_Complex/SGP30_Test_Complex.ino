@@ -17,7 +17,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool fastMode = true;              // true: Measure as fast as possible, false: operate in energy efficiency mode
+bool fastMode = false;              // true: Measure as fast as possible, false: operate in energy efficiency mode
 unsigned long currentTime;
 unsigned long lastTime;            // last time we updated runtime;
 unsigned long intervalLoop = 100;  // 10Hz
@@ -58,18 +58,14 @@ EEPROMsettings mySettings;
 #include <Wire.h>
 
 enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, IS_SLEEPING, IS_WAKINGUP, 
-                  WAIT_STABLE, UPDATE_DISPLAY, GET_BASELINE, HAS_ERROR};
+                  WAIT_STABLE, GET_BASELINE, HAS_ERROR};
 // IS_IDLE        the sensor is powered up
 // IS_MEASURING   the sensor is creating data autonomously
 // IS_BUSY        the sensor is producing data and will not respond to commands
 // DATA_AVAILABLE new data is available in sensor registers
 // IS_SLEEPING    the sensor or parts of the sensot are in sleep mode
 // IS_WAKINGUP    the sensor is getting out of sleep mode
-// UPDATE_DISPLAY data was retrieved, now its time to update the display
 // WAIT_STABLE    
-// CHECK_EEPROM   if sensor is stable, initiate baseline retrival
-// GET_BASELINE   read the baseline correction in sensor
-// WRTIE_EEPROM   write baseline to EEPROM
 // HAS_ERROR      the communication with the sensor failed
 
 /******************************************************************************************************/
@@ -193,9 +189,9 @@ unsigned long lastSGP30Baseline;                         // last time we obtaine
 #define intervalSGP30Slow 1000                           //
 #define intervalSGP30Baseline 300000                     // Every 5 minutes
 #define intervalSGP30Humidity  60000                     // Update once a minute
-unsigned int intervalSGP30;                              // Measure once a second
 #define warmupSGP30_withbaseline 3600                    // 60min 
 #define warmupSGP30_withoutbaseline 43200                // 12hrs 
+unsigned long intervalSGP30;                              // Measure once a second
 unsigned long warmupSGP30;
 volatile SensorStates stateSGP30 = IS_IDLE; 
 SGP30 sgp30;
@@ -461,6 +457,9 @@ void setup() {
   if (checkI2C(0x27) == 1) {lcd_avail = true;}    else {lcd_avail = false;}     // LCD display
   if (checkI2C(0x58) == 1) {sgp30_avail =true;}   else {sgp30_avail = false;}   // Senserion TVOC eCO2
 
+  Serial.print("LCD                  "); if (lcd_avail)    {Serial.println("available");} else {Serial.println("not available");}
+  Serial.print("SGP30 eCO2, tVOC     "); if (sgp30_avail)  {Serial.println("available");} else {Serial.println("not available");}
+
   /******************************************************************************************************/
   // Initialize LCD Screen
   /******************************************************************************************************/
@@ -468,9 +467,11 @@ void setup() {
     lcd.begin();
     lcd.backlight();
     lcd.setCursor(0, 0);
-    Serial.println("LCD Initialized");
+    Serial.println("LCD initialized");
+  } else {
+    Serial.println("LCD not found!");
   }
-
+  
   /******************************************************************************************************/
   // SGP30 Initialize
   /******************************************************************************************************/
@@ -588,6 +589,7 @@ void loop() {
             Serial.println("SGP30 Baseline obtained");
           } else { stateSGP30 = HAS_ERROR; }
         }
+        break;
       }
         
     } // switch state
@@ -633,7 +635,7 @@ void loop() {
   if (currentTime >=  warmupSGP30) {
     mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
     mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
-    mySettings.baslineSGP30_valid = 0xF0;
+    mySettings.baselineSGP30_valid = 0xF0;
     Serial.println("SGP30 baseline setting updated");
     warmupSGP30 = warmupSGP30 + intervalSGP30Baseline; 
   }

@@ -58,18 +58,15 @@ EEPROMsettings mySettings;
 #include <Wire.h>
 
 enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, IS_SLEEPING, IS_WAKINGUP, 
-                  WAIT_STABLE, UPDATE_DISPLAY, CHECK_EEPROM, GET_BASELINE, WRITE_EEPROM, HAS_ERROR};
+                  WAIT_STABLE, GET_BASELINE, HAS_ERROR};
 // IS_IDLE        the sensor is powered up
 // IS_MEASURING   the sensor is creating data autonomously
 // IS_BUSY        the sensor is producing data and will not respond to commands
 // DATA_AVAILABLE new data is available in sensor registers
 // IS_SLEEPING    the sensor or parts of the sensot are in sleep mode
 // IS_WAKINGUP    the sensor is getting out of sleep mode
-// UPDATE_DISPLAY data was retrieved, now its time to update the display
 // WAIT_STABLE    
-// CHECK_EEPROM   if sensor is stable, initiate baseline retrival
 // GET_BASELINE   read the baseline correction in sensor
-// WRTIE_EEPROM   write baseline to EEPROM
 // HAS_ERROR      the communication with the sensor failed
 
 /******************************************************************************************************/
@@ -160,22 +157,18 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BME680.h"
 bool bme680_avail = false;
-const uint8_t  bme680_TempOversample     = BME680_OS_8X;         // 1,2,4,8,16x
-const uint8_t  bme680_HumOversample      = BME680_OS_2X;         // 1,2,4,8,16x
-const uint8_t  bme680_PressureOversample = BME680_OS_4X;         // 1,2,4,8,16x
-const uint8_t  bme680_FilterSize         = BME680_FILTER_SIZE_3; // 0,1,3,7,15,31,63,127 
-const uint16_t bme680_HeaterTemp         = 320;                  // C
-const uint16_t bme680_HeaterDuration     = 150;                  // ms
-float          bme680_pressure = 0;
-float          bme680_temperature = 0;                           // [C]
-float          bme680_humidity;                                  // [%]
-uint32_t       bme680_gas = 0;                                   // [Ohm]
-float          bme680_ah = 0;                                    // [gr/m^3]
-#define intervalBME680_Fast 1000                                 // 1sec
-#define intervalBME680_Slow 60000                                // 60sec
+#define bme680_TempOversample     BME680_OS_8X         // 1,2,4,8,16x
+#define bme680_HumOversample      BME680_OS_2X         // 1,2,4,8,16x
+#define bme680_PressureOversample BME680_OS_4X         // 1,2,4,8,16x
+#define bme680_FilterSize         BME680_FILTER_SIZE_3 // 0,1,3,7,15,31,63,127 
+#define bme680_HeaterTemp         320                  // C
+#define bme680_HeaterDuration     150                  // ms
+#define intervalBME680_Fast      1000                  // 1sec
+#define intervalBME680_Slow     60000                  // 60sec
+float          bme680_ah = 0;                          // [gr/m^3]
 unsigned long  intervalBME680;
-unsigned long  lastBME680;                                       // last time we interacted with sensor
-unsigned long  endTimeBME680;                                    // when data will be available
+unsigned long  lastBME680;                             // last time we interacted with sensor
+unsigned long  endTimeBME680;                          // when data will be available
 volatile SensorStates stateBME680 = IS_IDLE; 
 Adafruit_BME680 bme680;
 // Continous 1Hz             1s
@@ -328,11 +321,11 @@ void updateLCD() {
   lcd.clear(); // 2ms
   if (bme680_avail == true) {
     
-    sprintf(lcdbuf,"%4d",(int)(bme680_pressure/100.0));
+    sprintf(lcdbuf,"%4d",(int)(bme680.pressure/100.0));
     lcd.setCursor(PRESSURE_X, PRESSURE_Y);
     lcd.print(lcdbuf);
   
-    sprintf(lcdbuf,"%4.1f%%",bme680_humidity);
+    sprintf(lcdbuf,"%4.1f%%",bme680.humidity);
     lcd.setCursor(HUM2_X, HUM2_Y);
     lcd.print(lcdbuf);
   
@@ -340,15 +333,15 @@ void updateLCD() {
     lcd.setCursor(HUM3_X, HUM3_Y);
     lcd.print(lcdbuf);
 
-    if ((bme680_humidity >= 45) && (bme680_humidity <= 55)) {
+    if ((bme680.humidity >= 45) && (bme680.humidity <= 55)) {
       sprintf(lcdbuf, "%s", "N");
-    } else if ((bme680_humidity >= 30) && (bme680_humidity < 45)) {
+    } else if ((bme680.humidity >= 30) && (bme680.humidity < 45)) {
       sprintf(lcdbuf, "%s", "T");
-    } else if ((bme680_humidity >= 55) && (bme680_humidity < 60)) {
+    } else if ((bme680.humidity >= 55) && (bme680.humidity < 60)) {
       sprintf(lcdbuf, "%s", "T");
-    } else if ((bme680_humidity >= 60) && (bme680_humidity < 80)) {
+    } else if ((bme680.humidity >= 60) && (bme680.humidity < 80)) {
       sprintf(lcdbuf, "%s", "H");
-    } else if ((bme680_humidity >  15) && (bme680_humidity < 30)) {
+    } else if ((bme680.humidity >  15) && (bme680.humidity < 30)) {
       sprintf(lcdbuf, "%s", "L");
     } else {
       sprintf(lcdbuf, "%s", "!");
@@ -356,19 +349,19 @@ void updateLCD() {
     //lcd.setCursor(IAQ_WARNING_X, IAQ_WARNING_Y);
     //lcd.print(lcdbuf);
   
-    sprintf(lcdbuf,"%+5.1fC",bme680_temperature);
+    sprintf(lcdbuf,"%+5.1fC",bme680.temperature);
     lcd.setCursor(TEMP2_X, TEMP2_Y);
     lcd.print(lcdbuf);
   
-    sprintf(lcdbuf,"%4.1f",(float(bme680_gas)/1000.0));
+    sprintf(lcdbuf,"%4.1f",(float(bme680.gas_resistance)/1000.0));
     lcd.setCursor(IAQ_X, IAQ_Y);
     lcd.print(lcdbuf);
   
-    if (bme680_gas < 5000) {
+    if (bme680.gas_resistance < 5000) {
       sprintf(lcdbuf, "%s", "N");
-    } else if (bme680_gas < 10000) {
+    } else if (bme680.gas_resistance < 10000) {
       sprintf(lcdbuf, "%s", "T");
-    } else if (bme680_gas < 300000) {
+    } else if (bme680.gas_resistance < 300000) {
       sprintf(lcdbuf, "%s", "P");
     } else {
       sprintf(lcdbuf, "%s", "!");
@@ -459,18 +452,23 @@ void setup() {
   /******************************************************************************************************/
   if (bme680_avail == true){
     if (bme680.begin() == true) { 
-      Serial.print(F("- Setting oversampling for sensors\n"));
+      Serial.print(F("BME680: Setting oversampling for sensors\n"));
       bme680.setTemperatureOversampling(bme680_TempOversample);
       bme680.setHumidityOversampling(bme680_HumOversample); 
       bme680.setPressureOversampling(bme680_PressureOversample); 
-      Serial.print(F("- Setting IIR filter to a value of 3 samples\n"));
+      Serial.print(F("BME680: Setting IIR filter to a value of 3 samples\n"));
       bme680.setIIRFilterSize(bme680_FilterSize); 
-      Serial.print(F("- Setting gas measurement to 320\xC2\xB0\x43 for 150ms\n")); // "°C" symbols
+      Serial.print(F("BME680: Setting gas measurement to 320\xC2\xB0\x43 for 150ms\n")); // "°C" symbols
       bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
       stateBME680 = IS_IDLE;      
-      Serial.println("BME680 Initialized");
+      if (fastMode == true) {
+        intervalBME680 = intervalBME680_Fast;
+      } else {
+        intervalBME680 = intervalBME680_Slow;
+      }
+      Serial.println("BME680: Initialized");
     } else {
-      Serial.println("BME680 sensor not detected. Please check wiring."); 
+      Serial.println("BME680: Sensor not detected. Please check wiring."); 
       stateBME680 = HAS_ERROR;
       bme680_avail = false;
     }   
@@ -523,43 +521,41 @@ void loop() {
           endTimeBME680 = bme680.beginReading();
           lastBME680 = currentTime;
           if (endTimeBME680 == 0) { 
-            Serial.println(F("Failed to begin reading :("));
+            Serial.println("BME680: failed to begin reading");
             stateBME680 = HAS_ERROR; 
           } else {
             stateBME680 = IS_BUSY; 
           }
           Serial.print("BME680 reading started. Completes in ");
           Serial.print(endTimeBME680-tmpTime);
-          Serial.println("ms");
+          Serial.println("ms.");
         }
+        break;
       }
       
       case IS_BUSY : {
         if (currentTime > endTimeBME680) {
           stateBME680 = DATA_AVAILABLE;
         }
+        break;
       }
 
       case DATA_AVAILABLE : {
-        if (!bme680.endReading()) {
-          Serial.println(F("Failed to complete reading :("));        
+        if (bme680.endReading() ==  false) {
+          Serial.println("BME680: Failed to complete reading");        
         } else {
-          bme680_temperature = bme680.temperature;
-          bme680_pressure =    bme680.pressure;
-          bme680_humidity =    bme680.humidity;
-          bme680_gas =         bme680.gas_resistance;
           Serial.print("BME680 Temperature:");
-          Serial.print(bme680_temperature);
-          Serial.println("degC");
+          Serial.print(bme680.temperature);
+          Serial.println("[degC]");
           Serial.print("BME680 Pressure:");
-          Serial.print(bme680_pressure);
-          Serial.println("Pa");
+          Serial.print(bme680.pressure);
+          Serial.println("[Pa]");
           Serial.print("BME680 Humidity:");
-          Serial.print(bme680_humidity);
-          Serial.println("%");
+          Serial.print(bme680.humidity);
+          Serial.println("[%]");
           Serial.print("BME680 Gas Resistance:");
-          Serial.print(bme680_gas);
-          Serial.println("Ohm");
+          Serial.print(bme680.gas_resistance);
+          Serial.println("[Ohm]");
           //
           // Absolute Humidity
           // https://www.eoas.ubc.ca/books/Practical_Meteorology/prmet102/Ch04-watervapor-v102b.pdf
@@ -577,9 +573,13 @@ void loop() {
           // Absolute Humidity = mass/volume = rho_v 
           // = e / (Rv * T)
           // = RH / 100 * 611.3 / (461.5 * T) * exp(5423 (1/273.15 - 1/T)) [kgm^-3]
-          float tmp = 273.15 + bme680_temperature;
-          bme680_ah = bme680_humidity * 13.246 / tmp * exp(19.854 - 5423.0/tmp); // [gr/m^3]
-          if ( (bme680_ah<0) | (bme680_ah>40.0) ) {bme680_ah = -1.0;} // make sure its reasonable
+          float tmp = 273.15 + bme680.temperature;
+          bme680_ah = bme680.humidity * 13.246 / tmp * exp(19.854 - 5423.0/tmp); // [gr/m^3]
+          if ( (bme680_ah<0) | (bme680_ah>40.0) ) { bme680_ah = -1.0; } // make sure its reasonable
+
+          Serial.print("BME680 Absolute Humidity:");
+          Serial.print(bme680_ah);
+          Serial.println("[g/m^3]");
 
           // DewPoint
           // https://en.wikipedia.org/wiki/Dew_point
@@ -591,6 +591,7 @@ void loop() {
           stateBME680 = IS_IDLE;
           Serial.println("BME680 readout completed");
         }
+        break;
       }
                             
       case HAS_ERROR : {

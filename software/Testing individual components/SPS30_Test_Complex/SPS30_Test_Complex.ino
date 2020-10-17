@@ -17,8 +17,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-bool fastMode = true;             // true: Measure as fast as possible, false: operate in energy efficiency mode
+bool fastMode = false;      // true: Measure as fast as possible, false: operate in energy efficiency mode
 
 /******************************************************************************************************/
 // Store Sensor Baseline Data
@@ -149,41 +148,38 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 // Sample interval min 1+/-0.04s
 // After power up, sensor is idle
 // Execute start command to start measurements
-// Stop measurement goes to idle
+// Stop measurement, the sensor goes to idle
 // Default cleaning interval is 604800 seconds (one week)
 // Supply Current:
-// Max              80mA
-// Measurement Mode 65mA
+// Max              80.  mA
+// Measurement Mode 65.  mA
 // Idle Mode         0.36mA
 // Sleep Mode        0.05mA
 // Time to reach stable measurement: 8s for 200 – 3000 #/cm3 particles
 //                                  16s for 100 – 200  #/cm3 particles
 //                                  30s for  50 – 100  #/cm3 particles
-// Sleep mode can be entered from idle mode
-// Operation Mode Slow:
-//   Init, send start command
-//   if version >=2.2 Read Status
-//   Read Data
-//   Determine Time to Stable
-//   Wait until Stable
-//   Read table Data
-//   Got to Idle
-//   if version >2.2 
-//     Got to Sleep
-//     Wait until Sleep Exceeded
-//     Wakeup
-//   Goto Read Data above
-// NEED TO UPDATE THIS
-// Operation Mode Fast:
+// Sleep mode can be entered when sensor is idle
+//
+// Operation Mode:
 //   Init, send start command
 //   Read Status
 //   Read Data
 //   Determine Time to Stable
-//   Read Data until Stable
-//   Update Stable Data
-//   Wait until Interval Expired
+//   Wait until Stable
+//   Read Data
+// Slow Mode:
+//   Got to Idle
+//   Got to Sleep
+//   Wait until Sleep Exceeded
+//   Wakeup
+//   Start
+//   Goto Wait until Stable
+//
+// Fast Mode:
+//   Wait until Measurement Interval exceeded
 //   Goto Read Data above
 //
+
 #include <sps30.h>
 char buf[64];
 uint8_t ret, st;
@@ -192,6 +188,7 @@ uint32_t autoCleanIntervalSPS30;                         // current cleaning set
 bool sps30_avail = false;                                // do we have this sensor
 #define intervalSPS30Fast 1000                           // minimum is 1 sec
 #define intervalSPS30Slow 60000                          // system will sleep for intervalSPS30Slow - timetoStable
+#define SPS30Debug 0                                     // define driver debug: 0 - no messages, 1 - request sending and receiving, 2 - request sending and receiving + show protocol errors */
 unsigned long intervalSPS30;                             // measurement interval
 unsigned long timeSPS30Stable;                           // time when readings are stable, is adjusted automatically based on particle counts
 unsigned long lastSPS30;                                 // last time we interacted with sensor
@@ -227,7 +224,7 @@ void setup() {
   /******************************************************************************************************/
   // EEPROM setup and read 
   /******************************************************************************************************/  
-  unsigned long tmpTime = millis();
+  tmpTime = millis();
   EEPROM.begin(EEPROM_SIZE);
   EEPROM.get(0,mySettings);
   Serial.print("EEPROM read in: ");
@@ -240,21 +237,21 @@ void setup() {
   if (checkI2C(0x27) == 1) {lcd_avail = true;}    else {lcd_avail = false;}     // LCD display
   if (checkI2C(0x69) == 1) {sps30_avail = true;}  else {sps30_avail = false;}   // Senserion Particle
 
-  if (lcd_avail)    {Serial.println("LCD available");}
-  if (sps30_avail)  {Serial.println("SPS30 particle available");}
+  Serial.print("LCD                  "); if (lcd_avail)    {Serial.println("available");} else {Serial.println("not available");}
+  Serial.print("SPS30 PM             "); if (sps30_avail)  {Serial.println("available");} else {Serial.println("not available");}
 
   /******************************************************************************************************/
   // Intervals
   /******************************************************************************************************/
 
-  if (fastMode) {
-    intervalLoop = 100;       // 0.1 sec
-    intervalLCD = 2000;       // 2 sec
-    intervalRuntime = 60000;  // 1 minute
+  if (fastMode == true) {
+    intervalLoop    =    100;  // 0.1 sec
+    intervalLCD     =   2000;  // 2 sec
+    intervalRuntime =  60000;  // 1 minute
   } else{
-    intervalLoop = 1000;      // 1 sec
-    intervalLCD = 60000;      // 1 minute
-    intervalRuntime = 600000; // 10 minutes
+    intervalLoop    =   1000;  // 1 sec
+    intervalLCD     =  60000;  // 1 minute
+    intervalRuntime = 600000;  // 10 minutes
   }
 
   /******************************************************************************************************/
@@ -273,18 +270,19 @@ void setup() {
   // SPS30 Initialize Particle Sensor
   /******************************************************************************************************/
   if (sps30_avail == true) {
-    /* define driver debug
-     * 0 : no messages
-     * 1 : request sending and receiving
-     * 2 : request sending and receiving + show protocol errors */
-    sps30.EnableDebugging(0);
+    
+    sps30.EnableDebugging(SPS30Debug);
+
     if (sps30.begin(&Wire) == false) {
       Serial.println("SPS30: Sensor not detected in I2C. Please check wiring.");
       stateSPS30 = HAS_ERROR;
       sps30_avail = false;
     }
+    
     if (sps30.probe() == false) { 
       Serial.println("SPS30: could not probe / connect."); 
+      Serial.println("SPS30: cycle power to rest!"); 
+      Serial.println("SPS30: Then close and reopen serial terminal."); 
       stateSPS30 = HAS_ERROR;
       sps30_avail = false;
     } else { 
@@ -327,6 +325,8 @@ void setup() {
       Serial.print(".");
       Serial.println(v.DRV_minor);
     }
+    
+    // set autocleaning
     ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
     if (ret == ERR_OK) {
       Serial.print(F("SPS30: current Auto Clean interval: "));
@@ -334,7 +334,13 @@ void setup() {
       Serial.println(F("s"));
     }
 
-    // Start Measurement
+    if (fastMode == true) { 
+      intervalSPS30 = intervalSPS30Fast;
+    } else { 
+      intervalSPS30 = intervalSPS30Slow; 
+    }
+    
+    // start measurement
     if (sps30.start() == true) { 
       Serial.println("SPS30: measurement started");
       stateSPS30 = IS_BUSY; 
@@ -344,8 +350,9 @@ void setup() {
       sps30_avail = false;
     }
 
-    // This addresses issue with limited RAM on microcontrollers
+    // addresse issue with limited RAM on some microcontrollers
     if (sps30.I2C_expect() == 4) { Serial.println("SPS30: !!! Due to I2C buffersize only the SPS30 MASS concentration is available !!!"); }
+
   } else {
     Serial.println("SPS30: not found!");
   }
@@ -423,7 +430,9 @@ void loop() {
   if (sps30_avail) {
     
     switch(stateSPS30) { 
+      
       case IS_BUSY: { 
+        Serial.println("SPS30: is busy");
         if (((v.major==2) && (v.minor>=2)) || (v.major>2)) {
           ret = sps30.GetStatusReg(&st);         // takes 20ms
           if (ret == ERR_OK) {
@@ -437,8 +446,9 @@ void loop() {
             } // status ok
           } else { Serial.print("SPS30: could not read status"); }// read status
         } // Firmware >= 2.2
+        tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
-        Serial.println("SPS30: values read");
+        Serial.print("SPS30: values read in "); Serial.print(millis() - tmpTime); Serial.println("ms");
         if (ret == ERR_DATALENGTH) { Serial.println("SPS30 ERROR: Data length during reading values"); }
         else if (ret != ERR_OK) {
           sprintf(buf, "SPS30 ERROR: reading values: %d", ret) ;
@@ -446,61 +456,79 @@ void loop() {
         lastSPS30 = currentTime; 
         // adjust time to get stable readings, it takes longer  with lower concentration to get a precise reading
         totalParticles = (valSPS30.NumPM0 + valSPS30.NumPM1 + valSPS30.NumPM2 + valSPS30.NumPM4 + valSPS30.NumPM10);
-        if (totalParticles < 100)      { timeToStableSPS30 = 30000; }
-        else if (totalParticles < 200) { timeToStableSPS30 = 16000; }
-        else                           { timeToStableSPS30 =  8000; }
+        if (totalParticles < 100)      { timeToStableSPS30 = 30000; } // hard coded from data sheet
+        else if (totalParticles < 200) { timeToStableSPS30 = 16000; } // hard coded from data sheet
+        else                           { timeToStableSPS30 =  8000; } // hard coded from data sheet
         timeSPS30Stable = currentTime +  timeToStableSPS30;
+        Serial.print("SPS30: total particles - "); Serial.println(totalParticles);
+        //Serial.print("Current Time: "); Serial.println(currentTime);
+        //Serial.print("SPS30: time when stable - "); Serial.println(timeSPS30Stable);
         stateSPS30 = WAIT_STABLE;            
         break; 
       } // BUSY
 
       case WAIT_STABLE: {
-          if (currentTime >= timeSPS30Stable) {
+        //Serial.println("SPS30: wait until stable");
+        //Serial.print("Current Time: "); Serial.println(currentTime);
+        //Serial.print("SPS30: time when stable - "); Serial.println(timeSPS30Stable);
+        if (currentTime >= timeSPS30Stable) {
           if (((v.major==2) && (v.minor>=2)) || (v.major>2)) {
             ret = sps30.GetStatusReg(&st);         // takes 20ms
             if (ret == ERR_OK) {
               Serial.print("SPS30: reading status completed and ");
-              if (st == STATUS_OK) {            Serial.println("SPS30 Status: ok");
+              if (st == STATUS_OK) {
+                Serial.println("status is ok");
               } else {
-                if (st & STATUS_SPEED_ERROR) { Serial.println("SPS30 WARNING : Fan is turning too fast or too slow"); }
-                if (st & STATUS_LASER_ERROR) { Serial.println("SPS30 ERROR: Laser failure"); }  
-                if (st & STATUS_FAN_ERROR)   { Serial.println("SPS30 ERROR: Fan failure, fan is mechanically blocked or broken"); }
+                if (st & STATUS_SPEED_ERROR) { Serial.println("(WARNING) fan is turning too fast or too slow"); }
+                if (st & STATUS_LASER_ERROR) { Serial.println("(ERROR) laser failure"); }  
+                if (st & STATUS_FAN_ERROR)   { Serial.println("(ERROR) fan failure, fan is mechanically blocked or broken"); }
               } // status ok
             } else { Serial.print("SPS30: could not read status"); }// read status
           } // Firmware >= 2.2
+          tmpTime = millis();
           ret = sps30.GetValues(&valSPS30);               
-          Serial.println("SPS30: values read");
+          Serial.print("SPS30: values read in "); Serial.print(millis() - tmpTime); Serial.println("ms");
           if (ret == ERR_DATALENGTH) { Serial.println("SPS30 ERROR: Data length during reading values"); }
           else if (ret != ERR_OK) {
             sprintf(buf, "SPS ERROR: reading values: %d", ret) ;
-            Serial.println(buf); }
+            Serial.println(buf); 
+          }
+          Serial.println("SPS30: going to idle");
           lastSPS30 = currentTime; 
           stateSPS30 = IS_IDLE;          
         } //if time stable
+        break;
       } // wait stable
                   
       case IS_IDLE : { 
+        // Serial.println("SPS30: is idle");
         if ((v.major<2) || (fastMode)) {
           timeSPS30Stable = (unsigned long) (lastSPS30 + intervalSPS30);
+          //Serial.print("Last SPS30: "); Serial.println(lastSPS30);
+          //Serial.print("Current Time: "); Serial.println(currentTime);
+          //Serial.print("SPs30: time when stable - "); Serial.println(timeSPS30Stable);
+          Serial.println("SPS30: going to wait until stable");
           stateSPS30 = WAIT_STABLE;             
         } else {
           wakeTimeSPS30 = (unsigned long) (lastSPS30 + intervalSPS30 - 50 - timeToStableSPS30);
           ret = sps30.sleep(); // 5ms execution time
           if (ret != ERR_OK) { 
-            Serial.println("SPS30 ERROR: Could not go to sleep"); 
+            Serial.println("SPS30 ERROR: could not go to sleep"); 
             stateSPS30 = HAS_ERROR;
           }
+          Serial.println("SPS30: going to sleep");
           stateSPS30 = IS_SLEEPING;
         }
         break;
       }
         
       case IS_SLEEPING : {
-        if (currentTime >= wakeTimeSPS30) { // Wake up if sleep time stam exceeded 
+        Serial.println("SPS30: is sleepig");        
+        if (currentTime >= wakeTimeSPS30) { // Wake up if sleep time exceeded 
           Serial.println("SPS30 Status: waking up");
           ret = sps30.wakeup(); 
           if (ret != ERR_OK) { 
-            Serial.println("SPS30 ERROR: Could not wakeup");
+            Serial.println("SPS30 ERROR: could not wakeup");
             stateSPS30 = HAS_ERROR; 
           } else {
             wakeSPS30 = currentTime;
@@ -511,6 +539,7 @@ void loop() {
       } // case is sleeping
         
       case IS_WAKINGUP : {  // this is only used in energy saving / slow mode
+        Serial.println("SPS30: is waking up");
         if ((currentTime - wakeSPS30) >= 50) { // Give some time (50ms)to wake up 
           ret = sps30.start(); 
           if (ret != ERR_OK) { 
@@ -651,7 +680,6 @@ void inputHandle()
   char inBuff[] = "0123456789ABCDEF";
   uint16_t tmpI;
   float tmpF;
-  unsigned long tmpTime;
   int bytesread;
   String value = "20000.0";
   String command = " ";

@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+;//////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Air Quality Sensor
 //
@@ -58,18 +58,15 @@ EEPROMsettings mySettings;
 #include <Wire.h>
 
 enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, IS_SLEEPING, IS_WAKINGUP, 
-                  WAIT_STABLE, UPDATE_DISPLAY, CHECK_EEPROM, GET_BASELINE, WRITE_EEPROM, HAS_ERROR};
+                  WAIT_STABLE, GET_BASELINE, HAS_ERROR};
 // IS_IDLE        the sensor is powered up
 // IS_MEASURING   the sensor is creating data autonomously
 // IS_BUSY        the sensor is producing data and will not respond to commands
 // DATA_AVAILABLE new data is available in sensor registers
 // IS_SLEEPING    the sensor or parts of the sensot are in sleep mode
 // IS_WAKINGUP    the sensor is getting out of sleep mode
-// UPDATE_DISPLAY data was retrieved, now its time to update the display
 // WAIT_STABLE    
-// CHECK_EEPROM   if sensor is stable, initiate baseline retrival
 // GET_BASELINE   read the baseline correction in sensor
-// WRTIE_EEPROM   write baseline to EEPROM
 // HAS_ERROR      the communication with the sensor failed
 
 /******************************************************************************************************/
@@ -152,13 +149,17 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 #define TTVOC_WARNING_X   19
 #define TTVOC_WARNING_Y    2
 
-
 /******************************************************************************************************/
 // SCD30; Sensirion CO2 sensor
 /******************************************************************************************************/
+// Response time 20sec
+// Bootup time 2sec
+// Atomatic Basline Correction might take up to 7 days
+// Measurement Interval 2...1800 
 // Does not have sleep mode, but can set measurement intervals
 // 2sec interval requires 19mA average current
 // The maximum current during reading is 75mA
+// Operating sequence:
 // Sensor is initilized
 //   Measurement interval is set
 //   Autocalibrate is enabled
@@ -166,26 +167,28 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 //   Pressure is set
 // Begin Measureing
 // Check if Data Available
-// Get CO2, Humidity, Temperature
-// Update barometric pressure every once in a while
-// Repeat at check
-//
+//  get CO2, Humidity, Temperature
+// Update barometric pressure every once in a while if third party sensor is avaialble
+// Repeat at Check if Data Available
+
 #include "SparkFun_SCD30_Arduino_Library.h"
 float scd30_ppm;                                         // co2 concentration from sensor
 float scd30_temp;                                        // temperature from sensor
 float scd30_hum;                                         // humidity from sensor
 bool scd30_avail = false;                                // do we have this sensor
-// int lastPinStat;
 // measure every 2sec ... 30minutes, default is 4 
 #define intervalSCD30Fast 2000                           
 #define intervalSCD30Slow 60000                          
+#define SCD30_RDY D5                                     // pin indicating data ready                                       
+int lastPinStat;
 unsigned long intervalSCD30;                             // will be either fast or slow(powersaving)
 const unsigned long intervalPressureSCD30 = 60000;       // if we have new pressure data from other sensor we will provide 
                                                          // it to the co2 sensor to improve accuracy in this interval
 unsigned long lastSCD30;                                 // last time we interacted with sensor
 unsigned long lastPressureSCD30;                         // last time we updated pressure
+unsigned long lastSCD30Busy;
+#define intervalSCD30Busy 500                            // how often to read dataReady in the busy state
 volatile SensorStates stateSCD30 = IS_IDLE;
-#define SCD30_RDY D5                                     // pin indicating data ready                                       
 SCD30 scd30;
 
 bool bme680_avail = true;
@@ -418,7 +421,7 @@ void setup() {
   // D5 is used to read SCD30 CO2 data ready (RDY)
   /******************************************************************************************************/
   pinMode(SCD30_RDY, INPUT);      // interrupt scd30
-  // lastPinStat = digitalRead(SCD30_RDY);
+  lastPinStat = digitalRead(SCD30_RDY);
 
   /******************************************************************************************************/
   // EEPROM setup and read 
@@ -436,6 +439,9 @@ void setup() {
   if (checkI2C(0x27) == 1) {lcd_avail = true;}    else {lcd_avail = false;}     // LCD display
   if (checkI2C(0x61) == 1) {scd30_avail = true;}  else {scd30_avail = false;}   // Senserion CO2
 
+  Serial.print("LCD                  "); if (lcd_avail)    {Serial.println("available");} else {Serial.println("not available");}
+  Serial.print("SCD30 CO2, rH        "); if (scd30_avail)  {Serial.println("available");} else {Serial.println("not available");}
+
   /******************************************************************************************************/
   // Initialize LCD Screen
   /******************************************************************************************************/
@@ -443,30 +449,26 @@ void setup() {
     lcd.begin();
     lcd.backlight();
     lcd.setCursor(0, 0);
-    Serial.println("LCD Initialized");
+    Serial.println("LCD initialized");
+  } else {
+    Serial.println("LCD not found!");
   }
 
   /******************************************************************************************************/
   // Initialize SCD30 CO2 sensor 
   /******************************************************************************************************/
-  if (scd30_avail == true) {
+ if (scd30_avail == true) {
     Serial.print("SCD30 Interval: ");
     if (fastMode) { intervalSCD30 = intervalSCD30Fast; } 
     else          { intervalSCD30 = intervalSCD30Slow; }
     Serial.println(intervalSCD30);
 
     if (scd30.begin(Wire, true)) {
-      scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));  // Change number of seconds between measurements: 2 to 1800 seconds (30 minutes)
+      scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));  // Setnumber of seconds between measurements: 2 to 1800 seconds (30 minutes)
       scd30.setAutoSelfCalibration(true);                // 
+      if (mySettings.tempOffset_SCD30_valid == 0xF0) { scd30.setTemperatureOffset(mySettings.tempOffset_SCD30); }
       mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
-      Serial.print("Current temp offset: ");
-      Serial.print(mySettings.tempOffset_SCD30,2);
-      Serial.println("C");
-      if (mySettings.tempOffset_SCD30_valid == 0xF0) { 
-        scd30.setTemperatureOffset(mySettings.tempOffset_SCD30);
-      }
-      mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
-      Serial.print("Current temp offset: ");
+      Serial.print("SCD30: current temp offset: ");
       Serial.print(mySettings.tempOffset_SCD30,2);
       Serial.println("C");
       attachInterrupt(digitalPinToInterrupt(SCD30_RDY), handleSCD30Interrupt, RISING);
@@ -475,9 +477,9 @@ void setup() {
       scd30_avail = false;
       stateSCD30 = HAS_ERROR;
     }
-    Serial.println("SCD30 Initialized");
+    Serial.println("SCD30: initialized");
   }
-
+  
   /******************************************************************************************************/
   // Initialize Timing System
   /******************************************************************************************************/
@@ -487,7 +489,8 @@ void setup() {
   lastLCD           = currentTime;
   lastPressureSCD30 = currentTime;
   lastEEPROM        = currentTime;
-
+  lastSCD30Busy     = currentTime;
+  
   Serial.println("System Initialized");
 
 } // end setup
@@ -520,41 +523,42 @@ void loop() {
             scd30_temp = scd30.getTemperature();
             scd30_hum  = scd30.getHumidity();
             lastSCD30  = currentTime;
-            Serial.println("SCD30 data read");
+            Serial.println("SCD30: data read");
           } else {
-            Serial.println("SCD30 data not yet available");
-          }
-        }
-        if (bme680_avail) { // update pressure settings
-          if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
-            scd30.setAmbientPressure(uint16_t(1015)); 
-            // update with value from pressure sensor, needs to be mbar
-            lastPressureSCD30 = currentTime;
-            Serial.println("SCD30 pressure updated");
+            Serial.println("SCD30: data not yet available");
           }
         }
         break;
       } // is measuring
 
       case IS_BUSY: { // used to bootup sensor when RDY pin is used
-        scd30.dataAvailable(); // without checking status, RDY pin will not switch
+        if ((currentTime - lastSCD30Busy) > intervalSCD30Busy) {
+          scd30.dataAvailable(); // without checking status, RDY pin will not switch
+          lastSCD30Busy = currentTime;
+          Serial.println("SCD30: is busy");
+        }
+        break;
       }
+
       case DATA_AVAILABLE : { // used to obtain data when RDY pin is used
         scd30_ppm  = scd30.getCO2();
         scd30_temp = scd30.getTemperature();
         scd30_hum  = scd30.getHumidity();
         lastSCD30  = currentTime;
         stateSCD30 = IS_IDLE; 
+        Serial.println("SCD30: data read");
         break;
       }
       
       case IS_IDLE : { // used when RDY pin is used
         if (bme680_avail) { // update pressure settings
           if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
-            scd30.setAmbientPressure(uint16_t(1015)); 
+            scd30.setAmbientPressure(uint16_t(1000.0)); 
             // update with value from pressure sensor, needs to be mbar
             lastPressureSCD30 = currentTime;
-            Serial.println("SCD30 pressure updated");
+            Serial.print("SCD30: pressure updated to");
+            Serial.print("1000.0");
+            Serial.println("mbar");
           }
         }
         break;        
@@ -588,8 +592,8 @@ void loop() {
 
   /******************************************************************************************************/
   // DEBUG
-  /******************************************************************************************************/
-  /* 
+  /******************************************************************************************************/ 
+  /*     
   int pinStat = digitalRead(SCD30_RDY);
   if (lastPinStat != pinStat) {
     Serial.print("SCD30 RDY pin changed: ");
@@ -599,7 +603,7 @@ void loop() {
     lastPinStat = pinStat;
   }
   */
- 
+   
   /******************************************************************************************************/
   // Time Management
   /******************************************************************************************************/

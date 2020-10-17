@@ -24,7 +24,6 @@ I2C device found at address 0x77  ! BME680
 //We need to exclude the Wake Pin for CCS811 which is on D6 in my setup
 uint8_t portArray[] = {16, 5, 4, 0, 2, 14, 13};
 String portMap[] = {"D0", "D1", "D2", "D3", "D4", "D5", "D7"}; //for Wemos
-
 //uint8_t portArray[] = {16, 5, 4, 0, 2, 14, 12, 13};
 //String portMap[] = {"D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"}; //for Wemos
 

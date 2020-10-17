@@ -17,7 +17,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool fastMode = true;             // true: Measure as fast as possible, false: operate in energy efficiency mode
+bool fastMode = true;       // true: Measure as fast as possible, false: operate in energy efficiency mode
 
 /******************************************************************************************************/
 // Store Sensor Baseline Data
@@ -71,7 +71,7 @@ enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, IS_SLEEPIN
 // Power Consumption: ... have not measured
 // 
 #include <LiquidCrystal_I2C.h>
-unsigned long intervalLCD = 2000;                  // LCD refresh rate
+unsigned long intervalLCD;                  // LCD refresh rate
 bool lcd_avail = false;                            // is LCD attached?
 unsigned long lastLCD;                             // last time LCD was modified
 LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x27 for a 20 chars and 4 line display
@@ -147,13 +147,13 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 #define TTVOC_WARNING_X   19
 #define TTVOC_WARNING_Y    2
 
+
 /******************************************************************************************************/
 // CCS811; Airquality CO2 tVOC
 /******************************************************************************************************/
 // Sensor has 20min equilibrium time and 48hrs burnin time
-//
-// Sensor is read through interrupt handling
-//   Initilize with to desired update rate
+// Sensor is read through interrupt handling (with this implementation):
+//   Initilize with desired mode
 //   When data is ready, iterrupt is triggered and data is obtained
 // Power On 20ms
 // Mode 0 – Idle (Measurements are disabled in this mode)
@@ -161,31 +161,44 @@ LiquidCrystal_I2C lcd(0x27,20,4);                  // set the LCD address to 0x2
 // Mode 2 – Pulse heating mode IAQ measurement every 10 seconds
 // Mode 3 – Low power pulse heating mode IAQ measurement every 60 seconds
 // Mode 4 – Const power pulse heating mode IAQ measurement every 0.25 seconds
-
+//
 // baseline takes 24 hrs to establish, R_A is reference resistance
 // Sleep mode: turns off i2c? 0.019 mA
-
+// Operating Sequence:
+// Setup turns on sensor and starts reading
+// When measurement complete, interrupt is asserted and ISR is called
+//  if fastMode = false
+//    ISR wakes up i2c communication on wakeup pin
+//    Sensor is given 1ms to weake up
+//    Senor data is read and Sensor logic is switched back to sleep mode
+//  if fastMode = true
+//    Sensor data is read
+// Status is sleeping
+//   Waiting until data interrupt occurs
+//
 #include "SparkFunCCS811.h"
 bool ccs811_avail = false;
-uint16_t ccs811_co2;                                     // co2 concentration from sensor
-uint16_t ccs811_tvoc;                                    // tvoc concentration from sensor
-
 unsigned long lastCCS811;                                // last time we interacted with sensor
 unsigned long lastCCS811Baseline;                        // last time we obtained baseline
 unsigned long lastCCS811Humidity;                        // last time we update Humidity on sensor
 unsigned long lastCCS811Interrupt;                       // last time we update Humidity on sensor
 unsigned long warmupCCS811;                              // sensor needs 20min conditioning 
-#define intervalCCS811Baseline 300000                    // Every 5 minutes
-#define intervalCCS811Humidity 60000                     // Every 1 minutes
+unsigned long intervalCCS811Baseline;                    // Every 10 minutes
+unsigned long intervalCCS811Humidity;                    // Every 1 minutes
+#define baselineCCS811fast 300000                        // 5 mins
+#define baselineCCS811slow 3600000                       // 1 hour
+#define updateCCS811Humitityfast 60000                   // 1 min
+#define updateCCS811Humitityslow 300000                  // 5 mins
 #define stablebaseCCS811 86400000                        // sensor needs 24hr until baseline stable
 #define burninCCS811    172800000                        // sensor needs 48hr burin
 #define CCS811_INT D7                                    // active low interrupt, high to low at end of measurement
 #define CCS811_WAKE D6                                   // active low wake to wake up sensor
-volatile SensorStates stateCCS811 = IS_IDLE; 
 #define ccs811ModeFast 1                                 // 1 per second
 #define ccs811ModeSlow 3                                 // 1 per minute
 uint8_t ccs811Mode;                                      // 4=0.25s, 3=60s, 2=10sec, 1=1sec.
+volatile SensorStates stateCCS811 = IS_IDLE; 
 CCS811 ccs811(0X5B);                                     // address pin will need to be set to high
+
 
 void ICACHE_RAM_ATTR handleCCS811Interrupt() {
     if (fastMode == true) { 
@@ -224,6 +237,19 @@ void setup() {
   Wire.begin();
 
   /******************************************************************************************************/
+  // Wake and Interrupt Pin configuration
+  /******************************************************************************************************/  
+  // CCS811 address needs to be set to high
+  // D7 is used to read CCS811 interrupt, low if end of measurement
+  // D6 is used to  set CCS811 wake to low, to wake up sensor
+  /******************************************************************************************************/
+
+  pinMode(CCS811_WAKE, OUTPUT);                // CCS811 not Wake Pin
+  pinMode(CCS811_INT, INPUT_PULLUP);           // CCS811 not Interrupt Pin
+  digitalWrite(CCS811_WAKE, LOW);              // Set CCS811 to wake
+  lastPinStat = digitalRead(CCS811_INT); 
+
+  /******************************************************************************************************/
   // EEPROM setup and read 
   /******************************************************************************************************/  
   unsigned long tmpTime = millis();
@@ -239,9 +265,19 @@ void setup() {
   if (checkI2C(0x27) == 1) {lcd_avail = true;}    else {lcd_avail = false;}     // LCD display
   if (checkI2C(0x5B) == 1) {ccs811_avail =true;}  else {ccs811_avail = false;}  // Airquality CO2 tVOC
 
-  if (lcd_avail) {Serial.println("LCD available");}
-  if (ccs811_avail) {Serial.println("CCS811 available");}
+  Serial.print("LCD                  "); if (lcd_avail)    {Serial.println("available");} else {Serial.println("not available");}
+  Serial.print("CCS811 eCO2, tVOC    "); if (ccs811_avail) {Serial.println("available");} else {Serial.println("not available");}
   
+  if (fastMode) {
+    intervalLoop    =    100;  // 0.1 sec
+    intervalLCD     =   2000;  // 2 sec
+    intervalRuntime =  60000;  // 1 minute
+  } else{
+    intervalLoop    =   1000;  // 1 sec
+    intervalLCD     =  60000;  // 1 minute
+    intervalRuntime = 600000;  // 10 minutes
+  }
+
   /******************************************************************************************************/
   // Initialize LCD Screen
   /******************************************************************************************************/
@@ -249,17 +285,9 @@ void setup() {
     lcd.begin();
     lcd.backlight();
     lcd.setCursor(0, 0);
-    Serial.println("LCD Initialized");
-  }
-
-  if (fastMode) {
-    intervalLoop = 100;       // 0.1 sec
-    intervalLCD = 2000;       // 2 sec
-    intervalRuntime = 60000;  // 1 minute
-  } else{
-    intervalLoop = 1000;      // 1 sec
-    intervalLCD = 60000;      // 1 minute
-    intervalRuntime = 600000; // 10 minutes
+    Serial.println("LCD initialized");
+  } else {
+    Serial.println("LCD not found!");
   }
 
   /******************************************************************************************************/
@@ -267,34 +295,40 @@ void setup() {
   /******************************************************************************************************/
   if (ccs811_avail == true){
 
-    digitalWrite(CCS811_WAKE, LOW);        // set CCS811 to wake
-    lastPinStat = digitalRead(CCS811_INT);
-
     CCS811Core::CCS811_Status_e css811Ret = ccs811.beginWithStatus();
-    Serial.print("CCS811 begin exited with: ");
+    Serial.print("CCS811: begin exited with: ");
     Serial.println(ccs811.statusString(css811Ret));
 
     if (fastMode) { ccs811Mode = ccs811ModeFast; }
     else          { ccs811Mode = ccs811ModeSlow; }
 
     css811Ret = ccs811.setDriveMode(ccs811Mode);
-    Serial.print("Mode request exited with: ");
+    Serial.print("CCS811: mode request exited with: ");
     Serial.println(ccs811.statusString(css811Ret));
 
     //Configure and enable the interrupt line, then print error status
     css811Ret = ccs811.enableInterrupts();
-    Serial.print("Interrupt configuation exited with: ");
+    Serial.print("CCS811: interrupt configuation exited with: ");
     Serial.println(ccs811.statusString(css811Ret));
        
     if (mySettings.baselineCCS811_valid == 0xF0) {
       CCS811Core::CCS811_Status_e errorStatus = ccs811.setBaseline(mySettings.baselineCCS811);
-      if (errorStatus == CCS811Core::CCS811_Stat_SUCCESS) { Serial.println("Baseline written to CCS811."); }
+      if (errorStatus == CCS811Core::CCS811_Stat_SUCCESS) { Serial.println("CCS811: baseline received"); }
       else {
-        Serial.print("Error writing baseline: ");
+        Serial.print("CCS811: error writing baseline: ");
         Serial.println(ccs811.statusString(errorStatus));
       }
     }
-    
+
+    if (fastMode == true) { 
+      intervalCCS811Baseline =  baselineCCS811fast; 
+      intervalCCS811Humidity =  updateCCS811Humitityfast;
+    } else {
+      intervalCCS811Baseline = baselineCCS811slow; 
+      intervalCCS811Humidity =  updateCCS811Humitityslow;
+      Serial.println("CCS811: it will take about 5minutes until readings are non zero.");
+    }
+
     warmupCCS811 = currentTime + stablebaseCCS811;    
     
     attachInterrupt(digitalPinToInterrupt(CCS811_INT), handleCCS811Interrupt, FALLING);
@@ -352,32 +386,16 @@ void loop() {
   /******************************************************************************************************/
   // CCS811
   /******************************************************************************************************/
-  /*
-   *  Measurement Sequence:
-   *  
-   *  Setup turns on sensor and starts reading
-   *  When measurement complete, interrupt is asserted and ISR is called
-   *  
-   *  if fastMode = false
-   *  ISR wakes up i2c communication on wakeup pin
-   *  Sensor is given 1ms to weake up
-   *  Senor data is read and Sensor logic is switched back to sleep mode
-   *  
-   *  if fastMode = true
-   *  Sensor data is read
-   *  
-   *  Status is sleeping
-   *  Waiting until data interrupt occurs
-   *
-   */
+
   if (ccs811_avail) {
     switch(stateCCS811) {
 
       case IS_WAKINGUP : { // ISR will activate this
         if ((currentTime - lastCCS811Interrupt) >= 1) { // wakeup time is 50micro seconds
           stateCCS811 = DATA_AVAILABLE;
-          Serial.println("CCS811: wakeup completed");
+          Serial.println("CCS811: wake up completed");
         }
+        break;
       }
 
       case DATA_AVAILABLE : {
@@ -387,21 +405,21 @@ void loop() {
         Serial.print((millis()-tmpTime));  
         Serial.println("ms");
         uint8_t error = ccs811.getErrorRegister();
-        if (error == 0xFF) { Serial.println("Failed to read ERROR_ID register."); }
+        if (error == 0xFF) { Serial.println("CCS811: failed to read ERROR_ID register."); }
         else  {
-          if (error & 1 << 5) Serial.print("Error: HeaterSupply");
-          if (error & 1 << 4) Serial.print("Error: HeaterFault");
-          if (error & 1 << 3) Serial.print("Error: MaxResistance");
-          if (error & 1 << 2) Serial.print("Error: MeasModeInvalid");
-          if (error & 1 << 1) Serial.print("Error: ReadRegInvalid");
-          if (error & 1 << 0) Serial.print("Error: MsgInvalid");
+          if (error & 1 << 5) Serial.print("CCS811 Error: HeaterSupply");
+          if (error & 1 << 4) Serial.print("CCS811 Error: HeaterFault");
+          if (error & 1 << 3) Serial.print("CCS811 Error: MaxResistance");
+          if (error & 1 << 2) Serial.print("CCS811 Error: MeasModeInvalid");
+          if (error & 1 << 1) Serial.print("CCS811 Error: ReadRegInvalid");
+          if (error & 1 << 0) Serial.print("CCS811 Error: MsgInvalid");
         }
 
         if ((currentTime - lastCCS811Baseline) >= intervalCCS811Baseline ) {
           tmpTime = millis();
           mySettings.baselineCCS811 = ccs811.getBaseline();
           lastCCS811Baseline = currentTime;
-          Serial.print("CCS811: baseline obtained in");
+          Serial.print("CCS811: baseline obtained in ");
           Serial.print((millis()-tmpTime));  
           Serial.println("ms");
         }
@@ -432,11 +450,13 @@ void loop() {
       case IS_IDLE : {
         // Continue Sleeping, we are waiting for interrupt
         // Serial.println("CCS811: is idle");
+        break;
       }
       
       case IS_SLEEPING : {
         // Continue Sleeping, we are waiting for interrupt
         // Serial.println("CCS811: is sleeping");
+        break;
       }
  
     } // end switch
