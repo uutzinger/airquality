@@ -858,7 +858,7 @@ void loop() {
       tmpTime = millis();
       updateLCD();
       lastLCD = currentTime;
-      if (dbglevel > 1) {
+      if (dbglevel > 0) {
         Serial.print(F("LCD updated in "));
         Serial.print((millis()-tmpTime));  
         Serial.println(F("ms"));
@@ -1746,7 +1746,7 @@ void printSensors() {
     tmpI = ccs811.getTVOC();
     Serial.print(F("CCS811 tVOC:           ")); Serial.print(tmpI); Serial.println(F("[ppm]"));
     tmpI = ccs811.getBaseline();
-    Serial.print(F("CCS811 baseline:       ")); Serial.print(tmpI);
+    Serial.print(F("CCS811 baseline:       ")); Serial.println(tmpI);
   }
   
   if (sps30_avail) {
