@@ -238,7 +238,8 @@ SGP30 sgp30;
 #define baselineCCS811slow 3600000          // 1 hour
 #define updateCCS811Humitityfast 60000      // 1 min
 #define updateCCS811Humitityslow 300000     // 5 mins
-#define stablebaseCCS811 86400000           // sensor needs 24hr until baseline stable
+//#define stablebaseCCS811 86400000           // sensor needs 24hr until baseline stable
+#define stablebaseCCS811 43200000           // sensor needs 24hr until baseline stable
 #define burninCCS811    172800000           // sensor needs 48hr burin
 #define CCS811_INT D7                       // active low interrupt, high to low at end of measurement
 #define CCS811_WAKE D6                      // active low wake to wake up sensor
@@ -328,7 +329,10 @@ unsigned long tmpTime;                      // to measures execution times
 /******************************************************************************************************/
 #include <EEPROM.h>
 #define EEPROM_SIZE 1024
+//#define saveSettings 604800000              // 7 days
+#define saveSettings 43200000               // 12 hrs
 int eeprom_address = 0;
+
 unsigned long lastEEPROM;                   // last time we updated EEPROM, should occur every couple days
 struct EEPROMsettings {
   unsigned long runTime;
@@ -1351,7 +1355,7 @@ void loop() {
     Serial.println(F("Runtime updated"));
   }
   // Update EEPROM once a week *************************************************
-  if ((currentTime - lastEEPROM) >= 604800000) {
+  if ((currentTime - lastEEPROM) >= saveSettings) {
     EEPROM.put(0,mySettings);
     if (EEPROM.commit()) {    
       lastEEPROM = currentTime;
