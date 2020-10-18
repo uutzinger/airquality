@@ -27,7 +27,11 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool fastMode = true;      // true: Measure as fast as possible, false: operate in energy efficiency mode
-
+unsigned int dbglevel=2;   // 0 no output, 
+                           // 1 boot info and errors 
+                           // 2 measurement statements
+                           // 3 additional runtime output 
+                           // 4 detailed runtime status
 /******************************************************************************************************/
 // Sensor
 /******************************************************************************************************/
@@ -100,6 +104,7 @@ SCD30 scd30;
 
 void ICACHE_RAM_ATTR handleSCD30Interrupt() { // Interrupt service routine when data ready is signaled
   stateSCD30 = DATA_AVAILABLE;
+  if (dbglevel > 3) {Serial.println(F("SCD30: interrupt occured"));}
 }
 
 /******************************************************************************************************/
@@ -263,6 +268,7 @@ void ICACHE_RAM_ATTR handleCCS811Interrupt() { // interrupt service routine to h
       stateCCS811 = IS_WAKINGUP;
       lastCCS811Interrupt = millis();
     }
+    if (dbglevel > 3) {Serial.println(F("CCS811: interrupt occured")); }
 }
 
 /******************************************************************************************************/
@@ -336,6 +342,7 @@ int eeprom_address = 0;
 unsigned long lastEEPROM;                   // last time we updated EEPROM, should occur every couple days
 struct EEPROMsettings {
   unsigned long runTime;
+  unsigned int  debuglevel;                 // amount of debug output on serial port
   byte          baselineSGP30_valid;        // 0xF0 is the number for valid
   uint16_t      baselineeCO2_SGP30;         //
   uint16_t      baselinetVOC_SGP30;         //
@@ -481,6 +488,15 @@ void setup() {
   Serial.print(F("EEPROM read in: "));
   Serial.print((millis()-tmpTime));
   Serial.println(F("ms"));
+
+  /******************************************************************************************************/
+  // Set Debug Output Level
+  /******************************************************************************************************/  
+  dbglevel =  mySettings.debuglevel;
+  if (dbglevel > 0) { 
+    Serial.print(F("Debug level is: "));
+    Serial.println(dbglevel);
+  }
   
   /******************************************************************************************************/
   // Check which devices are attached to I2C bus
@@ -494,15 +510,17 @@ void setup() {
   if (checkI2C(0x69) == true) {sps30_avail = true;}  else {sps30_avail = false;}   // Senserion Particle
   if (checkI2C(0x77) == true) {bme680_avail = true;} else {bme680_avail = false;}  // Bosch Temp, Humidity, Pressure, VOC
 
-  Serial.print(F("LCD                  ")); if (lcd_avail)    {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("MAX30105             ")); if (max_avail)    {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("CCS811 eCO2, tVOC    ")); if (ccs811_avail) {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("SGP30 eCO2, tVOC     ")); if (sgp30_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("MLX temp             ")); if (therm_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("SCD30 CO2, rH        ")); if (scd30_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("SPS30 PM             ")); if (sps30_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-  Serial.print(F("BME680 T, rH, P tVOC ")); if (bme680_avail) {Serial.println(F("available"));} else {Serial.println(F("not available"));}
-
+  if (dbglevel > 0) {
+    Serial.print(F("LCD                  ")); if (lcd_avail)    {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("MAX30105             ")); if (max_avail)    {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("CCS811 eCO2, tVOC    ")); if (ccs811_avail) {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("SGP30 eCO2, tVOC     ")); if (sgp30_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("MLX temp             ")); if (therm_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("SCD30 CO2, rH        ")); if (scd30_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("SPS30 PM             ")); if (sps30_avail)  {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+    Serial.print(F("BME680 T, rH, P tVOC ")); if (bme680_avail) {Serial.println(F("available"));} else {Serial.println(F("not available"));}
+  }
+  
   /******************************************************************************************************/
   // Intervals
   /******************************************************************************************************/
@@ -524,33 +542,39 @@ void setup() {
     lcd.begin();
     lcd.backlight();
     lcd.setCursor(0, 0);
-    Serial.println(F("LCD initialized"));
+    if (dbglevel > 0) {
+      Serial.println(F("LCD initialized"));
+    }
   }
 
   /******************************************************************************************************/
   // Initialize SCD30 CO2 sensor 
   /******************************************************************************************************/
   if (scd30_avail == true) {
-    Serial.print(F("SCD30 Interval: "));
     if (fastMode) { intervalSCD30 = intervalSCD30Fast; } 
     else          { intervalSCD30 = intervalSCD30Slow; }
-    Serial.println(intervalSCD30);
+    if (dbglevel > 1) {
+      Serial.print(F("SCD30 Interval: "));
+      Serial.println(intervalSCD30);
+    }
 
     if (scd30.begin(Wire, true)) {
       scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));  // Set number of seconds between measurements: 2 to 1800 seconds (30 minutes)
       scd30.setAutoSelfCalibration(true);                // 
       if (mySettings.tempOffset_SCD30_valid == 0xF0) { scd30.setTemperatureOffset(mySettings.tempOffset_SCD30); }
       mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
-      Serial.print(F("SCD30: current temp offset: "));
-      Serial.print(mySettings.tempOffset_SCD30,2);
-      Serial.println(F("C"));
+      if (dbglevel > 1) {
+        Serial.print(F("SCD30: current temp offset: "));
+        Serial.print(mySettings.tempOffset_SCD30,2);
+        Serial.println(F("C"));
+      }
       attachInterrupt(digitalPinToInterrupt(SCD30_RDY), handleSCD30Interrupt, RISING);
       stateSCD30 = IS_BUSY;
     } else {
       scd30_avail = false;
       stateSCD30 = HAS_ERROR;
     }
-    Serial.println("SCD30: initialized");
+    if (dbglevel > 0) { Serial.println("SCD30: initialized"); }
   }
   
   /******************************************************************************************************/
@@ -558,7 +582,7 @@ void setup() {
   /******************************************************************************************************/
   if (sgp30_avail == true){
     if (sgp30.begin() == false) {
-      Serial.println(F("No SGP30 Detected. Check connections"));
+      if (dbglevel > 0) { Serial.println(F("No SGP30 Detected. Check connections")); }
       sgp30_avail = false;
       stateSGP30 = HAS_ERROR;
     }
@@ -566,11 +590,11 @@ void setup() {
     else          { intervalSGP30 = intervalSGP30Slow;}
     //Initializes sensor for air quality readings
     sgp30.initAirQuality();
-    Serial.println(F("SGP30: measurements initialzed"));
+    if (dbglevel > 0) { Serial.println(F("SGP30: measurements initialzed")); }
     stateSGP30 = IS_MEASURING;
     if (mySettings.baselineSGP30_valid == 0xF0) {
       sgp30.setBaseline((uint16_t)mySettings.baselineeCO2_SGP30, (uint16_t)mySettings.baselinetVOC_SGP30);
-      Serial.println(F("SGP30: found valid baseline"));
+      if (dbglevel > 1) { Serial.println(F("SGP30: found valid baseline")); }
       warmupSGP30 = millis() + warmupSGP30_withbaseline;
     } else {
       warmupSGP30 = millis() + warmupSGP30_withoutbaseline;
@@ -583,28 +607,36 @@ void setup() {
   if (ccs811_avail == true){
 
     CCS811Core::CCS811_Status_e css811Ret = ccs811.beginWithStatus();
-    Serial.print(F("CCS811: begin - "));
-    Serial.println(ccs811.statusString(css811Ret));
+    if (dbglevel > 1) {
+      Serial.print(F("CCS811: begin - "));
+      Serial.println(ccs811.statusString(css811Ret));
+    }
 
     if (fastMode) { ccs811Mode = ccs811ModeFast; }
     else          { ccs811Mode = ccs811ModeSlow; }
 
     css811Ret = ccs811.setDriveMode(ccs811Mode);
-    Serial.print(F("CCS811: mode request set - "));
-    Serial.println(ccs811.statusString(css811Ret));
+    if (dbglevel > 1) {
+      Serial.print(F("CCS811: mode request set - "));
+      Serial.println(ccs811.statusString(css811Ret));
+    }
 
     //Configure and enable the interrupt line, then print error status
     css811Ret = ccs811.enableInterrupts();
-    Serial.print(F("CCS811: interrupt configuation - "));
-    Serial.println(ccs811.statusString(css811Ret));
-       
+    if (dbglevel > 1) {
+      Serial.print(F("CCS811: interrupt configuation - "));
+      Serial.println(ccs811.statusString(css811Ret));
+    }
+           
     if (mySettings.baselineCCS811_valid == 0xF0) {
       CCS811Core::CCS811_Status_e errorStatus = ccs811.setBaseline(mySettings.baselineCCS811);
       if (errorStatus == CCS811Core::CCS811_Stat_SUCCESS) { 
-        Serial.println(F("CCS811: baseline received"));
+        if (dbglevel > 1) { Serial.println(F("CCS811: baseline PROGRAMMED")); }
       } else {
-        Serial.print(F("CCS811: error writing baseline - "));
-        Serial.println(ccs811.statusString(errorStatus));
+        if (dbglevel > 0) {
+          Serial.print(F("CCS811: error writing baseline - "));
+          Serial.println(ccs811.statusString(errorStatus));
+        }
       }
     }
 
@@ -614,14 +646,14 @@ void setup() {
     } else {
       intervalCCS811Baseline = baselineCCS811slow; 
       intervalCCS811Humidity = updateCCS811Humitityslow; 
-      Serial.println(F("CCS811: it will take about 5 minutes until readings are non zero."));
+      if (dbglevel > 1) { Serial.println(F("CCS811: it will take about 5 minutes until readings are non-zero.")); }
     }
     
     warmupCCS811 = currentTime + stablebaseCCS811;    
     
     attachInterrupt(digitalPinToInterrupt(CCS811_INT), handleCCS811Interrupt, FALLING);
 
-    Serial.println(F("CCS811: initialized"));
+    if (dbglevel > 0) { Serial.println(F("CCS811: initialized")); }
     stateCCS811 = IS_IDLE;
   }
 
@@ -633,63 +665,62 @@ void setup() {
     sps30.EnableDebugging(SPS30Debug);
 
     if (sps30.begin(&Wire) == false) {
-      Serial.println(F("SPS30: Sensor not detected in I2C. Please check wiring."));
+      if (dbglevel > 0) { Serial.println(F("SPS30: Sensor not detected in I2C. Please check wiring.")); }
       stateSPS30 = HAS_ERROR;
       sps30_avail = false;
     }
 
     if (sps30.probe() == false) { 
-      Serial.println(F("SPS30: could not probe / connect.")); 
-      Serial.println(F("SGP30: powercycle the system and reopen serial console."));
+      if (dbglevel > 0) {
+        Serial.println(F("SPS30: could not probe / connect")); 
+        Serial.println(F("SGP30: powercycle the system and reopen serial console"));
+      }
       stateSPS30 = HAS_ERROR;
       sps30_avail = false;
     } else { 
-      Serial.println(F("SPS30: detected")); 
+      if (dbglevel > 1) { Serial.println(F("SPS30: detected")); }
     }
 
     if (sps30.reset() == false) { 
-      Serial.println(F("SPS30: could not reset.")); 
+      if (dbglevel > 0) { Serial.println(F("SPS30: could not reset.")); }
       stateSPS30 = HAS_ERROR;
       sps30_avail = false;
     }  
 
     // read device info
-    ret = sps30.GetSerialNumber(buf, 32);
-    if (ret == ERR_OK) {
-      Serial.print(F("SPS30: serial number : "));
-      if(strlen(buf) > 0)  Serial.println(buf);
-      else { Serial.println(F("SPS30: not available"));}
-    } 
-    ret = sps30.GetProductName(buf, 32);
-    if (ret == ERR_OK)  {
-      Serial.print(F("SPS30: product name  : "));
-      if(strlen(buf) > 0)  {Serial.println(buf);}
-      else {Serial.println(F("not available"));}
+    if (dbglevel > 1) {
+      ret = sps30.GetSerialNumber(buf, 32);
+      if (ret == ERR_OK) {
+        if (dbglevel > 1) { 
+          Serial.print(F("SPS30: serial number : "));
+          if(strlen(buf) > 0) { Serial.println(buf); }
+          else { Serial.println(F("not available")); }
+        }
+      } 
+      ret = sps30.GetProductName(buf, 32);
+      if (ret == ERR_OK)  {
+        if (dbglevel >1) {
+          Serial.print(F("SPS30: product name  : "));
+          if(strlen(buf) > 0)  {Serial.println(buf);}
+          else {Serial.println(F("not available"));}
+        }
+      }
     }
+    
     ret = sps30.GetVersion(&v);
     if (ret == ERR_OK) {
-      Serial.print(F("SPS30: firmware level: "));
-      Serial.print(v.major);
-      Serial.print(F("."));
-      Serial.println(v.minor);
-      Serial.print(F("SPS30: hardware level: "));
-      Serial.println(v.HW_version);
-      Serial.print(F("SPS30: SHDLC protocol: "));
-      Serial.print(v.SHDLC_major);
-      Serial.print(F("."));
-      Serial.println(v.SHDLC_minor);
-      Serial.print(F("SPS30: library level : "));
-      Serial.print(v.DRV_major);
-      Serial.print(F("."));
-      Serial.println(v.DRV_minor);
+      if (dbglevel > 1) {
+        Serial.print(F("SPS30: firmware level: ")); Serial.print(v.major);       Serial.print(F(".")); Serial.println(v.minor);
+        Serial.print(F("SPS30: hardware level: ")); Serial.println(v.HW_version); 
+        Serial.print(F("SPS30: SHDLC protocol: ")); Serial.print(v.SHDLC_major); Serial.print(F(".")); Serial.println(v.SHDLC_minor);
+        Serial.print(F("SPS30: library level : ")); Serial.print(v.DRV_major);   Serial.print(F(".")); Serial.println(v.DRV_minor);
+      }
     }
     
     // set autocleaning
     ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
     if (ret == ERR_OK) {
-      Serial.print(F("SPS30: current Auto Clean interval: "));
-      Serial.print(autoCleanIntervalSPS30);
-      Serial.println(F("s"));
+      if (dbglevel > 1) { Serial.print(F("SPS30: current Auto Clean interval: ")); Serial.print(autoCleanIntervalSPS30); Serial.println(F("s")); }
     }
 
     if (fastMode == true) { 
@@ -700,44 +731,45 @@ void setup() {
     
     // start measurement
     if (sps30.start() == true) { 
-      Serial.println(F("SPS30: measurement started"));
+      if (dbglevel > 0) { Serial.println(F("SPS30: measurement started")); }
       stateSPS30 = IS_BUSY; 
     } else { 
-      Serial.println(F("SPS30: could NOT start measurement")); 
+      if (dbglevel > 0) { Serial.println(F("SPS30: could NOT start measurement"));  }
       stateSPS30 = HAS_ERROR;
       sps30_avail = false;
     }
 
     // addresse issue with limited RAM on some microcontrollers
-    if (sps30.I2C_expect() == 4) { Serial.println(F("SPS30: !!! Due to I2C buffersize only the SPS30 MASS concentration is available !!!")); }
-
+    if (dbglevel > 0) {
+      if (sps30.I2C_expect() == 4) { Serial.println(F("SPS30: !!! Due to I2C buffersize only the SPS30 MASS concentration is available !!!")); }
+    }
   } else {
-    Serial.println("SPS30: not found!");
-  }
+    if (dbglevel > 0) { Serial.println("SPS30: not found!"); }
+  } // end if SPS30 available
 
   /******************************************************************************************************/
   // Initialize BME680
   /******************************************************************************************************/
   if (bme680_avail == true){
     if (bme680.begin() == true) { 
-      Serial.print(F("BME680: Setting oversampling for sensors\n"));
+      if (dbglevel > 1) { Serial.print(F("BME680: Setting oversampling for sensors\n")); }
       bme680.setTemperatureOversampling(bme680_TempOversample);
       bme680.setHumidityOversampling(bme680_HumOversample); 
       bme680.setPressureOversampling(bme680_PressureOversample); 
-      Serial.print(F("BME680: Setting IIR filter to a value of 3 samples\n"));
+      if (dbglevel > 1) { Serial.print(F("BME680: Setting IIR filter to a value of 3 samples\n")); }
       bme680.setIIRFilterSize(bme680_FilterSize); 
-      Serial.print(F("BME680: Setting gas measurement to 320\xC2\xB0\x43 for 150ms\n")); // "°C" symbols
+      if (dbglevel > 1) { Serial.print(F("BME680: Setting gas measurement to 320\xC2\xB0\x43 for 150ms\n")); }
       bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
       stateBME680 = IS_IDLE;      
       if (fastMode == true) { intervalBME680 = intervalBME680_Fast; }
       else                  { intervalBME680 = intervalBME680_Slow; }
-      Serial.println(F("BME680: Initialized"));
+      if (dbglevel > 0) { Serial.println(F("BME680: Initialized")); }
     } else {
-      Serial.println(F("BME680: Sensor not detected. Please check wiring.")); 
+      if (dbglevel > 0) { Serial.println(F("BME680: Sensor not detected. Please check wiring.")); }
       stateBME680 = HAS_ERROR;
       bme680_avail = false;
     }   
-  }
+  } // end if bme680 available
 
   /******************************************************************************************************/
   // Initialize MLX Sensor
@@ -746,29 +778,26 @@ void setup() {
     if (therm.begin() == 1) { 
       therm.setUnit(TEMP_C); // Set the library's units to Centigrade
       therm.setEmissivity(emissivity);
-      Serial.print(F("MLX: Emissivity: "));
-      Serial.println(therm.readEmissivity());
+      if (dbglevel > 1) { Serial.print(F("MLX: Emissivity: ")); Serial.println(therm.readEmissivity()); }
       stateMLX = IS_MEASURING;      
     } else {
-      Serial.println(F("MLX: sensor not detected. Please check wiring.")); 
+      if (dbglevel > 0) { Serial.println(F("MLX: sensor not detected. Please check wiring.")); }
       stateMLX = HAS_ERROR;
       therm_avail = false;
     }
     sleepTimeMLX = intervalMLX - timeToStableMLX - 50;
-    Serial.print(F("MLX: sleep time is ")); 
-    Serial.print(sleepTimeMLX); 
-    Serial.println(F("ms"));
-    Serial.print(F("MLX: interval time is ")); 
-    Serial.print(intervalMLX); 
-    Serial.println(F("ms"));
+    if (dbglevel > 1) {
+      Serial.print(F("MLX: sleep time is ")); Serial.print(sleepTimeMLX);  Serial.println(F("ms"));
+      Serial.print(F("MLX: interval time is ")); Serial.print(intervalMLX); Serial.println(F("ms"));
+    }
 
     if (mySettings.tempOffset_MLX_valid == 0xF0) {
-        mlxOffset = mySettings.tempOffset_MLX;
-        Serial.println(F("MLX: offset found"));
+      mlxOffset = mySettings.tempOffset_MLX;
+      if (dbglevel > 1) { Serial.println(F("MLX: offset found"));}
     }
-    
-    Serial.println(F("MLX: Initialized"));
-  }
+
+    if (dbglevel > 0) { Serial.println(F("MLX: Initialized")); }
+  } // end if therm available
   
   /******************************************************************************************************/
   // Initialize MAX Pulse OX Sensor
@@ -807,12 +836,10 @@ void setup() {
     tmpTime = millis();
     updateLCD();
     lastLCD = currentTime;
-    Serial.print(F("LCD updated in "));
-    Serial.print((millis()-tmpTime));  
-    Serial.println(F("ms"));
+    if (dbglevel > 0) { Serial.print(F("LCD updated in ")); Serial.print((millis()-tmpTime));  Serial.println(F("ms")); }
   }
   
-  Serial.println(F("System initialized"));
+  if (dbglevel > 0) { Serial.println(F("System initialized")); }
   
 } // end setup
 
@@ -831,9 +858,11 @@ void loop() {
       tmpTime = millis();
       updateLCD();
       lastLCD = currentTime;
-      Serial.print(F("LCD updated in "));
-      Serial.print((millis()-tmpTime));  
-      Serial.println(F("ms"));
+      if (dbglevel > 1) {
+        Serial.print(F("LCD updated in "));
+        Serial.print((millis()-tmpTime));  
+        Serial.println(F("ms"));
+      }
     }
   }
 
@@ -848,10 +877,12 @@ void loop() {
   /* 
   int pinStat = digitalRead(SCD30_RDY);
   if (lastPinStat != pinStat) {
-    Serial.print("SCD30 RDY pin changed: ");
-    Serial.print(lastPinStat);
-    Serial.print(" - ");
-    Serial.println(pinStat);
+    if (dbglevel > 1) { 
+      Serial.print("SCD30 RDY pin changed: ");
+      Serial.print(lastPinStat);
+      Serial.print(" - ");
+      Serial.println(pinStat);
+    }
     lastPinStat = pinStat;
   }
   */
@@ -869,9 +900,9 @@ void loop() {
             scd30_temp = scd30.getTemperature();
             scd30_hum  = scd30.getHumidity();
             lastSCD30  = currentTime;
-            Serial.println(F("SCD30: data read"));
+            if (dbglevel > 1) { Serial.println(F("SCD30: data read")); }
           } else {
-            Serial.println(F("SCD30 data not yet available"));
+            if (dbglevel > 1) { Serial.println(F("SCD30 data not yet available")); }
           }
         }
         break;
@@ -881,7 +912,7 @@ void loop() {
         if ((currentTime - lastSCD30Busy) > intervalSCD30Busy) {
           scd30.dataAvailable(); // without checking status, RDY pin will not switch
           lastSCD30Busy = currentTime;
-          Serial.println(F("SCD30: is busy"));
+          if (dbglevel > 3) { Serial.println(F("SCD30: is busy")); }
         }
         break;
       }
@@ -901,16 +932,14 @@ void loop() {
             scd30.setAmbientPressure(uint16_t(bme680.pressure/100.0)); 
             // update with value from pressure sensor, needs to be mbar
             lastPressureSCD30 = currentTime;
-            Serial.print(F("SCD30: pressure updated to"));
-            Serial.print(bme680.pressure/100.0);
-            Serial.println(F("mbar"));
+            if (dbglevel > 1) { Serial.print(F("SCD30: pressure updated to")); Serial.print(bme680.pressure/100.0); Serial.println(F("mbar")); }
           }
         }
         break;        
       }
       
       case HAS_ERROR : {
-        Serial.println(F("SCD30 has error!"));
+        if (dbglevel > 0) { Serial.println(F("SCD30 has error!")); }
         break;
       }
     } // switch state
@@ -931,13 +960,14 @@ void loop() {
             // 0x0001 = 1/256 g/m^3
             // 0xFFFF = 256 +256/256 g/m^3
             sgp30.setHumidity(uint16_t(bme680_ah * 256.0 + 0.5)); 
-            Serial.println(F("SGP30: humidity updated for eCO2"));
+            if (dbglevel > 1) { Serial.println(F("SGP30: humidity updated for eCO2")); }
           }
           lastSGP30Humidity = currentTime;        
         } // end humidity update
         
         if ((currentTime - lastSGP30Baseline) > intervalSGP30Baseline) {
           sgp30.startGetBaseline(); // this has 10ms delay
+          if (dbglevel > 2) { Serial.println(F("SGP30: getting baseline")); }
           lastSGP30Baseline= millis();
           stateSGP30 = GET_BASELINE;
           break;
@@ -945,6 +975,7 @@ void loop() {
 
         if ((currentTime - lastSGP30) > intervalSGP30) {
           sgp30.startAirQuality();
+          if (dbglevel > 3) { Serial.println(F("SGP30: airquality started")); }
           lastSGP30 = currentTime;
           stateSGP30 = IS_BUSY;
         }
@@ -956,7 +987,7 @@ void loop() {
           sgp30.getAirQuality();
           lastSGP30 = currentTime;
           stateSGP30 = IS_MEASURING;
-          Serial.println(F("SGP30 eCO2 & tVOC measured"));
+          if (dbglevel > 1) { Serial.println(F("SGP30 eCO2 & tVOC measured")); }
         }
         break;
       }
@@ -965,7 +996,7 @@ void loop() {
         if ((currentTime - lastSGP30Baseline) > 10) {
           if (sgp30.finishGetBaseline() == SUCCESS) {
             stateSGP30 = IS_MEASURING; 
-            Serial.println(F("SGP30 Baseline obtained"));
+            if (dbglevel > 1) { Serial.println(F("SGP30: baseline obtained")); }
           } else { stateSGP30 = HAS_ERROR; }
         }
         break;
@@ -984,7 +1015,7 @@ void loop() {
       case IS_WAKINGUP : { // ISR will activate this
         if ((currentTime - lastCCS811Interrupt) >= 1) { // wakeup time is 50micro seconds
           stateCCS811 = DATA_AVAILABLE;
-          Serial.println(F("CCS811: wakeup completed"));
+          if (dbglevel > 3) { Serial.println(F("CCS811: wakeup completed")); }
         }
         break;
       }
@@ -992,27 +1023,25 @@ void loop() {
       case DATA_AVAILABLE : {
         tmpTime = millis();
         ccs811.readAlgorithmResults(); //Calling this function updates the global tVOC and CO2 variables
-        Serial.print(F("CCS811: readAlgorithmResults completed in "));
-        Serial.print((millis()-tmpTime));  
-        Serial.println(F("ms"));
+        if (dbglevel > 1) { Serial.print(F("CCS811: readAlgorithmResults completed in ")); Serial.print((millis()-tmpTime)); Serial.println(F("ms")); }
         uint8_t error = ccs811.getErrorRegister();
-        if (error == 0xFF) { Serial.println(F("CCS811: failed to read ERROR_ID register")); }
-        else  {
-          if (error & 1 << 5) Serial.print(F("CCS811 Error: HeaterSupply"));
-          if (error & 1 << 4) Serial.print(F("CCS811 Error: HeaterFault"));
-          if (error & 1 << 3) Serial.print(F("CCS811 Error: MaxResistance"));
-          if (error & 1 << 2) Serial.print(F("CCS811 Error: MeasModeInvalid"));
-          if (error & 1 << 1) Serial.print(F("CCS811 Error: ReadRegInvalid"));
-          if (error & 1 << 0) Serial.print(F("CCS811 Error: MsgInvalid"));
+        if (dbglevel > 0) {
+          if (error == 0xFF) { Serial.println(F("CCS811: failed to read ERROR_ID register")); }
+          else  {
+            if (error & 1 << 5) Serial.print(F("CCS811 Error: HeaterSupply"));
+            if (error & 1 << 4) Serial.print(F("CCS811 Error: HeaterFault"));
+            if (error & 1 << 3) Serial.print(F("CCS811 Error: MaxResistance"));
+            if (error & 1 << 2) Serial.print(F("CCS811 Error: MeasModeInvalid"));
+            if (error & 1 << 1) Serial.print(F("CCS811 Error: ReadRegInvalid"));
+            if (error & 1 << 0) Serial.print(F("CCS811 Error: MsgInvalid"));
+          }
         }
 
         if ((currentTime - lastCCS811Baseline) >= intervalCCS811Baseline ) {
           tmpTime = millis();
           mySettings.baselineCCS811 = ccs811.getBaseline();
           lastCCS811Baseline = currentTime;
-          Serial.print(F("CCS811: baseline obtained in"));
-          Serial.print((millis()-tmpTime));  
-          Serial.println(F("ms"));
+          if (dbglevel > 1) { Serial.print(F("CCS811: baseline obtained in")); Serial.print((millis()-tmpTime)); Serial.println(F("ms")); }
         }
         
         if ((currentTime - lastCCS811Humidity) > intervalCCS811Humidity ){
@@ -1020,15 +1049,13 @@ void loop() {
           if (bme680_avail == true) {
             tmpTime = millis();
             ccs811.setEnvironmentalData(bme680.humidity, bme680.temperature);
-            Serial.print(F("CCS811: humidity and temperature compensation updated in "));
-            Serial.print((millis()-tmpTime));  
-            Serial.println(F("ms"));
+            if (dbglevel > 1) { Serial.print(F("CCS811: humidity and temperature compensation updated in "));  Serial.print((millis()-tmpTime)); Serial.println(F("ms")); }
           }
         }  
 
         if (fastMode == false) { 
           digitalWrite(CCS811_WAKE, HIGH);     // put CCS811 to sleep
-          Serial.println(F("CCS811: puttting sensor to sleep"));
+          if (dbglevel > 3) { Serial.println(F("CCS811: puttting sensor to sleep")); }
           stateCCS811 = IS_SLEEPING;
         } else {
           stateCCS811 = IS_IDLE;
@@ -1040,18 +1067,18 @@ void loop() {
 
       case IS_IDLE : {
         // Continue Sleeping, we are waiting for interrupt
-        // Serial.println(F("CCS811: is idle"));
+        if (dbglevel > 3) { Serial.println(F("CCS811: is idle")); }
         break;
       }
       
       case IS_SLEEPING : {
         // Continue Sleeping, we are waiting for interrupt
-        // Serial.println(F("CCS811: is sleeping"));
+        if (dbglevel > 3) { Serial.println(F("CCS811: is sleeping")); }
         break;
       }
  
     } // end switch
-  } // end if avail
+  } // end if avail ccs811
 
   /******************************************************************************************************/
   // SPS30 Sensirion Particle Sensor State Machine
@@ -1061,28 +1088,33 @@ void loop() {
     
     switch(stateSPS30) { 
       
-      case IS_BUSY: { 
-        Serial.println(F("SPS30: is busy"));
+      case IS_BUSY: {
+        if (dbglevel > 3) {  Serial.println(F("SPS30: is busy")); }
         if (((v.major==2) && (v.minor>=2)) || (v.major>2)) {
           ret = sps30.GetStatusReg(&st);         // takes 20ms
           if (ret == ERR_OK) {
-            Serial.print(F("SPS30: reading status completed and "));
-            if (st == STATUS_OK) {           Serial.println(F("SPS30 Status: ok"));
+            if (dbglevel > 2) { Serial.print(F("SPS30: reading status completed and ")); }
+            if (st == STATUS_OK) { 
+              if (dbglevel > 2) { Serial.println(F("SPS30 Status: ok")); }
             } else {
-              if (st & STATUS_SPEED_ERROR) { Serial.println(F("SPS30 WARNING : Fan is turning too fast or too slow")); }
-              if (st & STATUS_LASER_ERROR) { Serial.println(F("SPS30 ERROR: Laser failure")); }  
-              if (st & STATUS_FAN_ERROR)   { Serial.println(F("SPS30 ERROR: Fan failure, fan is mechanically blocked or broken")); }
+              if (dbglevel > 0) {
+                if (st & STATUS_SPEED_ERROR) { Serial.println(F("SPS30 WARNING : Fan is turning too fast or too slow")); }
+                if (st & STATUS_LASER_ERROR) { Serial.println(F("SPS30 ERROR: Laser failure")); }  
+                if (st & STATUS_FAN_ERROR)   { Serial.println(F("SPS30 ERROR: Fan failure, fan is mechanically blocked or broken")); }
+              }
               stateSPS30 = HAS_ERROR;
             } // status ok
-          } else { Serial.print(F("SPS30: could not read status")); }// read status
+          } else { 
+            if (dbglevel > 0) { Serial.print(F("SPS30: could not read status")); } 
+          }// read status
         } // Firmware >= 2.2
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
-        Serial.print(F("SPS30: values read in ")); Serial.print(millis() - tmpTime); Serial.println(F("ms"));
-        if (ret == ERR_DATALENGTH) { Serial.println(F("SPS30 ERROR: Data length during reading values")); }
-        else if (ret != ERR_OK) {
-          Serial.print(F("SPS30 ERROR: reading values: "));
-          Serial.println(ret);
+        if (dbglevel > 1) { Serial.print(F("SPS30: values read in ")); Serial.print(millis() - tmpTime); Serial.println(F("ms")); }
+        if (ret == ERR_DATALENGTH) { 
+          if (dbglevel > 0) {  Serial.println(F("SPS30 ERROR: Data length during reading values")); }
+        } else if (ret != ERR_OK) {
+          if (dbglevel > 0) { Serial.print(F("SPS30 ERROR: reading values: ")); Serial.println(ret); }
         }
         lastSPS30 = currentTime; 
         // adjust time to get stable readings, it takes longer  with lower concentration to get a precise reading
@@ -1091,77 +1123,89 @@ void loop() {
         else if (totalParticles < 200) { timeToStableSPS30 = 16000; } // hard coded from data sheet
         else                           { timeToStableSPS30 =  8000; } // hard coded from data sheet
         timeSPS30Stable = currentTime +  timeToStableSPS30;
-        Serial.print(F("SPS30: total particles - ")); Serial.println(totalParticles);
-        //Serial.print(F("Current Time: ")); Serial.println(currentTime);
-        //Serial.print(F("SPS30: time when stable - ")); Serial.println(timeSPS30Stable);
+        if (dbglevel > 2) { Serial.print(F("SPS30: total particles - ")); Serial.println(totalParticles); }
+        if (dbglevel > 3) {
+          Serial.print(F("Current Time: ")); Serial.println(currentTime);
+          Serial.print(F("SPS30: time when stable - ")); Serial.println(timeSPS30Stable);
+        }
         stateSPS30 = WAIT_STABLE;            
         break; 
-      } // BUSY
+      } // is BUSY
 
       case WAIT_STABLE: {
-        //Serial.println(F("SPS30: wait until stable"));
-        //Serial.print(F("Current Time: ")); Serial.println(currentTime);
-        //Serial.print(F("SPS30: time when stable - ")); Serial.println(timeSPS30Stable);
+        if (dbglevel > 3) {
+          Serial.println(F("SPS30: wait until stable"));
+          Serial.print(F("Current Time: ")); Serial.println(currentTime);
+          Serial.print(F("SPS30: time when stable - ")); Serial.println(timeSPS30Stable);
+        }
         if (currentTime >= timeSPS30Stable) {
           if (((v.major==2) && (v.minor>=2)) || (v.major>2)) {
             ret = sps30.GetStatusReg(&st);         // takes 20ms
             if (ret == ERR_OK) {
-              Serial.print(F("SPS30: reading status completed and "));
+              if (dbglevel > 2) { Serial.print(F("SPS30: reading status completed and ")); }
               if (st == STATUS_OK) {
-                Serial.println(F("status is ok"));
+                if (dbglevel > 2) { Serial.println(F("status is ok"));}
               } else {
-                if (st & STATUS_SPEED_ERROR) { Serial.println(F("(WARNING) fan is turning too fast or too slow")); }
-                if (st & STATUS_LASER_ERROR) { Serial.println(F("(ERROR) laser failure")); }  
-                if (st & STATUS_FAN_ERROR)   { Serial.println(F("(ERROR) fan failure, fan is mechanically blocked or broken")); }
+                if (dbglevel > 0) {
+                  if (st & STATUS_SPEED_ERROR) { Serial.println(F("(WARNING) fan is turning too fast or too slow")); }
+                  if (st & STATUS_LASER_ERROR) { Serial.println(F("(ERROR) laser failure")); }  
+                  if (st & STATUS_FAN_ERROR)   { Serial.println(F("(ERROR) fan failure, fan is mechanically blocked or broken")); }
+                }
               } // status ok
-            } else { Serial.print(F("SPS30: could not read status")); }// read status
+            } else {
+              if (dbglevel > 0) { Serial.print(F("SPS30: could not read status")); }
+            } // read status
           } // Firmware >= 2.2
           tmpTime = millis();
-          ret = sps30.GetValues(&valSPS30);               
-          Serial.print(F("SPS30: values read in ")); 
-          Serial.print(millis() - tmpTime); 
-          Serial.println(F("ms"));
-          if (ret == ERR_DATALENGTH) { Serial.println(F("SPS30 ERROR: Data length during reading values")); }
-          else if (ret != ERR_OK) {
-            Serial.print(F("SPS ERROR: reading values: "));
-            Serial.println(ret);
+          ret = sps30.GetValues(&valSPS30);
+          if (dbglevel > 1) {
+            Serial.print(F("SPS30: values read in ")); 
+            Serial.print(millis() - tmpTime); 
+            Serial.println(F("ms"));
           }
-          Serial.println(F("SPS30: going to idle"));
+          if (ret == ERR_DATALENGTH) { 
+            if (dbglevel > 0) { Serial.println(F("SPS30 ERROR: Data length during reading values")); }
+          } else if (ret != ERR_OK) {
+            if (dbglevel > 0) { Serial.print(F("SPS ERROR: reading values: ")); Serial.println(ret); }
+          }
+          if (dbglevel > 3) { Serial.println(F("SPS30: going to idle")); }
           lastSPS30 = currentTime; 
           stateSPS30 = IS_IDLE;          
         } //if time stable
         break;
       } // wait stable
                   
-      case IS_IDLE : { 
-        // Serial.println("SPS30: is idle");
+      case IS_IDLE : {
+        if (dbglevel > 3) { Serial.println("SPS30: is idle"); }
         if ((v.major<2) || (fastMode)) {
           timeSPS30Stable = (unsigned long) (lastSPS30 + intervalSPS30);
-          //Serial.print(F("Last SPS30: ")); Serial.println(lastSPS30);
-          //Serial.print(F("Current Time: ")); Serial.println(currentTime);
-          //Serial.print(F("SPS30: time when stable - ")); Serial.println(timeSPS30Stable);
-          Serial.println(F("SPS30: going to wait until stable"));
+          if (dbglevel > 3) {
+            Serial.print(F("Last SPS30: ")); Serial.println(lastSPS30);
+            Serial.print(F("Current Time: ")); Serial.println(currentTime);
+            Serial.print(F("SPS30: time when stable - ")); Serial.println(timeSPS30Stable);
+            Serial.println(F("SPS30: going to wait until stable"));
+          }
           stateSPS30 = WAIT_STABLE;             
         } else {
           wakeTimeSPS30 = (unsigned long) (lastSPS30 + intervalSPS30 - 50 - timeToStableSPS30);
           ret = sps30.sleep(); // 5ms execution time
           if (ret != ERR_OK) { 
-            Serial.println(F("SPS30 ERROR: could not go to sleep")); 
+            if (dbglevel > 0) { Serial.println(F("SPS30 ERROR: could not go to sleep")); }
             stateSPS30 = HAS_ERROR;
           }
-          Serial.println(F("SPS30: going to sleep"));
+          if (dbglevel > 3) { Serial.println(F("SPS30: going to sleep")); }
           stateSPS30 = IS_SLEEPING;
         }
         break;
       }
         
       case IS_SLEEPING : {
-        Serial.println(F("SPS30: is sleepig"));        
+        if (dbglevel > 3) { Serial.println(F("SPS30: is sleepig")); }
         if (currentTime >= wakeTimeSPS30) { // Wake up if sleep time exceeded 
-          Serial.println(F("SPS30 Status: waking up"));
+          if (dbglevel > 3) { Serial.println(F("SPS30 Status: waking up")); }
           ret = sps30.wakeup(); 
-          if (ret != ERR_OK) { 
-            Serial.println(F("SPS30 ERROR: could not wakeup"));
+          if (ret != ERR_OK) {
+            if (dbglevel > 0) { Serial.println(F("SPS30 ERROR: could not wakeup")); }
             stateSPS30 = HAS_ERROR; 
           } else {
             wakeSPS30 = currentTime;
@@ -1172,14 +1216,14 @@ void loop() {
       } // case is sleeping
         
       case IS_WAKINGUP : {  // this is only used in energy saving / slow mode
-        Serial.println(F("SPS30: is waking up"));
+        if (dbglevel > 3) { Serial.println(F("SPS30: is waking up")); }
         if ((currentTime - wakeSPS30) >= 50) { // Give some time (50ms)to wake up 
           ret = sps30.start(); 
           if (ret != ERR_OK) { 
-            Serial.println(F("SPS30 ERROR: Could not start SPS30 measurements"));
+            if (dbglevel > 0) { Serial.println(F("SPS30 ERROR: Could not start SPS30 measurements")); }
             stateSPS30 = HAS_ERROR; 
           } else {
-            Serial.println(F("SPS30 Status: started"));
+            if (dbglevel > 1) { Serial.println(F("SPS30 Status: started")); }
             stateSPS30 = IS_BUSY;
           }
         }        
@@ -1188,20 +1232,20 @@ void loop() {
 
       case HAS_ERROR : {
         // What are we going to do about that? Reset
-        Serial.println(F("SPS30 Status: error, resetting"));
+        if (dbglevel > 0) { Serial.println(F("SPS30 Status: error, going to reset")); }
         ret = sps30.reset(); 
         if (ret != ERR_OK) { 
-          Serial.println(F("SPS30 ERROR: Could not reset")); 
+          if (dbglevel > 0) { Serial.println(F("SPS30 ERROR: Could not reset")); }
           stateSPS30  = HAS_ERROR;
           sps30_avail = false; 
           break;
         }
-        Serial.println(F("SPS30 Status: reset successful"));
+        if (dbglevel > 1) { Serial.println(F("SPS30 Status: reset successful")); }
         if (sps30.start() == true) { 
-          Serial.println(F("SPS30: measurement started"));
+          if (dbglevel > 1) { Serial.println(F("SPS30: measurement started")); }
           stateSPS30 = IS_BUSY; 
         } else { 
-          Serial.println(F("SPS30: could NOT start measurement")); 
+          if (dbglevel > 0) { Serial.println(F("SPS30: could NOT start measurement")); }
           stateSPS30 = HAS_ERROR;
           sps30_avail = false;
         }
@@ -1224,15 +1268,13 @@ void loop() {
           tmpTime = millis();
           endTimeBME680 = bme680.beginReading();
           lastBME680 = currentTime;
-          if (endTimeBME680 == 0) { 
-            Serial.println(F("BME680: failed to begin reading"));
+          if (endTimeBME680 == 0) {
+            if (dbglevel > 0) { Serial.println(F("BME680: failed to begin reading")); }
             stateBME680 = HAS_ERROR; 
           } else {
             stateBME680 = IS_BUSY; 
           }
-          Serial.print(F("BME680 reading started. Completes in "));
-          Serial.print(endTimeBME680-tmpTime);
-          Serial.println(F("ms."));
+          if (dbglevel > 1) { Serial.print(F("BME680 reading started. Completes in ")); Serial.print(endTimeBME680-tmpTime); Serial.println(F("ms.")); }
         }
         break;
       }
@@ -1246,21 +1288,8 @@ void loop() {
 
       case DATA_AVAILABLE : {
         if (bme680.endReading() ==  false) {
-          Serial.println(F("BME680: Failed to complete reading"));        
+          if (dbglevel > 1) { Serial.println(F("BME680: Failed to complete reading")); }
         } else {
-          Serial.print(F("BME680 Temperature: "));
-          Serial.print(bme680.temperature);
-          Serial.println(F("[degC]"));
-          Serial.print(F("BME680 Pressure: "));
-          Serial.print(bme680.pressure);
-          Serial.println(F("[Pa]"));
-          Serial.print(F("BME680 Humidity:"));
-          Serial.print(bme680.humidity);
-          Serial.println(F("[%]"));
-          Serial.print(F("BME680 Gas Resistance:"));
-          Serial.print(bme680.gas_resistance);
-          Serial.println(F("[Ohm]"));
-          //
           // Absolute Humidity
           // https://www.eoas.ubc.ca/books/Practical_Meteorology/prmet102/Ch04-watervapor-v102b.pdf
           //
@@ -1280,20 +1309,15 @@ void loop() {
           float tmp = 273.15 + bme680.temperature;
           bme680_ah = bme680.humidity * 13.246 / tmp * exp(19.854 - 5423.0/tmp); // [gr/m^3]
           if ( (bme680_ah<0) | (bme680_ah>40.0) ) { bme680_ah = -1.0; } // make sure its reasonable
-
-          Serial.print(F("BME680 Absolute Humidity:"));
-          Serial.print(bme680_ah);
-          Serial.println(F("[g/m^3]"));
-
           // DewPoint
           // https://en.wikipedia.org/wiki/Dew_point
           // T Celsius
           // a = 6.1121 mbar, b = 18.678, c = 257.14 °C, d = 234.5 °C.
           // Tdp = c g_m / (b - g_m)
           // g_m = ln(RH/100) + (b-T/d)*(T/(c+T)))
-
+          // NEED TO IMPLEMENT IF DEWPOINT is WANTED
           stateBME680 = IS_IDLE;
-          Serial.println(F("BME680 readout completed"));
+          if (dbglevel > 1) { Serial.println(F("BME680; readout completed")); }
         }
         break;
       }
@@ -1315,11 +1339,11 @@ void loop() {
       case IS_MEASURING : {
         if ((currentTime - lastMLX) > intervalMLX) {
           if (therm.read()) {
-            Serial.println(F("MLX: temperature measured"));
+            if (dbglevel > 1) { Serial.println(F("MLX: temperature measured")); }
             lastMLX = currentTime;
             if (fastMode == false) {
               therm.sleep();
-              Serial.println(F("MLX: sent to sleep"));
+              if (dbglevel > 3) { Serial.println(F("MLX: sent to sleep")); }
               stateMLX = IS_SLEEPING;
             }
           }
@@ -1330,7 +1354,7 @@ void loop() {
       case IS_SLEEPING : {
         if ((currentTime - lastMLX) > sleepTimeMLX) {
           therm.wake(); // takes 250ms to wake up
-          Serial.println(F("MLX: initeated wake up"));
+          if (dbglevel > 3) { Serial.println(F("MLX: initeated wake up")); }
           stateMLX = IS_MEASURING;
         }
         break;
@@ -1352,28 +1376,28 @@ void loop() {
   if ((currentTime - lastTime) >= intervalRuntime) {
     mySettings.runTime = mySettings.runTime + ((currentTime - lastTime) / 1000);
     lastTime = currentTime;
-    Serial.println(F("Runtime updated"));
+    if (dbglevel > 0) { Serial.println(F("Runtime updated")); }
   }
   // Update EEPROM once a week *************************************************
   if ((currentTime - lastEEPROM) >= saveSettings) {
     EEPROM.put(0,mySettings);
     if (EEPROM.commit()) {    
       lastEEPROM = currentTime;
-      Serial.println(F("EEPROM updated"));
+      if (dbglevel > 0) { Serial.println(F("EEPROM updated")); }
     }
   } 
   // Copy CCS811 basline to settings when warmup is finished *******************
   if (currentTime >= warmupCCS811) {    
     mySettings.baselineCCS811 = ccs811.getBaseline();
     mySettings.baselineCCS811_valid = 0xF0;
-    Serial.println(F("CCS811 baseline placed into settings"));
+    if (dbglevel > 1) { Serial.println(F("CCS811 baseline placed into settings")); }
     warmupCCS811 = warmupCCS811 + stablebaseCCS811; 
   }
   // Copy SGP30 basline to settings when warmup is finished *******************
   if (currentTime >=  warmupSGP30) {
     mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
     mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
-    Serial.println(F("SGP30 baseline setting updated"));
+    if (dbglevel > 1) { Serial.println(F("SGP30 baseline setting updated")); }
     warmupSGP30 = warmupSGP30 + intervalSGP30Baseline; 
   }
   //  Put microcontroller to sleep **********************************************
@@ -1400,6 +1424,10 @@ bool checkI2C(byte address) {
 // Serial Input: Support Routines
 /**************************************************************************************/
 void helpMenu() {
+  Serial.println(F("All Sensors==========================="));
+  Serial.println(F("z: print all sensor data"));
+  Serial.println(F("Debug Level==========================="));
+  Serial.println(F("l: set debug level 0..4, l1"));
   Serial.println(F("SGP30=eCO2============================"));
   Serial.println(F("e: force eCO2, e400"));
   Serial.println(F("t: force tVOC, t3000"));  
@@ -1428,6 +1456,7 @@ void helpMenu() {
 }
 
 void printSettings() {
+  Serial.print(F("Debug level: .................. ")); Serial.println((unsigned int)mySettings.debuglevel);
   Serial.print(F("Runtime [min]: ................ ")); Serial.println((unsigned long)mySettings.runTime/60);
   Serial.print(F("Base SGP30 valid: ............. ")); Serial.println((int)mySettings.baselineSGP30_valid);
   Serial.print(F("Base eCO2 SGP30: [ppm]......... ")); Serial.println((int)mySettings.baselineeCO2_SGP30);
@@ -1451,6 +1480,7 @@ void printSettings() {
 
 void defaultSettings() {
   mySettings.runTime                       = (unsigned long)   0;
+  mySettings.debuglevel                    = (unsigned int)    1;
   mySettings.baselineSGP30_valid           = (byte)         0x00;
   mySettings.baselineeCO2_SGP30            = (uint16_t)        0;
   mySettings.baselinetVOC_SGP30            = (uint16_t)        0;
@@ -1493,10 +1523,24 @@ void inputHandle()
       value = instruction.substring(1,bytesread); 
     }
 
+    if (command == "l") {                                            // set debug level
+      tmpI = value.toInt();
+      if ((tmpI >= 0) && (tmpI <= 10)) {
+        dbglevel = (unsigned long)tmpI;
+        mySettings.debuglevel = dbglevel;
+        Serial.print(F("Debugl level set to:  "));
+        Serial.println(mySettings.debuglevel);
+      } else { Serial.println(F("Debug level out of valid Range")); }
+    } 
+
+    else if (command == "z") {                                       // dump all sensor data
+      printSensors();
+    } 
+
     ///////////////////////////////////////////////////////////////////
     // SGP30
     ///////////////////////////////////////////////////////////////////
-    if (command == "e") {                                            // forced CO2 set setpoint
+    else if (command == "e") {                                        // forced CO2 set setpoint
       tmpI = value.toInt();
       if ((tmpI >= 400) && (tmpI <= 2000)) {
         sgp30.getBaseline();
@@ -1668,6 +1712,68 @@ void inputHandle()
   } // end serial available
 } // end Input
 
+void printSensors() {
+  
+  if (scd30_avail) {
+    Serial.print(F("SCD30 CO2:             ")); Serial.print(scd30_ppm);       Serial.println(F("[ppm]"));
+    Serial.print(F("SCD30 rH:              ")); Serial.print(scd30_hum);       Serial.println(F("[%]"));
+    Serial.print(F("SCD30 Temperature:     ")); Serial.print(scd30_temp);      Serial.println(F("[degC]"));
+    scd30.getTemperatureOffset();
+  }
+  
+  if (bme680_avail) {
+    Serial.print(F("BME680 Temperature:    ")); Serial.print(bme680.temperature); Serial.println(F("[degC]"));
+    Serial.print(F("BME680 Pressure:       ")); Serial.print(bme680.pressure); Serial.println(F("[Pa]"));
+    Serial.print(F("BME680 Humidity:       ")); Serial.print(bme680.humidity); Serial.println(F("[%]"));
+    Serial.print(F("BME680 Gas Resistance: ")); Serial.print(bme680.gas_resistance); Serial.println(F("[Ohm]"));
+    Serial.print(F("BME680 aH:             ")); Serial.print(bme680_ah);       Serial.println(F("[g/m^3]"));
+
+  }
+
+  if (sgp30_avail == true) {
+    Serial.print(F("SGP30 CO2:             ")); Serial.print(sgp30.CO2);        Serial.println(F("[ppm]"));
+    Serial.print(F("SGP30 tVOC:            ")); Serial.print(sgp30.TVOC);       Serial.println(F("[ppm]"));
+    Serial.print(F("SGP30 baseline CO2:    ")); Serial.println(sgp30.baselineCO2);
+    Serial.print(F("SGP30 baseline tVOC:   ")); Serial.println(sgp30.baselineTVOC);
+    Serial.print(F("SGP30 H2:              ")); Serial.print(sgp30.H2);         Serial.println(F("[ppm]"));
+    Serial.print(F("SGP30 Ethanol:         ")); Serial.print(sgp30.ethanol);    Serial.println(F("[ppm]"));
+  }
+  
+  if (ccs811_avail == true) {
+    uint16_t tmpI;
+    tmpI = ccs811.getCO2();
+    Serial.print(F("CCS811 CO2:            ")); Serial.print(tmpI);  Serial.println(F("[ppm]"));
+    tmpI = ccs811.getTVOC();
+    Serial.print(F("CCS811 tVOC:           ")); Serial.print(tmpI); Serial.println(F("[ppm]"));
+    tmpI = ccs811.getBaseline();
+    Serial.print(F("CCS811 baseline:       ")); Serial.print(tmpI);
+  }
+  
+  if (sps30_avail) {
+    Serial.print(F("SPS30 P1.0:            ")); Serial.print(valSPS30.MassPM1);  Serial.println(F("[μg/m3]"));
+    Serial.print(F("SPS30 P2.5:            ")); Serial.print(valSPS30.MassPM2);  Serial.println(F("[μg/m3]"));
+    Serial.print(F("SPS30 P4.0:            ")); Serial.print(valSPS30.MassPM4);  Serial.println(F("[μg/m3]"));
+    Serial.print(F("SPS30 P10:             ")); Serial.print(valSPS30.MassPM10); Serial.println(F("[μg/m3]"));
+    Serial.print(F("SPS30 P1.0:            ")); Serial.print(valSPS30.NumPM0);   Serial.println(F("[#/cm3]"));
+    Serial.print(F("SPS30 P2.5:            ")); Serial.print(valSPS30.NumPM2);   Serial.println(F("[#/cm3]"));
+    Serial.print(F("SPS30 P4.0:            ")); Serial.print(valSPS30.NumPM4);   Serial.println(F("[#/cm3]"));
+    Serial.print(F("SPS30 P10:             ")); Serial.print(valSPS30.NumPM10);  Serial.println(F("[#/cm3]"));
+    Serial.print(F("SPS30 Average:         ")); Serial.print(valSPS30.PartSize); Serial.println(F("[μm]"));
+  }
+
+  if (therm_avail) {
+    float tmpF;
+    tmpF = therm.object();
+    Serial.print(F("MLX Object:            ")); Serial.print(tmpF);              Serial.println(F("[degC]"));
+    tmpF = therm.ambient();
+    Serial.print(F("MLX Ambient:           ")); Serial.print(tmpF);              Serial.println(F("[degC]"));
+    tmpF = therm.readEmissivity();
+    Serial.print(F("MLX Emissivity:        ")); Serial.println(tmpF);
+    Serial.print(F("MLX Offset:            ")); Serial.println(mlxOffset);  
+  }
+  
+}
+
 /**************************************************************************************/
 // Update LCD
 /**************************************************************************************/
@@ -1681,7 +1787,6 @@ void updateLCD() {
     sprintf(lcdbuf, "%4d", int(scd30_ppm));
     lcd.setCursor(CO2_X, CO2_Y);
     lcd.print(lcdbuf);
-    //Serial.println(lcdbuf);
 
     sprintf(lcdbuf, "%4.1f%%", scd30_hum);
     lcd.setCursor(HUM1_X, HUM1_Y);
