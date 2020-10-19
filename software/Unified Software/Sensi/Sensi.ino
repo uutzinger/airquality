@@ -244,7 +244,7 @@ SGP30 sgp30;
 #define updateCCS811Humitityfast 60000      // 1 min
 #define updateCCS811Humitityslow 300000     // 5 mins
 //#define stablebaseCCS811 86400000           // sensor needs 24hr until baseline stable
-#define stablebaseCCS811 43200000           // sensor needs 24hr until baseline stable
+#define stablebaseCCS811 43200000           // sensor needs 12hr until baseline stable
 #define burninCCS811    172800000           // sensor needs 48hr burin
 #define CCS811_INT D7                       // active low interrupt, high to low at end of measurement
 #define CCS811_WAKE D6                      // active low wake to wake up sensor
@@ -375,16 +375,11 @@ unsigned long intervalLCD;                  // LCD refresh rate
 bool lcd_avail = false;                     // is LCD attached?
 unsigned long lastLCD;                      // last time LCD was modified
 LiquidCrystal_I2C lcd(0x27,20,4);           // set the LCD address to 0x27 for a 20 chars and 4 line display
+char lcdDisplay[4][20];                     // 4 lines of 20 characters
+bool altDisplay = false;                    // Alternate between sensors, not enough space on display
 
 // For display layout see external file
 //
-// MLX Temperature (for bio display)
-#define MLX_X              0
-#define MLX_Y              0
-#define MLXA_X             0
-#define MLXA_Y             1
-#define MLX_WARNING_X      4
-#define MLX_WARNING_Y      0
 
 // Particle (for air quality display)
 #define PM1_X              0
@@ -441,6 +436,8 @@ LiquidCrystal_I2C lcd(0x27,20,4);           // set the LCD address to 0x27 for a
 #define TEMP2_Y            1
 #define TEMP3_X           14
 #define TEMP3_Y            2
+#define MLX_WARNING_X     14
+#define MLX_WARNING_Y      0
 #
 #define TVOC_X            15
 #define TVOC_Y             3
@@ -541,10 +538,7 @@ void setup() {
   if (lcd_avail == true) {
     lcd.begin();
     lcd.backlight();
-    lcd.setCursor(0, 0);
-    if (dbglevel > 0) {
-      Serial.println(F("LCD initialized"));
-    }
+    if (dbglevel > 0) { Serial.println(F("LCD initialized")); }
   }
 
   /******************************************************************************************************/
@@ -1439,7 +1433,7 @@ void helpMenu() {
   Serial.println(F("c: force basline, c400"));
   Serial.println(F("b: get baseline"));
   Serial.println(F("MLX================================"));
-  Serial.println(F("m: force temp, m400"));
+  Serial.println(F("m: set temp offset, m1.4"));
   Serial.println(F("EEPROM================================"));
   Serial.println(F("s: save to EEPROM"));
   Serial.println(F("r: read from EEPROM"));
@@ -1456,6 +1450,7 @@ void helpMenu() {
 }
 
 void printSettings() {
+  Serial.println(F("========================================"));
   Serial.print(F("Debug level: .................. ")); Serial.println((unsigned int)mySettings.debuglevel);
   Serial.print(F("Runtime [min]: ................ ")); Serial.println((unsigned long)mySettings.runTime/60);
   Serial.print(F("Base SGP30 valid: ............. ")); Serial.println((int)mySettings.baselineSGP30_valid);
@@ -1528,7 +1523,7 @@ void inputHandle()
       if ((tmpI >= 0) && (tmpI <= 10)) {
         dbglevel = (unsigned long)tmpI;
         mySettings.debuglevel = dbglevel;
-        Serial.print(F("Debugl level set to:  "));
+        Serial.print(F("Debug level set to:  "));
         Serial.println(mySettings.debuglevel);
       } else { Serial.println(F("Debug level out of valid Range")); }
     } 
@@ -1713,7 +1708,7 @@ void inputHandle()
 } // end Input
 
 void printSensors() {
-  
+  Serial.println(F("========================================"));
   if (scd30_avail) {
     Serial.print(F("SCD30 CO2:             ")); Serial.print(scd30_ppm);       Serial.println(F("[ppm]"));
     Serial.print(F("SCD30 rH:              ")); Serial.print(scd30_hum);       Serial.println(F("[%]"));
@@ -1777,242 +1772,246 @@ void printSensors() {
 /**************************************************************************************/
 // Update LCD
 /**************************************************************************************/
+// This code was rewritten to print one LCD screen line at a time.
+// It appears frequent lcd.setcursor() commands corrupt the display.
+// A line is 20 characters long and terminated at the 21st character with null
+// The first line is continuted at the 3rd line in the LCD driver and the 2nd line is continued at the 4th line.
+// Display update takes 115ms
 void updateLCD() {
-  char lcdbuf[16];
-  lcd.clear();
-  byte charsPrinted;
+  char lcdbuf[21];
+  const char clearLine[] = "                    ";  // 20 spaces
+  
+  strncpy(&lcdDisplay[0][0], clearLine , 20);
+  strncpy(&lcdDisplay[1][0], clearLine , 20);
+  strncpy(&lcdDisplay[2][0], clearLine , 20);
+  strncpy(&lcdDisplay[3][0], clearLine , 20);
+
   
   if (scd30_avail) { // =============================================================
-    
-    sprintf(lcdbuf, "%4d", int(scd30_ppm));
-    lcd.setCursor(CO2_X, CO2_Y);
-    lcd.print(lcdbuf);
 
+    sprintf(lcdbuf, "%4d", int(scd30_ppm));
+    strncpy(&lcdDisplay[CO2_Y][CO2_X], lcdbuf, 4);
+    
     sprintf(lcdbuf, "%4.1f%%", scd30_hum);
-    lcd.setCursor(HUM1_X, HUM1_Y);
-    lcd.print(lcdbuf);
-    //Serial.println(lcdbuf);
+    strncpy(&lcdDisplay[HUM1_Y][HUM1_X], lcdbuf, 5);
     
     sprintf(lcdbuf,"%+5.1fC",scd30_temp);
-    lcd.setCursor(TEMP1_X, TEMP1_Y);
-    lcd.print(lcdbuf);
-    //Serial.println(lcdbuf);
+    strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
 
     if (scd30_ppm < 800) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (scd30_ppm < 1000) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (scd30_ppm < 5000) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(CO2_WARNING_X, CO2_WARNING_Y);
-    lcd.print(lcdbuf);
+    lcdDisplay[CO2_WARNING_Y][CO2_WARNING_X] = lcdbuf[0];
+
   }  // end if avail scd30
   
   if (bme680_avail == true) { // ====================================================
     
     sprintf(lcdbuf,"%4d",(int)(bme680.pressure/100.0));
-    lcd.setCursor(PRESSURE_X, PRESSURE_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[PRESSURE_Y][PRESSURE_X], lcdbuf, 4);
   
     sprintf(lcdbuf,"%4.1f%%",bme680.humidity);
-    lcd.setCursor(HUM2_X, HUM2_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[HUM2_Y][HUM2_X], lcdbuf, 5);
   
     sprintf(lcdbuf,"%4.1fg",bme680_ah);
-    lcd.setCursor(HUM3_X, HUM3_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[HUM3_Y][HUM3_X], lcdbuf, 5);
 
     if ((bme680.humidity >= 45) && (bme680.humidity <= 55)) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if ((bme680.humidity >= 30) && (bme680.humidity < 45)) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if ((bme680.humidity >= 55) && (bme680.humidity < 60)) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if ((bme680.humidity >= 60) && (bme680.humidity < 80)) {
-      sprintf(lcdbuf, "%s", "H");
+      lcdbuf[0] = 'H';
     } else if ((bme680.humidity >  15) && (bme680.humidity < 30)) {
-      sprintf(lcdbuf, "%s", "L");
+      lcdbuf[0] = 'L';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
     
     //===
     // Humidity WARNING, no location identified for display.
     //===
-    //lcd.setCursor(IAQ_WARNING_X, IAQ_WARNING_Y);
-    //lcd.print(lcdbuf);
   
     sprintf(lcdbuf,"%+5.1fC",bme680.temperature);
-    lcd.setCursor(TEMP2_X, TEMP2_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
   
-    sprintf(lcdbuf,"%4.1f",(float(bme680.gas_resistance)/1000.0));
-    lcd.setCursor(IAQ_X, IAQ_Y);
-    lcd.print(lcdbuf);
+    sprintf(lcdbuf,"%5.1f",(float(bme680.gas_resistance)/1000.0));
+    strncpy(&lcdDisplay[IAQ_Y][IAQ_X], lcdbuf, 5);
   
     if (bme680.gas_resistance < 5000) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (bme680.gas_resistance < 10000) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (bme680.gas_resistance < 300000) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(IAQ_WARNING_X, IAQ_WARNING_Y);
-    lcd.print(lcdbuf);
+    lcdDisplay[IAQ_WARNING_Y][IAQ_WARNING_X] = lcdbuf[0];
+    
   } // end if avail bme680
   
   if (sgp30_avail == true) { // ====================================================
-    lcd.setCursor(eCO2_X, eCO2_Y);
     sprintf(lcdbuf, "%4d", sgp30.CO2);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[eCO2_Y][eCO2_X], lcdbuf, 4);
 
-    lcd.setCursor(TVOC_X, TVOC_Y);
     sprintf(lcdbuf, "%4d", sgp30.TVOC);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[TVOC_Y][TVOC_X], lcdbuf, 4);
 
     if (sgp30.CO2 < 800) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (sgp30.CO2 < 1000) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (sgp30.CO2 < 5000) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(eCO2_WARNING_X, eCO2_WARNING_Y);
-    lcd.print(lcdbuf);
+    lcdDisplay[eCO2_WARNING_Y][eCO2_WARNING_X] = lcdbuf[0];
 
     if (sgp30.TVOC < 220) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (sgp30.TVOC < 660) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (sgp30.TVOC < 2200) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(TVOC_WARNING_X, TVOC_WARNING_Y);
-    lcd.print(lcdbuf);
+    lcdDisplay[TVOC_WARNING_Y][TVOC_WARNING_X] = lcdbuf[0];
   } // end if avail sgp30
 
   if (ccs811_avail == true) { // ====================================================
 
-    lcd.setCursor(eeCO2_X, eeCO2_Y);
     sprintf(lcdbuf, "%4d", ccs811.getCO2());
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[eeCO2_Y][eeCO2_X], lcdbuf, 4);
 
-    lcd.setCursor(TTVOC_X, TTVOC_Y);
     sprintf(lcdbuf, "%4d", ccs811.getTVOC());
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[TTVOC_Y][TTVOC_X], lcdbuf, 4);
 
     if (ccs811.getCO2() < 800) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (ccs811.getCO2() < 1000) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (ccs811.getCO2() < 5000) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(eeCO2_WARNING_X, eeCO2_WARNING_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[eeCO2_WARNING_Y][eeCO2_WARNING_X], lcdbuf, 1);
 
     if (ccs811.getTVOC() < 220) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (ccs811.getTVOC() < 660) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (ccs811.getTVOC() < 2200) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(TTVOC_WARNING_X, TTVOC_WARNING_Y);
-    lcd.print(lcdbuf);
+    lcdDisplay[TTVOC_WARNING_Y][TTVOC_WARNING_X] = lcdbuf[0];
   } // end if avail ccs811
   
   if (sps30_avail) { // ====================================================
     sprintf(lcdbuf,"%3.0f",valSPS30.MassPM1);
-    lcd.setCursor(PM1_X, PM1_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[PM1_Y][PM1_X], lcdbuf, 3);
     
     sprintf(lcdbuf,"%3.0f",valSPS30.MassPM2);
-    lcd.setCursor(PM2_X, PM2_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[PM2_Y][PM2_X], lcdbuf, 3);
     
     sprintf(lcdbuf,"%3.0f",valSPS30.MassPM4);
-    lcd.setCursor(PM4_X, PM4_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[PM4_Y][PM4_X], lcdbuf, 3);
     
     sprintf(lcdbuf,"%3.0f",valSPS30.MassPM10);
-    lcd.setCursor(PM10_X, PM10_Y);
-    lcd.print(lcdbuf);
+    strncpy(&lcdDisplay[PM10_Y][PM10_X], lcdbuf, 3);
 
     if (valSPS30.MassPM2 < 10.0) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (valSPS30.MassPM2 < 25.0) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (valSPS30.MassPM2 < 65.0) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(PM2_WARNING_X, PM2_WARNING_Y);
-    lcd.print(lcdbuf);
+    lcdDisplay[PM2_WARNING_Y][PM2_WARNING_X] = lcdbuf[0];
 
     if (valSPS30.MassPM10 < 20.0) {
-      sprintf(lcdbuf, "%s", "N");
+      lcdbuf[0] = 'N';
     } else if (valSPS30.MassPM10 < 50.0) {
-      sprintf(lcdbuf, "%s", "T");
+      lcdbuf[0] = 'T';
     } else if (valSPS30.MassPM10 < 150.0) {
-      sprintf(lcdbuf, "%s", "P");
+      lcdbuf[0] = 'P';
     } else {
-      sprintf(lcdbuf, "%s", "!");
+      lcdbuf[0] = '!';
     }
-    lcd.setCursor(PM10_WARNING_X, PM10_WARNING_Y);
-    lcd.print(lcdbuf);
+   lcdDisplay[PM10_WARNING_Y][PM10_WARNING_X] = lcdbuf[0];
   }// end if avail SPS30
 
   if (therm_avail) { // ====================================================
+    if (altDisplay == true) {
+      sprintf(lcdbuf,"%+5.1fC",(therm.object()+mlxOffset));
+      strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
 
-    sprintf(lcdbuf,"%4.1f",(therm.object()+mlxOffset));
-    //lcd.setCursor(MLX_X, MLX_Y);
-    //lcd.print(lcdbuf);
-    //Serial.print("MLX: object temperature: "); Serial.print(therm.object()+mlxOffset); Serial.println("C");
+      sprintf(lcdbuf,"%+5.1fC",therm.ambient());
+      strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
 
-    sprintf(lcdbuf,"%4.1f",therm.ambient());
-    //lcd.setCursor(MLXA_X, MLXA_Y);
-    //lcd.print(lcdbuf);
-    //Serial.print("MLX: ambient temperature: "); Serial.print(therm.ambient()); Serial.println("C");
-
-    // https://www.singlecare.com/blog/fever-temperature/
-    // https://www.hopkinsmedicine.org/health/conditions-and-diseases/fever
-    // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7115295/
-    if (therm.object() < (35.0 - fhDelta)) {
-      sprintf(lcdbuf, "%s", "L");      
-    } else if (therm.object() <= (36.4 - fhDelta - mlxOffset)) {
-      sprintf(lcdbuf, "%s", "");
-    } else if (therm.object() <  (37.2 - fhDelta - mlxOffset)) {
-      sprintf(lcdbuf, "%s", "N");
-    } else if (therm.object() <  (38.3 - fhDelta - mlxOffset)) {
-      sprintf(lcdbuf, "%s", "T");
-    } else if (therm.object() <  (41.5 - fhDelta - mlxOffset)) {
-      sprintf(lcdbuf, "%s", "F");
-    } else {
-      sprintf(lcdbuf, "%s", "!");
-    }
-    //lcd.setCursor(MLX_WARNING_X, MLX_WARNING_Y);
-    //lcd.print(lcdbuf);
-    //Serial.print("MLX: "); Serial.println(lcdbuf);
+      // https://www.singlecare.com/blog/fever-temperature/
+      // https://www.hopkinsmedicine.org/health/conditions-and-diseases/fever
+      // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7115295/
+      if (therm.object() < (35.0 - fhDelta)) {
+        lcdbuf[0] = 'L';
+      } else if (therm.object() <= (36.4 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = ' ';
+      } else if (therm.object() <  (37.2 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = 'N';
+      } else if (therm.object() <  (38.3 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = 'T';
+      } else if (therm.object() <  (41.5 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = 'F';
+      } else {
+        lcdbuf[0] = '!';
+      }
+      lcdDisplay[MLX_WARNING_Y][MLX_WARNING_X] = lcdbuf[0];
+  }
 
   }// end if avail  MLX
-  
-} // update display
 
+  altDisplay = !altDisplay;
+  
+  lcd.clear();
+  lcd.setCursor(0, 0); 
+
+  // 1st line continues at 3d line
+  // 2nd line continues at 4th line
+  strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; // create line cstring
+  lcd.print(lcdbuf);                                         // print one line at a time
+  strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';
+  lcd.print(lcdbuf);
+  strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';
+  lcd.print(lcdbuf);
+  strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';
+  lcd.print(lcdbuf);
+
+  if (dbglevel>2) {                                        // if dbg, display on serial port
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+  }
+} // update display
 
 /**************************************************************************************/
 // Wait for serial input
