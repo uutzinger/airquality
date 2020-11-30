@@ -4,40 +4,41 @@
 //
 // An ESP8266 board is the base for gas and air quality related sensors
 //
-// Requirements:
+// Any of the following devices
 //  - LCD 20x4
-//  Any of the following sensors
-//  - SCD30 Senserion CO2
-//  - BME680 Bosch Temp, Humidity, Pressure, VOC
-//  - SGP30 Senserione VOC, eCO2
-//  - CCS811 Airquality eCO2 tVOC
+//  - MQTT server to connect to
 //  - SPS30 Senserion particle
-//  - MLX90614 Melex temp contactless
+//  - SCD30 Senserion CO2
+//  - SGP30 Senserione VOC, eCO2
+//  - BME680 Bosch Temp, Humidity, Pressure, VOC    
+//  - CCS811 Airquality eCO2 tVOC                   
+//  - MLX90614 Melex temp contactless               
 // NOT IMPEMENTED YET
 //  - MAX30105 Maxim pulseox
 // 
-// WiFi and MQTT NOT IMPLEMENTED YET
 // Operation:
-//
-// Code Modifications:
+//  The sensor drivers were modified to have no or almost no delay functions in them.
+//  Fast Mode: read as quickly as possible, some sensors have higher sampling rate than others
+//  Slow Mode: read at about 1 sample per minute, where possible enable sleep mode
+//  Some sensors are recomended to be read at constant rate and dont have low energy mode
 // 
 // Urs Utzinger
-// Summer 2020
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Fall 2020; MQTT and Wifi
+// Summer 2020; First complete release
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool fastMode = true;      // true: Measure as fast as possible, false: operate in energy efficiency mode
-unsigned int dbglevel=2;   // 0 no output, 
+unsigned int dbglevel;     // 0 no output 
                            // 1 boot info and errors 
                            // 2 measurement statements
                            // 3 additional runtime output 
                            // 4 detailed runtime status
+
 /******************************************************************************************************/
 // Sensor
 /******************************************************************************************************/
-
 #include <Wire.h>
-
 enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, GET_BASELINE, IS_SLEEPING, IS_WAKINGUP, WAIT_STABLE, HAS_ERROR};
 // IS_IDLE        the sensor is powered up
 // IS_MEASURING   the sensor is creating data autonomously
@@ -51,15 +52,70 @@ enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, GET_BASELI
 /******************************************************************************************************/
 // WiFi and MQTT
 /******************************************************************************************************/
-// Not completed
-
 #include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-WiFiClient espClient;
-PubSubClient client(espClient);
-unsigned long lastMsg = 0;
-#define MSG_BUFFER_SIZE  (50)
-char msg[MSG_BUFFER_SIZE];
+#include <Ticker.h>
+#include <AsyncMqttClient.h>
+/////// User defined
+#define MQTT_PORT 1883          // default mqtt port
+#define intervalMQTTFast  1000  // 1sec
+#define intervalMQTTSlow 60000  // 60sec
+const bool sendMQTTimmediate = true;  // send MQTT data immediatly, dont send one complete update every second
+///////
+bool wifi_avail = false;        // do we have wifi?
+char ssid[33];                  // 32 bytes max, options are stored in EEPROM 
+char pw[65];                    // 64 chars max options are stored in EEPROM and loaded at startup
+unsigned long intervalMQTT;     // automatically set during setup
+unsigned long lastMQTTPublish;  // last time we set mqtt
+AsyncMqttClient mqttClient;     // the mqtt client
+Ticker mqttReconnectTimer;      // 
+WiFiEventHandler wifiConnectHandler;
+WiFiEventHandler wifiDisconnectHandler;
+Ticker wifiReconnectTimer;
+char payloadStr[1024];           // String allocated for MQTT messages
+
+/******************************************************************************************************/
+// Store system settings
+/******************************************************************************************************/
+#include <EEPROM.h>
+#define EEPROM_SIZE 1024
+//#define saveSettings 604800000            // 7 days
+#define saveSettings 43200000               // 12 hrs
+int eepromAddress = 0;
+unsigned long lastEEPROM;                   // last time we updated EEPROM, should occur every couple days
+struct EEPROMsettings {
+  unsigned long runTime;
+  unsigned int  debuglevel;                 // amount of debug output on serial port
+  byte          baselineSGP30_valid;        // 0xF0 = valid
+  uint16_t      baselineeCO2_SGP30;         //
+  uint16_t      baselinetVOC_SGP30;         //
+  byte          baselineCCS811_valid;       // 0xF0 = valid
+  uint16_t      baselineCCS811;             // baseline is an internal value, not ppm
+  byte          tempOffset_SCD30_valid;     // 0xF0 = valid
+  float         tempOffset_SCD30;           // in C
+  byte          forcedCalibration_SCD30_valid; // 0xF0 = valid
+  float         forcedCalibration_SCD30;    // in ppm
+  byte          tempOffset_MLX_valid;       // 0xF0 = valid
+  float         tempOffset_MLX;             // in C
+  char          ssid1[33];                  // WiFi SSID 32 bytes max
+  char          pw1[65];                    // WiFi passwrod 64 chars max
+  char          ssid2[33];                  // 2nd set of WiFi credentials
+  char          pw2[65];                    //
+  char          ssid3[33];                  // 3rd set of WiFi credentials
+  char          pw3[65];                    //
+  char          mqtt_server[255];           // your mqtt server, requires internet/wifi
+  char          mqtt_username[32];          // username for MQTT server, leave blank if no password
+  char          mqtt_password[32];          // password for MQTT server
+  bool          useLCD;                     // enable/disable sensors even if they are connected
+  bool          useWiFi;                    // no WiFi and MQTT
+  bool          useSCD30;                   //
+  bool          useSPS30;                   //
+  bool          useSGP30;                   //
+  bool          useMAX30;                   //
+  bool          useMLX;                     //
+  bool          useBME680;                  //
+  bool          useCCS811;                  //
+};
+EEPROMsettings mySettings;
 
 /******************************************************************************************************/
 // SCD30; Sensirion CO2 sensor
@@ -84,26 +140,27 @@ char msg[MSG_BUFFER_SIZE];
 //  get CO2, Humidity, Temperature
 // Update barometric pressure every once in a while if third party sensor is avaialble
 // Repeat at Check if Data Available
-
-#include "SparkFun_SCD30_Arduino_Library.h"
+#include <SparkFun_SCD30_Arduino_Library.h>
+/////// User defined
 #define intervalSCD30Fast 2000              // measure every 2sec ... 30minutes, default is 4 
-#define intervalSCD30Slow 60000             //
+#define intervalSCD30Slow 60000             // 
 #define intervalSCD30Busy 500               // how often to read dataReady when sensor boots up
 #define intervalPressureSCD30 60000         // if we have pressure data from other sensor we will provide it to the co2 sensor to improve accuracy in this interval
-#define SCD30_RDY D5                        // pin indicating data ready                                       
-float scd30_ppm;                            //  co2 concentration from sensor
+#define SCD30_RDY D5                        // pin indicating data ready
+////////
+float scd30_ppm;                            // co2 concentration from sensor
 float scd30_temp;                           // temperature from sensor
 float scd30_hum;                            // humidity from sensor
 bool scd30_avail = false;                   // do we have this sensor
-unsigned long intervalSCD30;                // will bet set at initilization to either Fast or Slow
+unsigned long intervalSCD30;                // will bet set at initilization to either values for Fast or Slow opertion
 unsigned long lastSCD30;                    // last time we interacted with sensor
 unsigned long lastPressureSCD30;            // last time we updated pressure
-unsigned long lastSCD30Busy;
-volatile SensorStates stateSCD30 = IS_IDLE;
-SCD30 scd30;
+unsigned long lastSCD30Busy;                // for the statemachine
+volatile SensorStates stateSCD30 = IS_IDLE; // keeping track of sensor state
+SCD30 scd30;                                // the sensor
 
 void ICACHE_RAM_ATTR handleSCD30Interrupt() { // Interrupt service routine when data ready is signaled
-  stateSCD30 = DATA_AVAILABLE;
+  stateSCD30 = DATA_AVAILABLE;                // advance the sensor state
   if (dbglevel > 3) {Serial.println(F("SCD30: interrupt occured"));}
 }
 
@@ -123,7 +180,9 @@ void ICACHE_RAM_ATTR handleSCD30Interrupt() { // Interrupt service routine when 
 // Time to reach stable measurement: 8s for 200 – 3000 #/cm3 particles
 //                                  16s for 100 – 200  #/cm3 particles
 //                                  30s for  50 – 100  #/cm3 particles
-// Sleep mode can be entered when sensor is idle but only with firmware 2.2 and greater
+// Sleep mode can be entered when sensor is idle but only with firmware 2.2 or greater
+// There appears to be no simple firmware updater on Sensior support website, 
+// likely their developer suite would need to be installed
 //
 // Operation Mode:
 //   Init, send start command
@@ -139,43 +198,46 @@ void ICACHE_RAM_ATTR handleSCD30Interrupt() { // Interrupt service routine when 
 //   Wakeup
 //   Start
 //   Goto wait until stable
-//
 // Fast Mode:
 //   Wait until measurement interval exceeded
 //   Goto read data
 //
-
 #include <sps30.h>
+//////// User Defined
 #define intervalSPS30Fast 1000              // minimum is 1 sec
-#define intervalSPS30Slow 60000             // system will sleep for intervalSPS30Slow - timetoStable
-#define SPS30Debug 0                        // define driver debug: 0 - no messages, 1 - request sending and receiving, 2 - request sending and receiving + show protocol errors */
+#define intervalSPS30Slow 60000             // system will sleep for intervalSPS30Slow - timetoStable if sleep function is available
+#define SPS30Debug 0                        // define driver debug: 
+                                            //   0 - no messages, 
+                                            //   1 - request sending and receiving, 
+                                            //   2 - request sending and receiving + show protocol errors */
+////////
 unsigned long intervalSPS30;                // measurement interval
 unsigned long timeSPS30Stable;              // time when readings are stable, is adjusted automatically based on particle counts
 unsigned long lastSPS30;                    // last time we interacted with sensor
 unsigned long wakeSPS30;                    // time when wakeup was issued
 unsigned long wakeTimeSPS30;                // time when sensor is suppoed to be woken up
 unsigned long timeToStableSPS30;            // how long it takes to get stable readings automatically pupulated based on total particles
-char buf[64];
-uint8_t ret, st;
-float totalParticles;                       // we need to adjust measurement time depending on total particle concentration
+char buf[64];                               // messaging buffer
+uint8_t ret, st;                            // return variables
+float totalParticles;                       // we need to adjust measurement time to stable depending on total particle concentration
 uint32_t autoCleanIntervalSPS30;            // current cleaning settings in sensor
 bool sps30_avail = false;                   // do we have this sensor
-volatile SensorStates stateSPS30 = IS_BUSY; 
-struct sps_values valSPS30;                 // readings from sensor, will hold any readings
-SPS30 sps30;
-SPS30_version v;
+volatile SensorStates stateSPS30 = IS_BUSY; // sensor state
+struct sps_values valSPS30;                 // will hold the readings from sensor
+SPS30 sps30;                                // the sensor
+SPS30_version v;                            // version structure of sensor
 
 /******************************************************************************************************/
 // SGP30; Senserion TVOC, eCO2
 /******************************************************************************************************/
-// Sampling rate: minimum 1s
-// There is no recommended approach to put sensor into sleep mode. Once init command is issued, sensor remains in measurement mode.
+// Sampling rate: minimum is 1s
+// There is no recommended approach to put sensor into sleep mode. 
+// Once init command is issued, sensor remains in measurement mode.
 // Current Consumption:
 //   Measurement mode 49mA
 //   Sleep mode 0.002..0.0010 mA
 //
 // Operation Sequence:
-//
 //   Power up, puts the sensor in sleep mode
 //   Init Command (10ms to complete)
 //   Read baseline from EEPROM
@@ -190,14 +252,15 @@ SPS30_version v;
 // Read Baseline (10ms) periodically from sensors dynamic baseline calculations
 // Set Humidity from third party sensor periodically to increase accuracy
 //
-
-#include "SparkFun_SGP30_Arduino_Library.h"
+#include <SparkFun_SGP30_Arduino_Library.h>
+//////// User defined
 #define intervalSGP30Fast 1000              // as low as 10ms, ideal is 1s, gives best accuracy
-#define intervalSGP30Slow 1000              // 
-#define intervalSGP30Baseline 300000        // Obtain baseline every 5 minutes
-#define intervalSGP30Humidity  60000        // Update once a minute
+#define intervalSGP30Slow 1000              // recommended interval is 1s, no slow version
+#define intervalSGP30Baseline 300000        // obtain baseline every 5 minutes
+#define intervalSGP30Humidity  60000        // update humidity once a minute if available from other sensor
 #define warmupSGP30_withbaseline 3600       // 60min 
 #define warmupSGP30_withoutbaseline 43200   // 12hrs 
+////////
 bool sgp30_avail  = false;
 bool baslineSGP30_valid = false;
 unsigned long lastSGP30;                    // last time we obtained data
@@ -235,37 +298,42 @@ SGP30 sgp30;
 //    Sensor data is read
 // Status is sleeping
 //   Waiting until data interrupt occurs
-
-#include "SparkFunCCS811.h"
+#include <SparkFunCCS811.h>
+//////// User defined
 #define ccs811ModeFast 1                    // 4=0.25s, 3=60s, 2=10sec, 1=1sec.
 #define ccs811ModeSlow 3                    // 
-#define baselineCCS811fast 300000           // 5 mins
-#define baselineCCS811slow 3600000          // 1 hour
-#define updateCCS811Humitityfast 60000      // 1 min
-#define updateCCS811Humitityslow 300000     // 5 mins
-//#define stablebaseCCS811 86400000           // sensor needs 24hr until baseline stable
-#define stablebaseCCS811 43200000           // sensor needs 12hr until baseline stable
-#define burninCCS811    172800000           // sensor needs 48hr burin
+#define baselineCCS811Fast       300000     // 5 mins
+#define baselineCCS811Slow      3600000     // 1 hour
+#define updateCCS811HumitityFast  60000     // 1 min
+#define updateCCS811HumititySlow 300000     // 5 mins
+//#define stablebaseCCS811      86400000     // sensor needs 24hr until baseline stable
+#define stablebaseCCS811       43200000     // sensor needs 12hr until baseline stable
+#define burninCCS811          172800000     // sensor needs 48hr burin
 #define CCS811_INT D7                       // active low interrupt, high to low at end of measurement
 #define CCS811_WAKE D6                      // active low wake to wake up sensor
-bool ccs811_avail = false;
+////////
+bool ccs811_avail = false;                  // do we have this sensor?
 unsigned long lastCCS811;                   // last time we interacted with sensor
 unsigned long lastCCS811Baseline;           // last time we obtained baseline
 unsigned long lastCCS811Humidity;           // last time we update Humidity on sensor
-unsigned long lastCCS811Interrupt;          // last time we update Humidity on sensor
+volatile unsigned long lastCCS811Interrupt;          // last time we update Humidity on sensor
 unsigned long warmupCCS811;                 // sensor needs 20min conditioning 
-unsigned long intervalCCS811Baseline;       // Every 10 minutes
-unsigned long intervalCCS811Humidity;       // Every 1 minutes
-uint8_t ccs811Mode;                                      
-volatile SensorStates stateCCS811 = IS_IDLE; 
-CCS811 ccs811(0X5B);                        // address pin will need to be set to high
+unsigned long intervalCCS811Baseline;       // get the baseline every few minutes
+unsigned long intervalCCS811Humidity;       // update the humidity every few minutes
+uint8_t ccs811Mode;                         // oiperation mode, see above 
+volatile SensorStates stateCCS811 = IS_IDLE; // sensor state
+CCS811 ccs811(0X5B);                        // the sensor, if alternative address is used, the address pin will need to be set to high
 
+// NOT FIXED YET
+// IT APPEARS THAT IRS IS NOT WORKING WELL WITH CCS811
+// One will need to poll the pin in main loop, check sparkfun example
+////////////////////////////////////////////////////////
 void ICACHE_RAM_ATTR handleCCS811Interrupt() { // interrupt service routine to handle data ready signal
     if (fastMode == true) { 
-      stateCCS811 = DATA_AVAILABLE;
+      stateCCS811 = DATA_AVAILABLE;          // update the sensor state
     } else { 
-      digitalWrite(CCS811_WAKE, LOW);       // set CCS811 to wake up 
-      stateCCS811 = IS_WAKINGUP;
+      digitalWrite(CCS811_WAKE, LOW);        // set CCS811 to wake up 
+      stateCCS811 = IS_WAKINGUP;             // update the sensor state
       lastCCS811Interrupt = millis();
     }
     if (dbglevel > 3) {Serial.println(F("CCS811: interrupt occured")); }
@@ -278,49 +346,69 @@ void ICACHE_RAM_ATTR handleCCS811Interrupt() { // interrupt service routine to h
 // Low Power 0.33 Hz         3s
 // Ultra Low Power 0.0033 Hz 300s
 #include <Adafruit_Sensor.h>
-#include "Adafruit_BME680.h"
-#define intervalBME680_Fast      1000                  // 1sec
-#define intervalBME680_Slow     60000                  // 60sec
-#define bme680_TempOversample     BME680_OS_8X         // 1,2,4,8,16x
-#define bme680_HumOversample      BME680_OS_2X         // 1,2,4,8,16x
-#define bme680_PressureOversample BME680_OS_4X         // 1,2,4,8,16x
-#define bme680_FilterSize         BME680_FILTER_SIZE_3 // 0,1,3,7,15,31,63,127 
-#define bme680_HeaterTemp         320                  // C
-#define bme680_HeaterDuration     150                  // ms
-bool bme680_avail = false;
-float          bme680_ah = 0;                          // [gr/m^3]
-unsigned long  intervalBME680;
-unsigned long  lastBME680;                             // last time we interacted with sensor
-unsigned long  endTimeBME680;                          // when data will be available
-volatile SensorStates stateBME680 = IS_IDLE; 
-Adafruit_BME680 bme680;
+#include <Adafruit_BME680.h>
+//////// User defined
+#define intervalBME680Fast        1000                     // 1sec
+#define intervalBME680Slow       60000                     // 60sec
+// The (*) marked settings are from example programs, 
+// highest accuracy is when oversampling is largest and IIR filter longest
+// IIR filter is for temp and pressure only
+// Fast measurements; assuming you want fast conversion and some filtering of the data 
+#define bme680_TempOversampleFast     BME680_OS_2X         // 1,2,4,8*,16x
+#define bme680_HumOversampleFast      BME680_OS_2X         // 1,2*,4,8,16x
+#define bme680_PressureOversampleFast BME680_OS_2X         // 1,2,4*,8,16x
+#define bme680_FilterSizeFast         BME680_FILTER_SIZE_3 // 0,1,3*,7,15,31,63,127 
+// Slow measurements; assuming you want maximum measurement accuracy and minimum IIR filter as data arrives slowly 
+#define bme680_TempOversampleSlow     BME680_OS_16X        // 1,2,4,8*,16x
+#define bme680_HumOversampleSlow      BME680_OS_16X        // 1,2*,4,8,16x
+#define bme680_PressureOversampleSlow BME680_OS_16X        // 1,2,4*,8,16x
+#define bme680_FilterSizeSlow         BME680_FILTER_SIZE_1 // 0,1,3*,7,15,31,63,127 
+// From example programs, 
+// datasheet gives many parameters and likely requires experimenting for optimal settings
+// AirQuality Index is Bosch proprietary software and not used here. We only measure sensor resistance.
+#define bme680_HeaterTemp             320                  // C
+#define bme680_HeaterDuration         150                  // ms, time it takes for stable reading
+////////
+bool bme680_avail = false;                                 // do we hace the sensor?
+float          bme680_ah = 0;                              // [gr/m^3]
+unsigned long  intervalBME680;                             // filled automatically during setup
+unsigned long  lastBME680;                                 // last time we interacted with sensor
+unsigned long  endTimeBME680;                              // when data will be available
+volatile SensorStates stateBME680 = IS_IDLE;               // sensor state
+Adafruit_BME680 bme680;                                    // the sensor
 
 /******************************************************************************************************/
 // MLX contact less tempreture sensor
 /******************************************************************************************************/
+// The MLX sensor has a sleep mode.
+// It is possible that traffic on the I2C bus by other sensors wakes it up though.
 #include <SparkFunMLX90614.h>
+/////// User defined
 #define fhDelta 0.5                         // difference from forehad to oral temperature
-#define timeToStableMLX 250                 // time until stable internal readings
-bool therm_avail    = false;
+#define timeToStableMLX 250                 // time until stable internal readings in ms
 const float emissivity = 0.98;              // emissivity of skin
-unsigned long intervalMLX = 1000;           // readout intervall 250ms minimum
-unsigned long lastMLX;                      // last time we interacted with sensor
-unsigned long sleepTimeMLX;
+unsigned long intervalMLX = 1000;           // readout intervall in ms, 250ms minimum
 float mlxOffset = 1.4;                      // offset to adjust for sensor inaccuracy
-volatile SensorStates stateMLX = IS_IDLE; 
-IRTherm therm;
+///////
+bool therm_avail    = false;                // do we hav e the sensor?
+unsigned long lastMLX;                      // last time we interacted with sensor
+unsigned long sleepTimeMLX;                 // computed internally
+volatile SensorStates stateMLX = IS_IDLE;   // sensor state
+IRTherm therm;                              // the sensor
 
 /******************************************************************************************************/
 // MAX30105; pulseox
 /******************************************************************************************************/
 // Not implemented yet
 bool max_avail    = false;
+//// User defined
 const long intervalMAX30 = 10;              // readout intervall
+////
 unsigned long lastMAX;                      // last time we interacted with sensor
 volatile SensorStates stateMAX = IS_IDLE; 
 
 /******************************************************************************************************/
-// Other
+// Time Keeping
 /******************************************************************************************************/
 //
 int lastPinStat;
@@ -331,45 +419,17 @@ unsigned long intervalRuntime;              // how often to we update the uptime
 unsigned long tmpTime;                      // to measures execution times
 
 /******************************************************************************************************/
-// Store Sensor Baseline Data
-/******************************************************************************************************/
-#include <EEPROM.h>
-#define EEPROM_SIZE 1024
-//#define saveSettings 604800000              // 7 days
-#define saveSettings 43200000               // 12 hrs
-int eeprom_address = 0;
-
-unsigned long lastEEPROM;                   // last time we updated EEPROM, should occur every couple days
-struct EEPROMsettings {
-  unsigned long runTime;
-  unsigned int  debuglevel;                 // amount of debug output on serial port
-  byte          baselineSGP30_valid;        // 0xF0 is the number for valid
-  uint16_t      baselineeCO2_SGP30;         //
-  uint16_t      baselinetVOC_SGP30;         //
-  byte          baselineCCS811_valid;       //
-  uint16_t      baselineCCS811;             // baseline is an internal value, not ppm
-  byte          tempOffset_SCD30_valid;     //
-  float         tempOffset_SCD30;           // in C
-  byte          forcedCalibration_SCD30_valid;
-  float         forcedCalibration_SCD30;    // in ppm
-  byte          tempOffset_MLX_valid;       //
-  float         tempOffset_MLX;             // in C
-  char          ssid1[33];                  // 32 bytes max
-  char          pw1[65];                    // 64 chars max
-  char          ssid2[33];
-  char          pw2[65];
-  char          ssid3[33];
-  char          pw3[65];
-  char          mqtt_server[255];           // your mqtt server, requires internet/wifi
-};
-
-EEPROMsettings mySettings;
-
-/******************************************************************************************************/
 // LCD Display
 /******************************************************************************************************/
 // Power Consumption: ... have not yet measured it
-// 
+// LCD setup uses long blocking delays during initialization
+// clear 2ms
+// setcursor no delay
+// print ??
+// begin calls init
+// init >1000ms
+// backlight no delay
+
 #include <LiquidCrystal_I2C.h>
 unsigned long intervalLCD;                  // LCD refresh rate
 bool lcd_avail = false;                     // is LCD attached?
@@ -378,78 +438,8 @@ LiquidCrystal_I2C lcd(0x27,20,4);           // set the LCD address to 0x27 for a
 char lcdDisplay[4][20];                     // 4 lines of 20 characters
 bool altDisplay = false;                    // Alternate between sensors, not enough space on display
 
-// For display layout see external file
-//
-
-// Particle (for air quality display)
-#define PM1_X              0
-#define PM1_Y              0
-#define PM2_X              0
-#define PM2_Y              1
-#define PM4_X              0
-#define PM4_Y              2
-#define PM10_X             0
-#define PM10_Y             3
-
-#define PM2_WARNING_X      3
-#define PM2_WARNING_Y      1
-#define PM10_WARNING_X     3
-#define PM10_WARNING_Y     3
-
-//CO2 & Pressure (for air quality display)
-#define CO2_X              4
-#define CO2_Y              0
-#define eCO2_X             4
-#define eCO2_Y             1
-#define eeCO2_X            4
-#define eeCO2_Y            2
-#define PRESSURE_X         4
-#define PRESSURE_Y         3
-
-#define CO2_WARNING_X      8
-#define CO2_WARNING_Y      0
-#define eCO2_WARNING_X     8
-#define eCO2_WARNING_Y     1
-#define eeCO2_WARNING_X    8
-#define eeCO2_WARNING_Y    2
-#define PRESSURE_WARNING_X 8
-#define PRESSURE_WARNING_Y 3
-
-// Humidity and IAQ  (for air quality display)
-#define HUM1_X             9
-#define HUM1_Y             0
-#define HUM2_X             9
-#define HUM2_Y             1
-#define HUM3_X             9
-#define HUM3_Y             2
-#
-#define IAQ_X              9
-#define IAQ_Y              3
-
-#define IAQ_WARNING_X     14
-#define IAQ_WARNING_Y      3
-
-// Temperatures and VOCs (for air quality display)
-#define TEMP1_X           14
-#define TEMP1_Y            0
-#define TEMP2_X           14
-#define TEMP2_Y            1
-#define TEMP3_X           14
-#define TEMP3_Y            2
-#define MLX_WARNING_X     14
-#define MLX_WARNING_Y      0
-#
-#define TVOC_X            15
-#define TVOC_Y             3
-#define TTVOC_X           15
-#define TTVOC_Y            2
-
-#define TEMP3_WARNING_X   19
-#define TEMP3_WARNING_Y    2
-#define TVOC_WARNING_X    19
-#define TVOC_WARNING_Y     3
-#define TTVOC_WARNING_X   19
-#define TTVOC_WARNING_Y    2
+// For display layout see excel file in project folder
+#include "LCDlayout.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -481,11 +471,24 @@ void setup() {
   /******************************************************************************************************/  
   tmpTime = millis();
   EEPROM.begin(EEPROM_SIZE);
-  EEPROM.get(0,mySettings);
+  EEPROM.get(eepromAddress,mySettings);
   Serial.print(F("EEPROM read in: "));
   Serial.print((millis()-tmpTime));
   Serial.println(F("ms"));
 
+  /******************************************************************************************************/
+  // Debug EEPROM override; force skip systems
+  /******************************************************************************************************/  
+  //mySettings.useLCD = true;    // enable/disable sensors even if they are connected
+  //mySettings.useWiFi = true;   // 
+  //mySettings.useSCD30 = true;  //
+  //mySettings.useSPS30 = true;  //
+  //mySettings.useSGP30 = true;  //
+  //mySettings.useMAX30 = true;  //
+  //mySettings.useMLX = true;    //
+  //mySettings.useBME680 = true; //
+  //mySettings.useCCS811 = true; //
+  
   /******************************************************************************************************/
   // Set Debug Output Level
   /******************************************************************************************************/  
@@ -519,23 +522,25 @@ void setup() {
   }
   
   /******************************************************************************************************/
-  // Intervals
+  // Time Intervals for Loop, Display and MQTT publishing, keeping track of runtime
   /******************************************************************************************************/
 
   if (fastMode == true) {
     intervalLoop    =    100;  // 0.1 sec, Main Loop is run 10 times per second
-    intervalLCD     =   2000;  // 2 sec, LCD display is updated every 2 seconds
+    intervalLCD     =  10000;  // LCD display is updated every 10 seconds
+    intervalMQTT    =   intervalMQTTFast;
     intervalRuntime =  60000;  // 1 minute, Uptime is updted every minute
   } else{
     intervalLoop    =   1000;  // 1 sec
     intervalLCD     =  60000;  // 1 minute
+    intervalMQTT    =  intervalMQTTSlow;  // 1 minute
     intervalRuntime = 600000;  // 10 minutes
   }
 
   /******************************************************************************************************/
   // Initialize LCD Screen
   /******************************************************************************************************/
-  if (lcd_avail == true) {
+  if ((lcd_avail && mySettings.useLCD) == true) {
     lcd.begin();
     lcd.backlight();
     if (dbglevel > 0) { Serial.println(F("LCD initialized")); }
@@ -544,7 +549,7 @@ void setup() {
   /******************************************************************************************************/
   // Initialize SCD30 CO2 sensor 
   /******************************************************************************************************/
-  if (scd30_avail == true) {
+  if (scd30_avail && mySettings.useSCD30) {
     if (fastMode) { intervalSCD30 = intervalSCD30Fast; } 
     else          { intervalSCD30 = intervalSCD30Slow; }
     if (dbglevel > 1) {
@@ -574,7 +579,7 @@ void setup() {
   /******************************************************************************************************/
   // SGP30 Initialize
   /******************************************************************************************************/
-  if (sgp30_avail == true){
+  if (sgp30_avail && mySettings.useSGP30){
     if (sgp30.begin() == false) {
       if (dbglevel > 0) { Serial.println(F("No SGP30 Detected. Check connections")); }
       sgp30_avail = false;
@@ -598,7 +603,7 @@ void setup() {
   /******************************************************************************************************/
   // CCS811 Initialize 
   /******************************************************************************************************/
-  if (ccs811_avail == true){
+  if (ccs811_avail && mySettings.useCCS811){
 
     CCS811Core::CCS811_Status_e css811Ret = ccs811.beginWithStatus();
     if (dbglevel > 1) {
@@ -635,11 +640,11 @@ void setup() {
     }
 
     if (fastMode == true) {
-      intervalCCS811Baseline = baselineCCS811fast; 
-      intervalCCS811Humidity = updateCCS811Humitityfast;
+      intervalCCS811Baseline = baselineCCS811Fast; 
+      intervalCCS811Humidity = updateCCS811HumitityFast;
     } else {
-      intervalCCS811Baseline = baselineCCS811slow; 
-      intervalCCS811Humidity = updateCCS811Humitityslow; 
+      intervalCCS811Baseline = baselineCCS811Slow; 
+      intervalCCS811Humidity = updateCCS811HumititySlow; 
       if (dbglevel > 1) { Serial.println(F("CCS811: it will take about 5 minutes until readings are non-zero.")); }
     }
     
@@ -654,7 +659,7 @@ void setup() {
   /******************************************************************************************************/
   // SPS30 Initialize Particle Sensor
   /******************************************************************************************************/
-  if (sps30_avail == true) {
+  if (sps30_avail && mySettings.useSPS30) {
     
     sps30.EnableDebugging(SPS30Debug);
 
@@ -744,19 +749,27 @@ void setup() {
   /******************************************************************************************************/
   // Initialize BME680
   /******************************************************************************************************/
-  if (bme680_avail == true){
+  if (bme680_avail && mySettings.useBME680) {
     if (bme680.begin() == true) { 
+      stateBME680 = IS_IDLE;      
       if (dbglevel > 1) { Serial.print(F("BME680: Setting oversampling for sensors\n")); }
-      bme680.setTemperatureOversampling(bme680_TempOversample);
-      bme680.setHumidityOversampling(bme680_HumOversample); 
-      bme680.setPressureOversampling(bme680_PressureOversample); 
-      if (dbglevel > 1) { Serial.print(F("BME680: Setting IIR filter to a value of 3 samples\n")); }
-      bme680.setIIRFilterSize(bme680_FilterSize); 
+      if (fastMode == true) { 
+        intervalBME680 = intervalBME680Fast; 
+        bme680.setTemperatureOversampling(bme680_TempOversampleFast);
+        bme680.setHumidityOversampling(bme680_HumOversampleFast); 
+        bme680.setPressureOversampling(bme680_PressureOversampleFast); 
+        if (dbglevel > 1) { Serial.print(F("BME680: Setting IIR filter for fast measurements\n")); }
+        bme680.setIIRFilterSize(bme680_FilterSizeFast); 
+      } else { 
+        intervalBME680 = intervalBME680Slow; 
+        bme680.setTemperatureOversampling(bme680_TempOversampleSlow);
+        bme680.setHumidityOversampling(bme680_HumOversampleSlow); 
+        bme680.setPressureOversampling(bme680_PressureOversampleSlow); 
+        if (dbglevel > 1) { Serial.print(F("BME680: Setting IIR filter for slow measurements\n")); }
+        bme680.setIIRFilterSize(bme680_FilterSizeSlow); 
+      }      
       if (dbglevel > 1) { Serial.print(F("BME680: Setting gas measurement to 320\xC2\xB0\x43 for 150ms\n")); }
       bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
-      stateBME680 = IS_IDLE;      
-      if (fastMode == true) { intervalBME680 = intervalBME680_Fast; }
-      else                  { intervalBME680 = intervalBME680_Slow; }
       if (dbglevel > 0) { Serial.println(F("BME680: Initialized")); }
     } else {
       if (dbglevel > 0) { Serial.println(F("BME680: Sensor not detected. Please check wiring.")); }
@@ -768,7 +781,7 @@ void setup() {
   /******************************************************************************************************/
   // Initialize MLX Sensor
   /******************************************************************************************************/
-  if (therm_avail == true) {
+  if (therm_avail && mySettings.useMLX) {
     if (therm.begin() == 1) { 
       therm.setUnit(TEMP_C); // Set the library's units to Centigrade
       therm.setEmissivity(emissivity);
@@ -796,7 +809,7 @@ void setup() {
   /******************************************************************************************************/
   // Initialize MAX Pulse OX Sensor
   /******************************************************************************************************/
-  if (max_avail == true) {
+  if ((max_avail && mySettings.useMAX30) == true) {
     //TO DO
   }
 
@@ -826,13 +839,49 @@ void setup() {
   // Populate LCD screen
   /******************************************************************************************************/
 
-  if (lcd_avail == true) {
+  if ((lcd_avail && mySettings.useLCD) == true) {
     tmpTime = millis();
     updateLCD();
     lastLCD = currentTime;
     if (dbglevel > 0) { Serial.print(F("LCD updated in ")); Serial.print((millis()-tmpTime));  Serial.println(F("ms")); }
   }
+
+  /******************************************************************************************************/
+  // Connect to WiFi
+  /******************************************************************************************************/
+  if (WiFi.status()== WL_NO_SHIELD) {
+    wifi_avail = false;
+    if (dbglevel > 0) { Serial.println(F("WiFi is not available.")); }
+  } else {
+    wifi_avail = true;
+    if (dbglevel > 0) { Serial.println(F("WiFi is available.")); }
+  }
   
+  if (wifi_avail) {
+    if (mySettings.useWiFi) {
+      wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
+      wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
+      mqttClient.onConnect(onMqttConnect);
+      mqttClient.onDisconnect(onMqttDisconnect);
+      mqttClient.onSubscribe(onMqttSubscribe);
+      mqttClient.onUnsubscribe(onMqttUnsubscribe);
+      mqttClient.onMessage(onMqttMessage);
+      mqttClient.onPublish(onMqttPublish);
+      mqttClient.setServer(mySettings.mqtt_server, MQTT_PORT);
+      if (strlen(mySettings.mqtt_username) > 0) { 
+        mqttClient.setCredentials(mySettings.mqtt_username, mySettings.mqtt_password);        
+      }
+    } else {
+      WiFi.mode(WIFI_OFF);
+    }
+  }
+
+  if (wifi_avail && mySettings.useWiFi) { connectToWifi(); }
+  
+  /******************************************************************************************************/
+  // Initialized
+  /******************************************************************************************************/
+
   if (dbglevel > 0) { Serial.println(F("System initialized")); }
   
 } // end setup
@@ -843,26 +892,23 @@ void loop() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
   currentTime = millis();
-
+  
   /******************************************************************************************************/
   // LCD update display
   /******************************************************************************************************/
-  if (lcd_avail == true) {
+  if ((lcd_avail && mySettings.useLCD) == true) {
     if ((currentTime - lastLCD) >= intervalLCD) {
       tmpTime = millis();
       updateLCD();
       lastLCD = currentTime;
-      if (dbglevel > 0) {
-        Serial.print(F("LCD updated in "));
-        Serial.print((millis()-tmpTime));  
-        Serial.println(F("ms"));
-      }
+      if (dbglevel > 0) { Serial.print(F("LCD updated in ")); Serial.print((millis()-tmpTime));  Serial.println(F("ms")); }
     }
   }
 
   /******************************************************************************************************/
   // Serial input handling
   /******************************************************************************************************/
+
   inputHandle();
 
   /******************************************************************************************************/
@@ -884,8 +930,8 @@ void loop() {
   /******************************************************************************************************/
   // SCD30 Sensirion CO2 sensor
   /******************************************************************************************************/
-
-  if (scd30_avail) {
+  
+  if (scd30_avail && mySettings.useSCD30) {
     switch(stateSCD30) {
       case IS_MEASURING : { // used without RDY pin interrupt
         if ((currentTime - lastSCD30) >= intervalSCD30) {
@@ -895,6 +941,16 @@ void loop() {
             scd30_hum  = scd30.getHumidity();
             lastSCD30  = currentTime;
             if (dbglevel > 1) { Serial.println(F("SCD30: data read")); }
+            if (sendMQTTimmediate) {
+              if (wifi_avail && mySettings.useWiFi) {
+                sprintf(payloadStr, "%4d", int(scd30_ppm)); 
+                mqttClient.publish("Sensi/data/scd30_CO2", 0, true, payloadStr);
+                sprintf(payloadStr, "%4.1f%%", scd30_hum); 
+                mqttClient.publish("Sensi/data/scd30_rH", 0, true, payloadStr);
+                sprintf(payloadStr, "%+5.1fC",scd30_temp);
+                mqttClient.publish("Sensi/data/scd30_T", 0, true, payloadStr);
+              }
+            }
           } else {
             if (dbglevel > 1) { Serial.println(F("SCD30 data not yet available")); }
           }
@@ -916,12 +972,22 @@ void loop() {
         scd30_temp = scd30.getTemperature();
         scd30_hum  = scd30.getHumidity();
         lastSCD30  = currentTime;
+        if (sendMQTTimmediate) {
+          if (wifi_avail && mySettings.useWiFi) {
+            sprintf(payloadStr, "%4d", int(scd30_ppm)); 
+            mqttClient.publish("Sensi/data/scd30_CO2", 0, true, payloadStr);
+            sprintf(payloadStr, "%4.1f%%", scd30_hum); 
+            mqttClient.publish("Sensi/data/scd30_rH", 0, true, payloadStr);
+            sprintf(payloadStr, "%+5.1fC",scd30_temp);
+            mqttClient.publish("Sensi/data/scd30_T", 0, true, payloadStr);
+          }
+        }
         stateSCD30 = IS_IDLE; 
         break;
       }
       
       case IS_IDLE : { // used when RDY pin is used
-        if (bme680_avail) { // update pressure settings
+        if (bme680_avail && mySettings.useBME680) { // update pressure settings
           if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
             scd30.setAmbientPressure(uint16_t(bme680.pressure/100.0)); 
             // update with value from pressure sensor, needs to be mbar
@@ -939,16 +1005,15 @@ void loop() {
     } // switch state
   } // if available
 
-
   /******************************************************************************************************/
   // SGP30 Sensirion eCO2 sensor
   /******************************************************************************************************/
 
-  if (sgp30_avail) {
+  if (sgp30_avail && mySettings.useSGP30) {
     switch(stateSGP30) {
       case IS_MEASURING : {
         if ((currentTime - lastSGP30Humidity) > intervalSGP30Humidity) {
-          if (bme680_avail) {
+          if (bme680_avail && mySettings.useBME680) {
             // Humidity correction, 8.8 bit number
             // 0x0F80 = 15.5 g/m^3
             // 0x0001 = 1/256 g/m^3
@@ -982,10 +1047,18 @@ void loop() {
           lastSGP30 = currentTime;
           stateSGP30 = IS_MEASURING;
           if (dbglevel > 1) { Serial.println(F("SGP30 eCO2 & tVOC measured")); }
+          if (sendMQTTimmediate) {
+            if (wifi_avail && mySettings.useWiFi) {
+              sprintf(payloadStr, "%4d", sgp30.CO2);
+              mqttClient.publish("Sensi/data/sgp30_eCO2", 0, true, payloadStr);
+              sprintf(payloadStr, "%4d", sgp30.TVOC);
+              mqttClient.publish("Sensi/data/sgp30_tVOC", 0, true, payloadStr);
+            }
+          }
         }
         break;
       }
-      
+     
       case GET_BASELINE : {
         if ((currentTime - lastSGP30Baseline) > 10) {
           if (sgp30.finishGetBaseline() == SUCCESS) {
@@ -1003,7 +1076,7 @@ void loop() {
   // CCS811
   /******************************************************************************************************/
 
-  if (ccs811_avail) {
+  if (ccs811_avail && mySettings.useCCS811) {
     switch(stateCCS811) {
 
       case IS_WAKINGUP : { // ISR will activate this
@@ -1018,6 +1091,15 @@ void loop() {
         tmpTime = millis();
         ccs811.readAlgorithmResults(); //Calling this function updates the global tVOC and CO2 variables
         if (dbglevel > 1) { Serial.print(F("CCS811: readAlgorithmResults completed in ")); Serial.print((millis()-tmpTime)); Serial.println(F("ms")); }
+        if (sendMQTTimmediate) {
+          if (wifi_avail && mySettings.useWiFi) {
+            sprintf(payloadStr, "%4d", ccs811.getCO2());
+            mqttClient.publish("Sensi/data/ccs811_eCO2", 0, true, payloadStr);
+            sprintf(payloadStr, "%4d", ccs811.getTVOC());
+            mqttClient.publish("Sensi/data/ccs811_tVOC", 0, true, payloadStr);
+          }
+        }
+
         uint8_t error = ccs811.getErrorRegister();
         if (dbglevel > 0) {
           if (error == 0xFF) { Serial.println(F("CCS811: failed to read ERROR_ID register")); }
@@ -1040,7 +1122,7 @@ void loop() {
         
         if ((currentTime - lastCCS811Humidity) > intervalCCS811Humidity ){
           lastCCS811Humidity = currentTime;
-          if (bme680_avail == true) {
+          if (bme680_avail && mySettings.useBME680) {
             tmpTime = millis();
             ccs811.setEnvironmentalData(bme680.humidity, bme680.temperature);
             if (dbglevel > 1) { Serial.print(F("CCS811: humidity and temperature compensation updated in "));  Serial.print((millis()-tmpTime)); Serial.println(F("ms")); }
@@ -1078,7 +1160,7 @@ void loop() {
   // SPS30 Sensirion Particle Sensor State Machine
   /******************************************************************************************************/
 
-  if (sps30_avail) {
+  if (sps30_avail && mySettings.useSPS30) {
     
     switch(stateSPS30) { 
       
@@ -1109,7 +1191,7 @@ void loop() {
           if (dbglevel > 0) {  Serial.println(F("SPS30 ERROR: Data length during reading values")); }
         } else if (ret != ERR_OK) {
           if (dbglevel > 0) { Serial.print(F("SPS30 ERROR: reading values: ")); Serial.println(ret); }
-        }
+        }        
         lastSPS30 = currentTime; 
         // adjust time to get stable readings, it takes longer  with lower concentration to get a precise reading
         totalParticles = (valSPS30.NumPM0 + valSPS30.NumPM1 + valSPS30.NumPM2 + valSPS30.NumPM4 + valSPS30.NumPM10);
@@ -1162,6 +1244,28 @@ void loop() {
           } else if (ret != ERR_OK) {
             if (dbglevel > 0) { Serial.print(F("SPS ERROR: reading values: ")); Serial.println(ret); }
           }
+          if (sendMQTTimmediate) {
+            if (wifi_avail && mySettings.useWiFi) {
+              sprintf(payloadStr, "%3.0f",valSPS30.MassPM1);
+              mqttClient.publish("Sensi/data/sps30_PM1", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.MassPM2);
+              mqttClient.publish("Sensi/data/sps30_PM2", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.MassPM4);
+              mqttClient.publish("Sensi/data/sps30_PM4", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.MassPM10);
+              mqttClient.publish("Sensi/data/sps30_PM10", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.NumPM0);
+              mqttClient.publish("Sensi/data/sps30_nPM0", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.NumPM2);
+              mqttClient.publish("Sensi/data/sps30_nPM2", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.NumPM4);
+              mqttClient.publish("Sensi/data/sps30_nPM4", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.NumPM10);
+              mqttClient.publish("Sensi/data/sps30_nPM10", 0, true, payloadStr);
+              sprintf(payloadStr, "%3.0f",valSPS30.PartSize);
+              mqttClient.publish("Sensi/data/sps30_PartSize", 0, true, payloadStr);
+            }
+          }          
           if (dbglevel > 3) { Serial.println(F("SPS30: going to idle")); }
           lastSPS30 = currentTime; 
           stateSPS30 = IS_IDLE;          
@@ -1249,12 +1353,11 @@ void loop() {
     } // end cases
   } // end if available sps30
 
-
   /******************************************************************************************************/
   // BME680, Hum, Press, Temp, Gasresistance
   /******************************************************************************************************/
 
-  if (bme680_avail == true) {
+  if (bme680_avail && mySettings.useBME680) {
     switch(stateBME680) { 
       
       case IS_IDLE : {
@@ -1310,8 +1413,22 @@ void loop() {
           // Tdp = c g_m / (b - g_m)
           // g_m = ln(RH/100) + (b-T/d)*(T/(c+T)))
           // NEED TO IMPLEMENT IF DEWPOINT is WANTED
-          stateBME680 = IS_IDLE;
           if (dbglevel > 1) { Serial.println(F("BME680; readout completed")); }
+          if (sendMQTTimmediate) {
+            if (wifi_avail && mySettings.useWiFi) {
+              sprintf(payloadStr, "%4d",(int)(bme680.pressure/100.0));
+              mqttClient.publish("Sensi/data/bme680_p", 0, true, payloadStr);
+              sprintf(payloadStr, "%4.1f%%",bme680.humidity);
+              mqttClient.publish("Sensi/data/bme680_rH", 0, true, payloadStr);
+              sprintf(payloadStr, "%4.1fg",bme680_ah);
+              mqttClient.publish("Sensi/data/bme680_aH", 0, true, payloadStr);
+              sprintf(payloadStr, "%+5.1fC",bme680.temperature);
+              mqttClient.publish("Sensi/data/bme680_T", 0, true, payloadStr);
+              sprintf(payloadStr, "%5.1f",bme680.gas_resistance);
+              mqttClient.publish("Sensi/data/bme680_aq", 0, true, payloadStr);
+            }
+          }          
+          stateBME680 = IS_IDLE;
         }
         break;
       }
@@ -1328,13 +1445,21 @@ void loop() {
   // MLX Contactless Thermal Sensor
   /******************************************************************************************************/
 
-  if (therm_avail) {
+  if (therm_avail && mySettings.useMLX) {
     switch(stateMLX) {
       case IS_MEASURING : {
         if ((currentTime - lastMLX) > intervalMLX) {
           if (therm.read()) {
             if (dbglevel > 1) { Serial.println(F("MLX: temperature measured")); }
             lastMLX = currentTime;
+            if (sendMQTTimmediate) {
+              if (wifi_avail && mySettings.useWiFi) {
+                sprintf(payloadStr, "%+5.1fC",(therm.object()+mlxOffset));
+                mqttClient.publish("Sensi/data/MLX_To", 0, true, payloadStr);
+                sprintf(payloadStr, "%+5.1fC",therm.ambient());
+                mqttClient.publish("Sensi/data/MLX_Ta", 0, true, payloadStr);
+              }
+            }            
             if (fastMode == false) {
               therm.sleep();
               if (dbglevel > 3) { Serial.println(F("MLX: sent to sleep")); }
@@ -1348,7 +1473,7 @@ void loop() {
       case IS_SLEEPING : {
         if ((currentTime - lastMLX) > sleepTimeMLX) {
           therm.wake(); // takes 250ms to wake up
-          if (dbglevel > 3) { Serial.println(F("MLX: initeated wake up")); }
+          if (dbglevel > 3) { Serial.println(F("MLX: initiated wake up")); }
           stateMLX = IS_MEASURING;
         }
         break;
@@ -1359,13 +1484,32 @@ void loop() {
   /******************************************************************************************************/
   // MAX Pulse OX Sensor
   /******************************************************************************************************/
-  if (max_avail == true) {
+  if ((max_avail && mySettings.useMAX30) == true) {
     //TO DO
   }
 
   /******************************************************************************************************/
+  // MQTT
+  /******************************************************************************************************/
+  
+
+  if (wifi_avail && mySettings.useWiFi) {
+    if (currentTime - lastMQTTPublish > intervalMQTT) {
+      if (sendMQTTimmediate == false) {
+        // creating payload String
+        updateMQTTpayload(payloadStr);
+        if (dbglevel > 0) { Serial.println(F("MQTT: publishing sensor data"));}
+        if (dbglevel > 3) { Serial.println(payloadStr);}      
+        mqttClient.publish("Sensi/data/all", 0, true, payloadStr);
+      }
+      lastMQTTPublish = currentTime;
+    } 
+  }
+  
+  /******************************************************************************************************/
   // Time Management
   /******************************************************************************************************/
+    
   // Update runtime every minute ***********************************************
   if ((currentTime - lastTime) >= intervalRuntime) {
     mySettings.runTime = mySettings.runTime + ((currentTime - lastTime) / 1000);
@@ -1391,15 +1535,13 @@ void loop() {
   if (currentTime >=  warmupSGP30) {
     mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
     mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
+    mySettings.baselineSGP30_valid = 0xF0;
     if (dbglevel > 1) { Serial.println(F("SGP30 baseline setting updated")); }
     warmupSGP30 = warmupSGP30 + intervalSGP30Baseline; 
   }
-  //  Put microcontroller to sleep **********************************************
-  long sleepDuration = (long)millis() - (long)(currentTime + intervalLoop);
-  if (sleepDuration > 0) {
-    // Change this to enable low power sleep:
-    delay(sleepDuration);
-  }
+
+  //  Free microcontroller for background tasks  **********************************************
+  while (millis() < currentTime + intervalLoop) yield();
   
 } // loop
 
@@ -1414,93 +1556,394 @@ bool checkI2C(byte address) {
   if (Wire.endTransmission() == 0) { return true; } else { return false; }
 }
 
+void checkCO2(float co2, char *message) {
+  if (co2 < 800.) {
+    strcpy(message, "Normal");
+  } else if (co2 < 1000.) {
+    strcpy(message, "Threshold");
+  } else if (co2 < 5000.) {
+    strcpy(message, "Poor");
+  } else {
+    strcpy(message, "Excessive");
+  }  
+}
+
+void checkHumidity(float rH, char *message) {
+  if ((rH >= 45.) && (rH <= 55.)) {
+    strcpy(message, "Normal");
+  } else if ((rH >= 30.) && (rH < 45.)) {
+    strcpy(message, "Threshold Low");
+  } else if ((rH >= 55.) && (rH < 60.)) {
+    strcpy(message, "Threshold High");
+  } else if ((rH >= 60.) && (rH < 80.)) {
+    strcpy(message, "High");
+  } else if ((rH >  15.) && (rH < 30.)) {
+    strcpy(message, "Low");
+  } else {
+    strcpy(message, "Excessive");
+  }
+}
+
+void checkGasResistance(float res, char *message) {
+  if (res < 5000) {
+    strcpy(message, "Normal");
+  } else if (res < 10000) {
+    strcpy(message, "Threshold");
+  } else if (res < 300000) {
+    strcpy(message, "Poor");
+  } else {
+    strcpy(message, "Excessive");
+  }
+}
+
+void checktVOC(float tVOC, char *message) {
+  if (tVOC < 220.) {
+    strcpy(message, "Normal");
+  } else if (tVOC < 660.) {
+    strcpy(message, "Threshold");
+  } else if (tVOC < 2200.) {
+    strcpy(message, "Poor");
+  } else {
+    strcpy(message, "Excessive");
+  }  
+}
+
+void checktPM2(float PM2, char *message) {
+  if (PM2 < 10.0) {
+    strcpy(message, "Normal");
+  } else if (PM2 < 25.0) {
+    strcpy(message, "Threshold");
+  } else if (PM2 < 65.0) {
+    strcpy(message, "Poor");
+  } else {
+    strcpy(message, "Excessive");
+  }
+}
+
+void checktPM10(float PM10, char *message) {
+  if (PM10 < 20.0) {
+    strcpy(message, "Normal");
+  } else if (PM10 < 50.0) {
+    strcpy(message, "Threshold");
+  } else if (PM10 < 150.0) {
+    strcpy(message, "Poor");
+  } else {
+    strcpy(message, "Excessive");
+  }
+}
+
+void checkFever(float T, char *message) {
+  if (T < 35.0) {
+    strcpy(message, "Low");
+  } else if (T <= 36.4) {
+    strcpy(message, "Threhsold Low");
+  } else if (T <  37.2) {
+    strcpy(message, "Normal");
+  } else if (T <  38.3) {
+    strcpy(message, "Threshold High");
+  } else if (T <  41.5) {
+    strcpy(message, "Fever");
+  } else {
+    strcpy(message, "Fever High");
+  }  
+}
+
+void updateLCD() {
+  /**************************************************************************************/
+  // Update LCD
+  /**************************************************************************************/
+  // This code was rewritten to print one LCD screen line at a time.
+  // It appears frequent lcd.setcursor() commands corrupt the display.
+  // A line is 20 characters long and terminated at the 21st character with null
+  // The first line is continuted at the 3rd line in the LCD driver and the 2nd line is continued at the 4th line.
+  // Display update takes 115ms
+  char lcdbuf[21];
+  const char clearLine[] = "                    ";  // 20 spaces
+  
+  strncpy(&lcdDisplay[0][0], clearLine , 20);
+  strncpy(&lcdDisplay[1][0], clearLine , 20);
+  strncpy(&lcdDisplay[2][0], clearLine , 20);
+  strncpy(&lcdDisplay[3][0], clearLine , 20);
+
+  
+  if (scd30_avail && mySettings.useSCD30) { // =============================================================
+
+    sprintf(lcdbuf, "%4d", int(scd30_ppm));
+    strncpy(&lcdDisplay[CO2_Y][CO2_X], lcdbuf, 4);
+    
+    sprintf(lcdbuf, "%4.1f%%", scd30_hum);
+    strncpy(&lcdDisplay[HUM1_Y][HUM1_X], lcdbuf, 5);
+    
+    sprintf(lcdbuf,"%+5.1fC",scd30_temp);
+    strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
+
+    if (scd30_ppm < 800) {
+      lcdbuf[0] = 'N';
+    } else if (scd30_ppm < 1000) {
+      lcdbuf[0] = 'T';
+    } else if (scd30_ppm < 5000) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    lcdDisplay[CO2_WARNING_Y][CO2_WARNING_X] = lcdbuf[0];
+
+  }  // end if avail scd30
+  
+  if (bme680_avail && mySettings.useBME680) { // ====================================================
+    
+    sprintf(lcdbuf,"%4d",(int)(bme680.pressure/100.0));
+    strncpy(&lcdDisplay[PRESSURE_Y][PRESSURE_X], lcdbuf, 4);
+  
+    sprintf(lcdbuf,"%4.1f%%",bme680.humidity);
+    strncpy(&lcdDisplay[HUM2_Y][HUM2_X], lcdbuf, 5);
+  
+    sprintf(lcdbuf,"%4.1fg",bme680_ah);
+    strncpy(&lcdDisplay[HUM3_Y][HUM3_X], lcdbuf, 5);
+
+    if ((bme680.humidity >= 45) && (bme680.humidity <= 55)) {
+      lcdbuf[0] = 'N';
+    } else if ((bme680.humidity >= 30) && (bme680.humidity < 45)) {
+      lcdbuf[0] = 'T';
+    } else if ((bme680.humidity >= 55) && (bme680.humidity < 60)) {
+      lcdbuf[0] = 'T';
+    } else if ((bme680.humidity >= 60) && (bme680.humidity < 80)) {
+      lcdbuf[0] = 'H';
+    } else if ((bme680.humidity >  15) && (bme680.humidity < 30)) {
+      lcdbuf[0] = 'L';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    
+    //===
+    // Humidity WARNING, no location identified for display.
+    //===
+  
+    sprintf(lcdbuf,"%+5.1fC",bme680.temperature);
+    strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
+  
+    sprintf(lcdbuf,"%5.1f",(float(bme680.gas_resistance)/1000.0));
+    strncpy(&lcdDisplay[IAQ_Y][IAQ_X], lcdbuf, 5);
+  
+    if (bme680.gas_resistance < 5000) {
+      lcdbuf[0] = 'N';
+    } else if (bme680.gas_resistance < 10000) {
+      lcdbuf[0] = 'T';
+    } else if (bme680.gas_resistance < 300000) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    lcdDisplay[IAQ_WARNING_Y][IAQ_WARNING_X] = lcdbuf[0];
+    
+  } // end if avail bme680
+  
+  if (sgp30_avail && mySettings.useSGP30) { // ====================================================
+    sprintf(lcdbuf, "%4d", sgp30.CO2);
+    strncpy(&lcdDisplay[eCO2_Y][eCO2_X], lcdbuf, 4);
+
+    sprintf(lcdbuf, "%4d", sgp30.TVOC);
+    strncpy(&lcdDisplay[TVOC_Y][TVOC_X], lcdbuf, 4);
+
+    if (sgp30.CO2 < 800) {
+      lcdbuf[0] = 'N';
+    } else if (sgp30.CO2 < 1000) {
+      lcdbuf[0] = 'T';
+    } else if (sgp30.CO2 < 5000) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    lcdDisplay[eCO2_WARNING_Y][eCO2_WARNING_X] = lcdbuf[0];
+
+    if (sgp30.TVOC < 220) {
+      lcdbuf[0] = 'N';
+    } else if (sgp30.TVOC < 660) {
+      lcdbuf[0] = 'T';
+    } else if (sgp30.TVOC < 2200) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    lcdDisplay[TVOC_WARNING_Y][TVOC_WARNING_X] = lcdbuf[0];
+  } // end if avail sgp30
+
+  if (ccs811_avail && mySettings.useCCS811) { // ====================================================
+
+    sprintf(lcdbuf, "%4d", ccs811.getCO2());
+    strncpy(&lcdDisplay[eeCO2_Y][eeCO2_X], lcdbuf, 4);
+
+    sprintf(lcdbuf, "%4d", ccs811.getTVOC());
+    strncpy(&lcdDisplay[TTVOC_Y][TTVOC_X], lcdbuf, 4);
+
+    if (ccs811.getCO2() < 800) {
+      lcdbuf[0] = 'N';
+    } else if (ccs811.getCO2() < 1000) {
+      lcdbuf[0] = 'T';
+    } else if (ccs811.getCO2() < 5000) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    strncpy(&lcdDisplay[eeCO2_WARNING_Y][eeCO2_WARNING_X], lcdbuf, 1);
+
+    if (ccs811.getTVOC() < 220) {
+      lcdbuf[0] = 'N';
+    } else if (ccs811.getTVOC() < 660) {
+      lcdbuf[0] = 'T';
+    } else if (ccs811.getTVOC() < 2200) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    lcdDisplay[TTVOC_WARNING_Y][TTVOC_WARNING_X] = lcdbuf[0];
+  } // end if avail ccs811
+  
+  if (sps30_avail && mySettings.useSPS30) { // ====================================================
+    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM1);
+    strncpy(&lcdDisplay[PM1_Y][PM1_X], lcdbuf, 3);
+    
+    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM2);
+    strncpy(&lcdDisplay[PM2_Y][PM2_X], lcdbuf, 3);
+    
+    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM4);
+    strncpy(&lcdDisplay[PM4_Y][PM4_X], lcdbuf, 3);
+    
+    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM10);
+    strncpy(&lcdDisplay[PM10_Y][PM10_X], lcdbuf, 3);
+
+    if (valSPS30.MassPM2 < 10.0) {
+      lcdbuf[0] = 'N';
+    } else if (valSPS30.MassPM2 < 25.0) {
+      lcdbuf[0] = 'T';
+    } else if (valSPS30.MassPM2 < 65.0) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+    lcdDisplay[PM2_WARNING_Y][PM2_WARNING_X] = lcdbuf[0];
+
+    if (valSPS30.MassPM10 < 20.0) {
+      lcdbuf[0] = 'N';
+    } else if (valSPS30.MassPM10 < 50.0) {
+      lcdbuf[0] = 'T';
+    } else if (valSPS30.MassPM10 < 150.0) {
+      lcdbuf[0] = 'P';
+    } else {
+      lcdbuf[0] = '!';
+    }
+   lcdDisplay[PM10_WARNING_Y][PM10_WARNING_X] = lcdbuf[0];
+  }// end if avail SPS30
+
+  if (therm_avail && mySettings.useMLX) { // ====================================================
+    if (altDisplay == true) {
+      sprintf(lcdbuf,"%+5.1fC",(therm.object()+mlxOffset));
+      strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
+
+      sprintf(lcdbuf,"%+5.1fC",therm.ambient());
+      strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
+
+      // https://www.singlecare.com/blog/fever-temperature/
+      // https://www.hopkinsmedicine.org/health/conditions-and-diseases/fever
+      // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7115295/
+      if (therm.object() < (35.0 - fhDelta)) {
+        lcdbuf[0] = 'L';
+      } else if (therm.object() <= (36.4 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = ' ';
+      } else if (therm.object() <  (37.2 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = 'N';
+      } else if (therm.object() <  (38.3 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = 'T';
+      } else if (therm.object() <  (41.5 - fhDelta - mlxOffset)) {
+        lcdbuf[0] = 'F';
+      } else {
+        lcdbuf[0] = '!';
+      }
+      lcdDisplay[MLX_WARNING_Y][MLX_WARNING_X] = lcdbuf[0];
+  }
+
+  }// end if avail  MLX
+
+  altDisplay = !altDisplay;
+  
+  lcd.clear();
+  lcd.setCursor(0, 0); 
+
+  // 1st line continues at 3d line
+  // 2nd line continues at 4th line
+  strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; // create line cstring
+  lcd.print(lcdbuf);                                         // print one line at a time
+  strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';
+  lcd.print(lcdbuf);
+  strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';
+  lcd.print(lcdbuf);
+  strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';
+  lcd.print(lcdbuf);
+
+  if (dbglevel>2) {                                        // if dbg, display on serial port
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';
+    Serial.println(lcdbuf);
+  }
+} // update display
+
 /**************************************************************************************/
 // Serial Input: Support Routines
 /**************************************************************************************/
+
 void helpMenu() {
-  Serial.println(F("All Sensors==========================="));
-  Serial.println(F("z: print all sensor data"));
-  Serial.println(F("Debug Level==========================="));
-  Serial.println(F("l: set debug level 0..4, l1"));
-  Serial.println(F("SGP30=eCO2============================"));
-  Serial.println(F("e: force eCO2, e400"));
-  Serial.println(F("t: force tVOC, t3000"));  
-  Serial.println(F("g: get baselines"));
-  Serial.println(F("SCD30=CO2============================="));
-  Serial.println(F("f: force CO2, f400.0 in ppm"));
-  Serial.println(F("t: force temperature offset, t5.0 in C"));
-  Serial.println(F("CCS811=eCO2==========================="));
-  Serial.println(F("c: force basline, c400"));
-  Serial.println(F("b: get baseline"));
-  Serial.println(F("MLX================================"));
-  Serial.println(F("m: set temp offset, m1.4"));
-  Serial.println(F("EEPROM================================"));
-  Serial.println(F("s: save to EEPROM"));
-  Serial.println(F("r: read from EEPROM"));
-  Serial.println(F("p: print current settings"));
-  Serial.println(F("d: create default settings"));
-  Serial.println(F("1: SSID 1, 1myssid"));
-  Serial.println(F("2: SSID 2, 2myssid"));
-  Serial.println(F("3: SSID 3, 3myssid"));
-  Serial.println(F("4: password SSID 1, 1mypas"));
-  Serial.println(F("5: password SSID 2, 2mypas"));
-  Serial.println(F("6: password SSID 3, 3mypas")); 
-  Serial.println(F("9: mqtt server, 9my,mqtt.com")); 
-  Serial.println(F("=========================Urs Utzinger="));
+  Serial.println(F("========================================="));
+  Serial.println(F("==All Sensors============================"));
+  Serial.println(F("| z: print all sensor data              |"));
+  Serial.println(F("==Debug Level============================"));
+  Serial.println(F("| l: set debug level 0..4, l1           |"));
+  Serial.println(F("==SGP30=eCO2============================="));
+  Serial.println(F("| e: force eCO2, e400                   |")); 
+  Serial.println(F("| v: force tVOC, t3000                  |"));  
+  Serial.println(F("| g: get baselines                      |"));
+  Serial.println(F("==SCD30=CO2=============================="));
+  Serial.println(F("| f: force CO2, f400.0 in ppm           |"));
+  Serial.println(F("| t: force temperature offset, t5.0 in C|"));
+  Serial.println(F("==CCS811=eCO2==========================="));
+  Serial.println(F("| c: force basline, c400                |"));
+  Serial.println(F("| b: get baseline                       |"));
+  Serial.println(F("==MLX==================================="));
+  Serial.println(F("| m: set temp offset, m1.4              |"));
+  Serial.println(F("==EEPROM================================"));
+  Serial.println(F("| s: save to EEPROM                     |"));
+  Serial.println(F("| r: read from EEPROM                   |"));
+  Serial.println(F("| p: print current settings             |"));
+  Serial.println(F("| d: create default settings            |"));
+  Serial.println(F("==Network================================"));
+  Serial.println(F("| 1: SSID 1, 1myssid                    |"));
+  Serial.println(F("| 2: SSID 2, 2myssid                    |"));
+  Serial.println(F("| 3: SSID 3, 3myssid                    |"));
+  Serial.println(F("| 4: password SSID 1, 1mypas            |"));
+  Serial.println(F("| 5: password SSID 2, 2mypas            |"));
+  Serial.println(F("| 6: password SSID 3, 3mypas            |")); 
+  Serial.println(F("| 9: mqtt server, 9my,mqtt.com          |")); 
+  Serial.println(F("| u: mqtt username, umqtt               |")); 
+  Serial.println(F("| w: mqtt password, ww1ldc8ts           |")); 
+  Serial.println(F("==Disable================================"));
+  Serial.println(F("| x: x1 LCD on/off                      |"));
+  Serial.println(F("| x: x2 WiFi on/off                     |"));
+  Serial.println(F("| x: x3 SCD30 on/off                    |"));
+  Serial.println(F("| x: x4 SPS30 on/off                    |"));
+  Serial.println(F("| x: x5 SGP30 on/off                    |"));
+  Serial.println(F("| x: x6 MAX30 on/off                    |"));
+  Serial.println(F("| x: x7 MLX on/off                      |"));
+  Serial.println(F("| x: x8 BME680 on/off                   |"));
+  Serial.println(F("| x: x9 CCS811 on/off                   |"));
+  Serial.println(F("===========================Urs Utzinger=="));
+  Serial.println(F("========================================="));
 }
 
-void printSettings() {
-  Serial.println(F("========================================"));
-  Serial.print(F("Debug level: .................. ")); Serial.println((unsigned int)mySettings.debuglevel);
-  Serial.print(F("Runtime [min]: ................ ")); Serial.println((unsigned long)mySettings.runTime/60);
-  Serial.print(F("Base SGP30 valid: ............. ")); Serial.println((int)mySettings.baselineSGP30_valid);
-  Serial.print(F("Base eCO2 SGP30: [ppm]......... ")); Serial.println((int)mySettings.baselineeCO2_SGP30);
-  Serial.print(F("Base tVOC SGP30: [ppm]......... ")); Serial.println((int)mySettings.baselinetVOC_SGP30);
-  Serial.print(F("Base CCS811 valid: ............ ")); Serial.println((int)mySettings.baselineCCS811_valid);
-  Serial.print(F("Base CCS811: [Ohm]............. ")); Serial.println((int)mySettings.baselineCCS811);
-  Serial.print(F("Temp Offset SCD30 valid: ...... ")); Serial.println((int)mySettings.tempOffset_SCD30_valid);
-  Serial.print(F("Temp Offset SCD30: [C]......... ")); Serial.println((float)mySettings.tempOffset_SCD30);
-  Serial.print(F("Forced Calibration SCD30 valid: ")); Serial.println((int)mySettings.forcedCalibration_SCD30_valid);
-  Serial.print(F("Forced Calibration SCD30:[ppm]. ")); Serial.println((float)mySettings.forcedCalibration_SCD30);
-  Serial.print(F("MLX Temp Offset valid: ........ ")); Serial.println((int)mySettings.tempOffset_MLX_valid);
-  Serial.print(F("MLX Temp Offset: .............. ")); Serial.println((float)mySettings.tempOffset_MLX);
-  Serial.print(F("SSID: ......................... ")); Serial.println(mySettings.ssid1);
-  Serial.print(F("PW: ........................... ")); Serial.println(mySettings.pw1);
-  Serial.print(F("SSID: ......................... ")); Serial.println(mySettings.ssid2);
-  Serial.print(F("PW: ........................... ")); Serial.println(mySettings.pw2);
-  Serial.print(F("SSID: ......................... ")); Serial.println(mySettings.ssid3);
-  Serial.print(F("PW: ........................... ")); Serial.println(mySettings.pw3);
-  Serial.print(F("MQTT: ......................... ")); Serial.println(mySettings.mqtt_server);
-}
-
-void defaultSettings() {
-  mySettings.runTime                       = (unsigned long)   0;
-  mySettings.debuglevel                    = (unsigned int)    1;
-  mySettings.baselineSGP30_valid           = (byte)         0x00;
-  mySettings.baselineeCO2_SGP30            = (uint16_t)        0;
-  mySettings.baselinetVOC_SGP30            = (uint16_t)        0;
-  mySettings.baselineCCS811_valid          = (byte)         0x00;
-  mySettings.baselineCCS811                = (uint16_t)        0;
-  mySettings.tempOffset_SCD30_valid        = (byte)         0x00;
-  mySettings.tempOffset_SCD30              = (float)        0.01;
-  mySettings.forcedCalibration_SCD30_valid = (byte)         0x00;
-  mySettings.forcedCalibration_SCD30       = (float)         0.0;
-  mySettings.tempOffset_MLX_valid          = (byte)         0x00;
-  mySettings.tempOffset_MLX                = (float)         0.0;
-  strcpy(mySettings.ssid1,                 "meddev");
-  strcpy(mySettings.pw1,                   "");
-  strcpy(mySettings.ssid2,                 "AMARIE-HP_Network");
-  strcpy(mySettings.pw2,                   "");
-  strcpy(mySettings.ssid3,                 "MuchoCoolioG");
-  strcpy(mySettings.pw3,                   "");
-  strcpy(mySettings.mqtt_server,           "my.mqqtt.server.org");
-}
-
-/**************************************************************************************/
-// Serial Input: Handle Commmands
-/**************************************************************************************/
-void inputHandle()
-{
+void inputHandle() {
   char inBuff[] = "0123456789ABCDEF0123456789ABCDEF";
   uint16_t tmpI;
   float tmpF;
@@ -1516,8 +1959,9 @@ void inputHandle()
     command = instruction.substring(0,1); 
     if (bytesread > 1) { // we have also a value
       value = instruction.substring(1,bytesread); 
+      // Serial.println(value);
     }
-
+    
     if (command == "l") {                                            // set debug level
       tmpI = value.toInt();
       if ((tmpI >= 0) && (tmpI <= 10)) {
@@ -1548,7 +1992,7 @@ void inputHandle()
       } else { Serial.println(F("Calibration point out of valid Range")); }
     } 
 
-    else if (command == "t") {                                       // forced tVOC set setpoint
+    else if (command == "v") {                                       // forced tVOC set setpoint
       tmpI = value.toInt();
       if ((tmpI > 400) && (tmpI < 2000)) {
         sgp30.getBaseline();
@@ -1559,7 +2003,7 @@ void inputHandle()
         Serial.print(F("Calibration point is:  "));
         Serial.println(tmpI);
       } else { Serial.println(F("Calibration point out of valid Range")); }
-    } 
+    }
     
     else if (command == "g") {                                       // forced tVOC set setpoint
       sgp30.getBaseline();
@@ -1659,45 +2103,103 @@ void inputHandle()
     }
 
     else if (command == "1") {                                       // SSID 1
-      value.toCharArray(mySettings.ssid1,value.length());
+      value.toCharArray(mySettings.ssid1,value.length()+1);
       Serial.print(F("SSID 1 is:  "));
       Serial.println(mySettings.ssid1);
     } 
 
     else if (command == "2") {                                       // SSID 2
-      value.toCharArray(mySettings.ssid2,value.length());
+      value.toCharArray(mySettings.ssid2,value.length()+1);
       Serial.print(F("SSID 2 is:  "));
       Serial.println(mySettings.ssid2);
     } 
     
     else if (command == "3") {                                       // SSID 3
-      value.toCharArray(mySettings.ssid3,value.length());
+      value.toCharArray(mySettings.ssid3,value.length()+1);
       Serial.print(F("SSID 3 is:  "));
       Serial.println(mySettings.ssid3);
     } 
 
     else if (command == "4") {                                       // Password 1
-      value.toCharArray(mySettings.pw1,value.length());
+      value.toCharArray(mySettings.pw1,value.length()+1);
       Serial.print(F("Password 1 is:  "));
       Serial.println(mySettings.pw1);
     } 
 
     else if (command == "5") {                                       // Password 2
-      value.toCharArray(mySettings.pw2,value.length());
+      value.toCharArray(mySettings.pw2,value.length()+1);
       Serial.print(F("Password 2 is:  "));
       Serial.println(mySettings.pw2);
     } 
 
     else if (command == "6") {                                       // Password 3
-      value.toCharArray(mySettings.pw3,value.length());
+      value.toCharArray(mySettings.pw3,value.length()+1);
       Serial.print(F("Password 3 is:  "));
       Serial.println(mySettings.pw3);
     } 
 
     else if (command == "9") {                                       // MQTT Server
-      value.toCharArray(mySettings.mqtt_server,value.length());
+      value.toCharArray(mySettings.mqtt_server,value.length()+1);
       Serial.print(F("MQTT server is:  "));
       Serial.println(mySettings.mqtt_server);
+    } 
+    
+    else if (command == "u") {                                       // MQTT Server
+      value.toCharArray(mySettings.mqtt_username,value.length()+1);
+      Serial.print(F("MQTT username is:  "));
+      Serial.println(mySettings.mqtt_username);
+    } 
+    
+    else if (command == "w") {                                       // MQTT Server
+      value.toCharArray(mySettings.mqtt_password,value.length()+1);
+      Serial.print(F("MQTT password is:  "));
+      Serial.println(mySettings.mqtt_password);
+    } 
+
+    else if (command == "x") {                                       // enable/disable equipment
+      tmpI = value.toInt();
+      if ((tmpI > 0) && (tmpI <= 99)) {
+        switch (tmpI) {
+          case 1:
+            mySettings.useLCD = !mySettings.useLCD;
+            if (mySettings.useLCD) { Serial.print(F("LCD is used")); } else {Serial.println(F("LCD is not used"));}
+            break;
+          case 2:
+            mySettings.useWiFi = !mySettings.useWiFi;
+            if (mySettings.useLCD) { Serial.print(F("WiFi is used")); } else {Serial.println(F("WiFi is not used"));}
+            break;
+          case 3:
+            mySettings.useSCD30 = !mySettings.useSCD30;
+            if (mySettings.useSCD30) { Serial.print(F("SCD30 is used")); } else {Serial.println(F("SCD30 is not used"));}
+            break;
+          case 4:
+            mySettings.useSPS30 = !mySettings.useSPS30;
+            if (mySettings.useSPS30) { Serial.print(F("SPS30 is used")); } else {Serial.println(F("SPS30 is not used"));}
+            break;
+          case 5:
+            mySettings.useSGP30 = !mySettings.useSGP30;
+            if (mySettings.useSGP30) { Serial.print(F("SGP30 is used")); } else {Serial.println(F("SGP30 is not used"));}
+            break;
+          case 6:
+            mySettings.useMAX30 = !mySettings.useMAX30;
+            if (mySettings.useMAX30) { Serial.print(F("MAX30 is used")); } else {Serial.println(F("MAX30 is not used"));}
+            break;
+          case 7:
+            mySettings.useMLX = !mySettings.useMLX;
+            if (mySettings.useMLX) { Serial.print(F("MLX is used")); } else {Serial.println(F("MLX is not used"));}
+            break;
+          case 8:
+            mySettings.useSPS30 = !mySettings.useSPS30;
+            if (mySettings.useBME680) { Serial.print(F("BME680 is used")); } else {Serial.println(F("BME680 is not used"));}
+            break;
+          case 9:
+            mySettings.useCCS811 = !mySettings.useCCS811;
+            if (mySettings.useCCS811) { Serial.print(F("CCS811 is used")); } else {Serial.println(F("CCS811 is not used"));}
+            break;
+          default:
+            break;
+        }
+      }
     } 
     
     else {                                                           // unrecognized command
@@ -1707,16 +2209,86 @@ void inputHandle()
   } // end serial available
 } // end Input
 
+void printSettings() {
+  Serial.println(F("========================================"));
+  Serial.print(F("Debug level: .................. ")); Serial.println((unsigned int)mySettings.debuglevel);
+  Serial.print(F("Runtime [min]: ................ ")); Serial.println((unsigned long)mySettings.runTime/60);
+  Serial.print(F("Base SGP30 valid: ............. ")); Serial.println((int)mySettings.baselineSGP30_valid);
+  Serial.print(F("Base eCO2 SGP30: [ppm]......... ")); Serial.println((int)mySettings.baselineeCO2_SGP30);
+  Serial.print(F("Base tVOC SGP30: [ppb]......... ")); Serial.println((int)mySettings.baselinetVOC_SGP30);
+  Serial.print(F("Base CCS811 valid: ............ ")); Serial.println((int)mySettings.baselineCCS811_valid);
+  Serial.print(F("Base CCS811: [Ohm]............. ")); Serial.println((int)mySettings.baselineCCS811);
+  Serial.print(F("Temp Offset SCD30 valid: ...... ")); Serial.println((int)mySettings.tempOffset_SCD30_valid);
+  Serial.print(F("Temp Offset SCD30: [C]......... ")); Serial.println((float)mySettings.tempOffset_SCD30);
+  Serial.print(F("Forced Calibration SCD30 valid: ")); Serial.println((int)mySettings.forcedCalibration_SCD30_valid);
+  Serial.print(F("Forced Calibration SCD30:[ppm]. ")); Serial.println((float)mySettings.forcedCalibration_SCD30);
+  Serial.print(F("MLX Temp Offset valid: ........ ")); Serial.println((int)mySettings.tempOffset_MLX_valid);
+  Serial.print(F("MLX Temp Offset: .............. ")); Serial.println((float)mySettings.tempOffset_MLX);
+  Serial.print(F("SSID: ......................... ")); Serial.println(mySettings.ssid1);
+  Serial.print(F("PW: ........................... ")); Serial.println(mySettings.pw1);
+  Serial.print(F("SSID: ......................... ")); Serial.println(mySettings.ssid2);
+  Serial.print(F("PW: ........................... ")); Serial.println(mySettings.pw2);
+  Serial.print(F("SSID: ......................... ")); Serial.println(mySettings.ssid3);
+  Serial.print(F("PW: ........................... ")); Serial.println(mySettings.pw3);
+  Serial.print(F("MQTT: ......................... ")); Serial.println(mySettings.mqtt_server);
+  Serial.print(F("MQTT user: .................... ")); Serial.println(mySettings.mqtt_username);
+  Serial.print(F("MQTT password: ................ ")); Serial.println(mySettings.mqtt_password);
+  Serial.print(F("LCD: .......................... ")); Serial.println(mySettings.useLCD);
+  Serial.print(F("WiFi: ......................... ")); Serial.println(mySettings.useWiFi);
+  Serial.print(F("SCD30: ........................ ")); Serial.println(mySettings.useSCD30);
+  Serial.print(F("SPS30: ........................ ")); Serial.println(mySettings.useSPS30);
+  Serial.print(F("SGP30: ........................ ")); Serial.println(mySettings.useSGP30);
+  Serial.print(F("MAX30: ........................ ")); Serial.println(mySettings.useMAX30);
+  Serial.print(F("MLX: .......................... ")); Serial.println(mySettings.useMLX);
+  Serial.print(F("BME680: ....................... ")); Serial.println(mySettings.useBME680);
+  Serial.print(F("CCS811: ....................... ")); Serial.println(mySettings.useCCS811);
+  Serial.println(F("========================================"));
+}
+
+void defaultSettings() {
+  mySettings.runTime                       = (unsigned long)   0;
+  mySettings.debuglevel                    = (unsigned int)    1;
+  mySettings.baselineSGP30_valid           = (byte)         0x00;
+  mySettings.baselineeCO2_SGP30            = (uint16_t)        0;
+  mySettings.baselinetVOC_SGP30            = (uint16_t)        0;
+  mySettings.baselineCCS811_valid          = (byte)         0x00;
+  mySettings.baselineCCS811                = (uint16_t)        0;
+  mySettings.tempOffset_SCD30_valid        = (byte)         0x00;
+  mySettings.tempOffset_SCD30              = (float)        0.01;
+  mySettings.forcedCalibration_SCD30_valid = (byte)         0x00;
+  mySettings.forcedCalibration_SCD30       = (float)         0.0;
+  mySettings.tempOffset_MLX_valid          = (byte)         0x00;
+  mySettings.tempOffset_MLX                = (float)         0.0;
+  strcpy(mySettings.ssid1,                 "meddev");
+  strcpy(mySettings.pw1,                   "");
+  strcpy(mySettings.ssid2,                 "AMARIE-HP_Network");
+  strcpy(mySettings.pw2,                   "");
+  strcpy(mySettings.ssid3,                 "MuchoCoolioG");
+  strcpy(mySettings.pw3,                   "");
+  strcpy(mySettings.mqtt_server,           "my.mqqtt.server.org");
+  strcpy(mySettings.mqtt_username,         "mqtt");
+  strcpy(mySettings.mqtt_password,         "w1ldc8ts");
+  mySettings.useLCD                        = true;
+  mySettings.useWiFi                       = true;
+  mySettings.useSCD30                      = true;
+  mySettings.useSPS30                      = true;
+  mySettings.useSGP30                      = true;
+  mySettings.useMAX30                      = true;
+  mySettings.useMLX                        = true;
+  mySettings.useBME680                     = true;
+  mySettings.useCCS811                     = true;
+}
+
 void printSensors() {
   Serial.println(F("========================================"));
-  if (scd30_avail) {
+  if (scd30_avail && mySettings.useSCD30) {
     Serial.print(F("SCD30 CO2:             ")); Serial.print(scd30_ppm);       Serial.println(F("[ppm]"));
     Serial.print(F("SCD30 rH:              ")); Serial.print(scd30_hum);       Serial.println(F("[%]"));
     Serial.print(F("SCD30 Temperature:     ")); Serial.print(scd30_temp);      Serial.println(F("[degC]"));
     scd30.getTemperatureOffset();
   }
   
-  if (bme680_avail) {
+  if (bme680_avail && mySettings.useBME680) {
     Serial.print(F("BME680 Temperature:    ")); Serial.print(bme680.temperature); Serial.println(F("[degC]"));
     Serial.print(F("BME680 Pressure:       ")); Serial.print(bme680.pressure); Serial.println(F("[Pa]"));
     Serial.print(F("BME680 Humidity:       ")); Serial.print(bme680.humidity); Serial.println(F("[%]"));
@@ -1725,26 +2297,26 @@ void printSensors() {
 
   }
 
-  if (sgp30_avail == true) {
+  if (sgp30_avail && mySettings.useSGP30) {
     Serial.print(F("SGP30 CO2:             ")); Serial.print(sgp30.CO2);        Serial.println(F("[ppm]"));
-    Serial.print(F("SGP30 tVOC:            ")); Serial.print(sgp30.TVOC);       Serial.println(F("[ppm]"));
+    Serial.print(F("SGP30 tVOC:            ")); Serial.print(sgp30.TVOC);       Serial.println(F("[ppb]"));
     Serial.print(F("SGP30 baseline CO2:    ")); Serial.println(sgp30.baselineCO2);
     Serial.print(F("SGP30 baseline tVOC:   ")); Serial.println(sgp30.baselineTVOC);
     Serial.print(F("SGP30 H2:              ")); Serial.print(sgp30.H2);         Serial.println(F("[ppm]"));
     Serial.print(F("SGP30 Ethanol:         ")); Serial.print(sgp30.ethanol);    Serial.println(F("[ppm]"));
   }
   
-  if (ccs811_avail == true) {
+  if (ccs811_avail && mySettings.useCCS811) {
     uint16_t tmpI;
     tmpI = ccs811.getCO2();
     Serial.print(F("CCS811 CO2:            ")); Serial.print(tmpI);  Serial.println(F("[ppm]"));
     tmpI = ccs811.getTVOC();
-    Serial.print(F("CCS811 tVOC:           ")); Serial.print(tmpI); Serial.println(F("[ppm]"));
+    Serial.print(F("CCS811 tVOC:           ")); Serial.print(tmpI); Serial.println(F("[ppb]"));
     tmpI = ccs811.getBaseline();
     Serial.print(F("CCS811 baseline:       ")); Serial.println(tmpI);
   }
   
-  if (sps30_avail) {
+  if (sps30_avail && mySettings.useSPS30) {
     Serial.print(F("SPS30 P1.0:            ")); Serial.print(valSPS30.MassPM1);  Serial.println(F("[μg/m3]"));
     Serial.print(F("SPS30 P2.5:            ")); Serial.print(valSPS30.MassPM2);  Serial.println(F("[μg/m3]"));
     Serial.print(F("SPS30 P4.0:            ")); Serial.print(valSPS30.MassPM4);  Serial.println(F("[μg/m3]"));
@@ -1756,7 +2328,7 @@ void printSensors() {
     Serial.print(F("SPS30 Average:         ")); Serial.print(valSPS30.PartSize); Serial.println(F("[μm]"));
   }
 
-  if (therm_avail) {
+  if (therm_avail && mySettings.useMLX) {
     float tmpF;
     tmpF = therm.object();
     Serial.print(F("MLX Object:            ")); Serial.print(tmpF);              Serial.println(F("[degC]"));
@@ -1769,255 +2341,7 @@ void printSensors() {
   
 }
 
-/**************************************************************************************/
-// Update LCD
-/**************************************************************************************/
-// This code was rewritten to print one LCD screen line at a time.
-// It appears frequent lcd.setcursor() commands corrupt the display.
-// A line is 20 characters long and terminated at the 21st character with null
-// The first line is continuted at the 3rd line in the LCD driver and the 2nd line is continued at the 4th line.
-// Display update takes 115ms
-void updateLCD() {
-  char lcdbuf[21];
-  const char clearLine[] = "                    ";  // 20 spaces
-  
-  strncpy(&lcdDisplay[0][0], clearLine , 20);
-  strncpy(&lcdDisplay[1][0], clearLine , 20);
-  strncpy(&lcdDisplay[2][0], clearLine , 20);
-  strncpy(&lcdDisplay[3][0], clearLine , 20);
-
-  
-  if (scd30_avail) { // =============================================================
-
-    sprintf(lcdbuf, "%4d", int(scd30_ppm));
-    strncpy(&lcdDisplay[CO2_Y][CO2_X], lcdbuf, 4);
-    
-    sprintf(lcdbuf, "%4.1f%%", scd30_hum);
-    strncpy(&lcdDisplay[HUM1_Y][HUM1_X], lcdbuf, 5);
-    
-    sprintf(lcdbuf,"%+5.1fC",scd30_temp);
-    strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
-
-    if (scd30_ppm < 800) {
-      lcdbuf[0] = 'N';
-    } else if (scd30_ppm < 1000) {
-      lcdbuf[0] = 'T';
-    } else if (scd30_ppm < 5000) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    lcdDisplay[CO2_WARNING_Y][CO2_WARNING_X] = lcdbuf[0];
-
-  }  // end if avail scd30
-  
-  if (bme680_avail == true) { // ====================================================
-    
-    sprintf(lcdbuf,"%4d",(int)(bme680.pressure/100.0));
-    strncpy(&lcdDisplay[PRESSURE_Y][PRESSURE_X], lcdbuf, 4);
-  
-    sprintf(lcdbuf,"%4.1f%%",bme680.humidity);
-    strncpy(&lcdDisplay[HUM2_Y][HUM2_X], lcdbuf, 5);
-  
-    sprintf(lcdbuf,"%4.1fg",bme680_ah);
-    strncpy(&lcdDisplay[HUM3_Y][HUM3_X], lcdbuf, 5);
-
-    if ((bme680.humidity >= 45) && (bme680.humidity <= 55)) {
-      lcdbuf[0] = 'N';
-    } else if ((bme680.humidity >= 30) && (bme680.humidity < 45)) {
-      lcdbuf[0] = 'T';
-    } else if ((bme680.humidity >= 55) && (bme680.humidity < 60)) {
-      lcdbuf[0] = 'T';
-    } else if ((bme680.humidity >= 60) && (bme680.humidity < 80)) {
-      lcdbuf[0] = 'H';
-    } else if ((bme680.humidity >  15) && (bme680.humidity < 30)) {
-      lcdbuf[0] = 'L';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    
-    //===
-    // Humidity WARNING, no location identified for display.
-    //===
-  
-    sprintf(lcdbuf,"%+5.1fC",bme680.temperature);
-    strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
-  
-    sprintf(lcdbuf,"%5.1f",(float(bme680.gas_resistance)/1000.0));
-    strncpy(&lcdDisplay[IAQ_Y][IAQ_X], lcdbuf, 5);
-  
-    if (bme680.gas_resistance < 5000) {
-      lcdbuf[0] = 'N';
-    } else if (bme680.gas_resistance < 10000) {
-      lcdbuf[0] = 'T';
-    } else if (bme680.gas_resistance < 300000) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    lcdDisplay[IAQ_WARNING_Y][IAQ_WARNING_X] = lcdbuf[0];
-    
-  } // end if avail bme680
-  
-  if (sgp30_avail == true) { // ====================================================
-    sprintf(lcdbuf, "%4d", sgp30.CO2);
-    strncpy(&lcdDisplay[eCO2_Y][eCO2_X], lcdbuf, 4);
-
-    sprintf(lcdbuf, "%4d", sgp30.TVOC);
-    strncpy(&lcdDisplay[TVOC_Y][TVOC_X], lcdbuf, 4);
-
-    if (sgp30.CO2 < 800) {
-      lcdbuf[0] = 'N';
-    } else if (sgp30.CO2 < 1000) {
-      lcdbuf[0] = 'T';
-    } else if (sgp30.CO2 < 5000) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    lcdDisplay[eCO2_WARNING_Y][eCO2_WARNING_X] = lcdbuf[0];
-
-    if (sgp30.TVOC < 220) {
-      lcdbuf[0] = 'N';
-    } else if (sgp30.TVOC < 660) {
-      lcdbuf[0] = 'T';
-    } else if (sgp30.TVOC < 2200) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    lcdDisplay[TVOC_WARNING_Y][TVOC_WARNING_X] = lcdbuf[0];
-  } // end if avail sgp30
-
-  if (ccs811_avail == true) { // ====================================================
-
-    sprintf(lcdbuf, "%4d", ccs811.getCO2());
-    strncpy(&lcdDisplay[eeCO2_Y][eeCO2_X], lcdbuf, 4);
-
-    sprintf(lcdbuf, "%4d", ccs811.getTVOC());
-    strncpy(&lcdDisplay[TTVOC_Y][TTVOC_X], lcdbuf, 4);
-
-    if (ccs811.getCO2() < 800) {
-      lcdbuf[0] = 'N';
-    } else if (ccs811.getCO2() < 1000) {
-      lcdbuf[0] = 'T';
-    } else if (ccs811.getCO2() < 5000) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    strncpy(&lcdDisplay[eeCO2_WARNING_Y][eeCO2_WARNING_X], lcdbuf, 1);
-
-    if (ccs811.getTVOC() < 220) {
-      lcdbuf[0] = 'N';
-    } else if (ccs811.getTVOC() < 660) {
-      lcdbuf[0] = 'T';
-    } else if (ccs811.getTVOC() < 2200) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    lcdDisplay[TTVOC_WARNING_Y][TTVOC_WARNING_X] = lcdbuf[0];
-  } // end if avail ccs811
-  
-  if (sps30_avail) { // ====================================================
-    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM1);
-    strncpy(&lcdDisplay[PM1_Y][PM1_X], lcdbuf, 3);
-    
-    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM2);
-    strncpy(&lcdDisplay[PM2_Y][PM2_X], lcdbuf, 3);
-    
-    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM4);
-    strncpy(&lcdDisplay[PM4_Y][PM4_X], lcdbuf, 3);
-    
-    sprintf(lcdbuf,"%3.0f",valSPS30.MassPM10);
-    strncpy(&lcdDisplay[PM10_Y][PM10_X], lcdbuf, 3);
-
-    if (valSPS30.MassPM2 < 10.0) {
-      lcdbuf[0] = 'N';
-    } else if (valSPS30.MassPM2 < 25.0) {
-      lcdbuf[0] = 'T';
-    } else if (valSPS30.MassPM2 < 65.0) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-    lcdDisplay[PM2_WARNING_Y][PM2_WARNING_X] = lcdbuf[0];
-
-    if (valSPS30.MassPM10 < 20.0) {
-      lcdbuf[0] = 'N';
-    } else if (valSPS30.MassPM10 < 50.0) {
-      lcdbuf[0] = 'T';
-    } else if (valSPS30.MassPM10 < 150.0) {
-      lcdbuf[0] = 'P';
-    } else {
-      lcdbuf[0] = '!';
-    }
-   lcdDisplay[PM10_WARNING_Y][PM10_WARNING_X] = lcdbuf[0];
-  }// end if avail SPS30
-
-  if (therm_avail) { // ====================================================
-    if (altDisplay == true) {
-      sprintf(lcdbuf,"%+5.1fC",(therm.object()+mlxOffset));
-      strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
-
-      sprintf(lcdbuf,"%+5.1fC",therm.ambient());
-      strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
-
-      // https://www.singlecare.com/blog/fever-temperature/
-      // https://www.hopkinsmedicine.org/health/conditions-and-diseases/fever
-      // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7115295/
-      if (therm.object() < (35.0 - fhDelta)) {
-        lcdbuf[0] = 'L';
-      } else if (therm.object() <= (36.4 - fhDelta - mlxOffset)) {
-        lcdbuf[0] = ' ';
-      } else if (therm.object() <  (37.2 - fhDelta - mlxOffset)) {
-        lcdbuf[0] = 'N';
-      } else if (therm.object() <  (38.3 - fhDelta - mlxOffset)) {
-        lcdbuf[0] = 'T';
-      } else if (therm.object() <  (41.5 - fhDelta - mlxOffset)) {
-        lcdbuf[0] = 'F';
-      } else {
-        lcdbuf[0] = '!';
-      }
-      lcdDisplay[MLX_WARNING_Y][MLX_WARNING_X] = lcdbuf[0];
-  }
-
-  }// end if avail  MLX
-
-  altDisplay = !altDisplay;
-  
-  lcd.clear();
-  lcd.setCursor(0, 0); 
-
-  // 1st line continues at 3d line
-  // 2nd line continues at 4th line
-  strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; // create line cstring
-  lcd.print(lcdbuf);                                         // print one line at a time
-  strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';
-  lcd.print(lcdbuf);
-  strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';
-  lcd.print(lcdbuf);
-  strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';
-  lcd.print(lcdbuf);
-
-  if (dbglevel>2) {                                        // if dbg, display on serial port
-    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0';
-    Serial.println(lcdbuf);
-    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';
-    Serial.println(lcdbuf);
-    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';
-    Serial.println(lcdbuf);
-    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';
-    Serial.println(lcdbuf);
-  }
-} // update display
-
-/**************************************************************************************/
-// Wait for serial input
-/**************************************************************************************/
-void serialTrigger(char * mess)
-{
+void serialTrigger(char * mess) {
   Serial.println();
 
   while (!Serial.available()) {
@@ -2028,3 +2352,173 @@ void serialTrigger(char * mess)
   while (Serial.available())
     Serial.read();
 }
+
+/**************************************************************************************/
+// WiFi
+/**************************************************************************************/
+
+void connectToWifi() {
+  int attempts = 0;
+  WiFi.mode(WIFI_STA);
+  if (WiFi.status() == WL_CONNECTED) { WiFi.disconnect(); }
+
+  int n = WiFi.scanNetworks();
+  if (dbglevel > 0) { Serial.print(F("# of WiFi networks:")); Serial.println(n); }
+  for (int i=0; i<n; i++) {
+    if (WiFi.SSID(i) == String(mySettings.ssid1)) {
+      strcpy(ssid, mySettings.ssid1);
+      strcpy(pw, mySettings.pw1);
+      wifi_avail=true;
+    }
+    if (WiFi.SSID(i) == String(mySettings.ssid2)) {
+      strcpy(ssid, mySettings.ssid2);
+      strcpy(pw, mySettings.pw2);
+      wifi_avail=true;
+    } 
+    if (WiFi.SSID(i) == String(mySettings.ssid3)) {
+      strcpy(ssid, mySettings.ssid3);
+      strcpy(pw, mySettings.pw3);
+      wifi_avail=true;
+    }
+  }
+      
+  if (wifi_avail == true) {
+    if (dbglevel > 0) { Serial.print(F("Connecting to: ")); Serial.println(ssid); }
+    WiFi.begin(ssid, pw);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      attempts++;
+      if (attempts > 10) {
+        wifi_avail = false;
+        break;
+      }
+    }
+  }
+}
+
+void onWifiConnect(const WiFiEventStationModeGotIP& event) {
+  if (dbglevel > 0) { Serial.print(F("Connected to: ")); Serial.println(ssid); }
+  connectToMqtt();
+}
+
+void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
+  if (dbglevel > 0) { Serial.print(F("Disconnected from Wifi: ")); Serial.println(ssid); }
+  mqttReconnectTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+  wifiReconnectTimer.once(2, connectToWifi);
+}
+
+/**************************************************************************************/
+// MQTT
+/**************************************************************************************/
+
+void connectToMqtt() {
+  if (dbglevel > 0) { Serial.print(F("Connecting to MQTT: ")); Serial.println(mySettings.mqtt_server); }
+  mqttClient.connect();
+}
+
+void onMqttConnect(bool sessionPresent) {
+  if (dbglevel > 0) { Serial.print(F("Connected to MQTT: ")); Serial.println(mySettings.mqtt_server); }
+  if (dbglevel > 0) { Serial.print(F("Session present: ")); Serial.println(sessionPresent); }
+  uint16_t packetIdSub = mqttClient.subscribe("test/lol", 2);
+  if (dbglevel > 0) { Serial.print(F("Subscribing at QoS 2, packetId: ")); Serial.println(packetIdSub); }
+
+  mqttClient.publish("Sensi/status", 0, true, "Sensi up");
+}
+
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
+  if (dbglevel > 0) { Serial.print(F("Disconnected from MQTT: ")); Serial.println(mySettings.mqtt_server); }
+
+  if (WiFi.isConnected()) {
+    mqttReconnectTimer.once(2, connectToMqtt);
+  }
+}
+
+void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
+  if (dbglevel > 0) { 
+    Serial.println(F("MQTT: Susbscribe acknowledged."));
+    Serial.print(F("MQTT:  packetId: "));
+    Serial.println(packetId);
+    Serial.print(F("MQTT:  qos: "));
+    Serial.println(qos);
+  }
+}
+
+void onMqttUnsubscribe(uint16_t packetId) {
+  if (dbglevel > 0) { 
+    Serial.println("MQTT: Unsubscribe acknowledged.");
+    Serial.print("MQTT:  packetId: ");
+    Serial.println(packetId);
+  }
+}
+
+void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  if (dbglevel > 0) { 
+    Serial.println("MQTT: Publish received.");
+    Serial.print("MQTT:   topic: ");
+    Serial.println(topic);
+    Serial.print("MQTT:   qos: ");
+    Serial.println(properties.qos);
+    Serial.print("MQTT:   dup: ");
+    Serial.println(properties.dup);
+    Serial.print("MQTT:   retain: ");
+    Serial.println(properties.retain);
+    Serial.print("MQTT:   len: ");
+    Serial.println(len);
+    Serial.print("MQTT:   index: ");
+    Serial.println(index);
+    Serial.print("MQTT:   total: ");
+    Serial.println(total);
+  }
+}
+
+void onMqttPublish(uint16_t packetId) {
+  if (dbglevel > 0) { 
+    Serial.println("MQTT: Publish acknowledged.");
+    Serial.print("MQTT:   packetId: ");
+    Serial.println(packetId);
+  }
+}
+
+void updateMQTTpayload(char *payload) {
+  /**************************************************************************************/
+  // Update MQTT payload
+  /**************************************************************************************/
+  char tmpbuf[21];
+  strcpy(payload, "{");
+  if (scd30_avail && mySettings.useSCD30) { // ==CO2===========================================================
+    strcat(payload,"\"scd30_CO2\":"); sprintf(tmpbuf, "%4d", int(scd30_ppm)); strcat(payload,tmpbuf); strcat(payload,", "); 
+    strcat(payload,"\"scd30_rH\":");  sprintf(tmpbuf, "%4.1f%%", scd30_hum);  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"scd30_T\":");   sprintf(tmpbuf, "%+5.1fC",scd30_temp);  strcat(payload,tmpbuf); strcat(payload,", ");
+  }  // end if avail scd30
+  if (bme680_avail && mySettings.useBME680) { // ===rH,T,aQ=================================================
+    strcat(payload,"\"bme680_p\":");   sprintf(tmpbuf, "%4d",(int)(bme680.pressure/100.0)); strcat(payload,tmpbuf); strcat(payload,", "); 
+    strcat(payload,"\"bme680_rH\":");  sprintf(tmpbuf, "%4.1f%%",bme680.humidity);          strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"bme680_aH\":");  sprintf(tmpbuf, "%4.1fg",bme680_ah);                 strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"bme680_T\":");   sprintf(tmpbuf, "%+5.1fC",bme680.temperature);       strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"bme680_aq\":");  sprintf(tmpbuf, "%5.1f",bme680.gas_resistance);      strcat(payload,tmpbuf); strcat(payload,", ");
+  } // end if avail bme680
+  if (sgp30_avail && mySettings.useSGP30) { // ===CO2,tVOC=================================================
+    strcat(payload,"\"sgp30_CO2\":");  sprintf(tmpbuf, "%4d", sgp30.CO2);  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sgp30_tVOC\":"); sprintf(tmpbuf, "%4d", sgp30.TVOC); strcat(payload,tmpbuf); strcat(payload,", ");
+  } // end if avail sgp30
+  if (ccs811_avail && mySettings.useCCS811) { // ===CO2,tVOC=================================================
+    strcat(payload,"\"ccs811_CO2\":");  sprintf(tmpbuf, "%4d", ccs811.getCO2());  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"ccs811_tVOC\":"); sprintf(tmpbuf, "%4d", ccs811.getTVOC()); strcat(payload,tmpbuf); strcat(payload,", ");
+  } // end if avail ccs811
+  if (sps30_avail && mySettings.useSPS30) { // ===Particle=================================================
+    strcat(payload,"\"sps30_PM1\":");      sprintf(tmpbuf, "%3.0f",valSPS30.MassPM1);  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_PM2\":");      sprintf(tmpbuf, "%3.0f",valSPS30.MassPM2);  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_PM4\":");      sprintf(tmpbuf, "%3.0f",valSPS30.MassPM4);  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_nPM10\":");    sprintf(tmpbuf, "%3.0f",valSPS30.MassPM10); strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_nPM0\":");     sprintf(tmpbuf, "%3.0f",valSPS30.NumPM0);   strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_nPM2\":");     sprintf(tmpbuf, "%3.0f",valSPS30.NumPM2);   strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_nPM4\":");     sprintf(tmpbuf, "%3.0f",valSPS30.NumPM4);   strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_nPM10\":");    sprintf(tmpbuf, "%3.0f",valSPS30.NumPM10);  strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"sps30_PartSize\":"); sprintf(tmpbuf, "%3.0f",valSPS30.PartSize); strcat(payload,tmpbuf); strcat(payload,", ");
+  }// end if avail SPS30
+  if (therm_avail && mySettings.useMLX) { // ====To,Ta================================================
+    strcat(payload,"\"MLX_To\":"); sprintf(tmpbuf, "%+5.1fC",(therm.object()+mlxOffset)); strcat(payload,tmpbuf); strcat(payload,", ");
+    strcat(payload,"\"MLX_Ta\":"); sprintf(tmpbuf, "%+5.1fC",therm.ambient());            strcat(payload,tmpbuf); strcat(payload,", ");
+  }// end if avail  MLX
+  strcat(payload, "}");
+} // update MQTT

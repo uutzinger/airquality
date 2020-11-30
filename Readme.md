@@ -1,7 +1,7 @@
 # Airquality Sensors with ESP8266
-The goal of this project is to connect several air quality sensors via i2c bus to a wireless microcontroller and program the reading of those sensors not to block i2c.
+The goal of this project is to connect several air quality sensors via i2c bus to a wireless microcontroller. The drivers were modified so that they do not to block i2c.
 
-The hardware is based on a main board with several i2c ports, both at 3.3V and 5V with voltage level shifter and an ESP8266.
+The hardware includes 3.3V and 5V with voltage level shifters and an ESP8266.
 
 At this time the software supports 
 - LCD 20x4  
@@ -17,7 +17,7 @@ The system should display the measured values on an LCD and also connect to MQTT
 
 ## Air Quality Sensors to Consider
 There exisits many sensor for indoor air quality. If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time.
-Power consmpution will be high and the system should run of a plug in power supply. Humidity, tempterauter and pressure can be measured in low power configuration and system can run from a battery.
+Power consmpution will be high and the system should be run using AC adapter. For humidity, tempterauter and pressure the system can run from a battery.
 
 ### Temperature, Humidity Pressure
 * **BME680**, Bosch, Temp, Humidity 8s, Pressure, 1s VOC +/-15% IAQ output, AliExpress $12  
@@ -102,6 +102,7 @@ Power consmpution will be high and the system should run of a plug in power supp
 * MH-410D, Winzen, CO2 0-5% +/- 50ppm, 5V serial  
 * MHZ16, Winzen, CO2 0-5% +/-50ppm, 5V serial long tube  
 * **SCD30**, Sensirion, CO2, I2C  
+* **SCD40**, smaller than SCD30, not yet released
 
 ## Sensor System
 
@@ -153,14 +154,15 @@ https://www.maximintegrated.com/en/products/interface/sensor-interface/MAX30105.
 D5..D7 are available for address selct, chip select and data ready signals. D0 affects boot behaviour if connected.
 
 ## Power Consumption
-| Sensor | Measurement Interval | Power Consumption | Sleepmode/Idlemode | Data ready | Cost |
+| Sensor | Measurement Interval | Power Consumption | Sleepmode/Idlemode | Data ready hardware | Cost |
 | --- | --- | --- | --- | --- | --- |
-| LCD      |
-| SCD30    | 2    | 19  | Reduce Interval      | Yes | 54 |
-| SPS30    | 1    | 60  | 0.36    | No  | 45 |
-| SGP30    | 1    | 48  | NA      | No  | 24 |
-| BME680   | 1.4  | 0.9 | 0.00015 | No  | 10 |
-| CCS811   | 10   | 4   | 0.019   | Yes | 12 |
-| MLX90614 | 1    |     |         |     |  9 |
-| MAX30105 | 0.01 |     |         |     | 12 |
+|| min, max [default] [s]| [mW]| [mW]|| $
+| LCD      | 0.3...
+| SCD30    | 2..1800 [4]  | 19  | Reduce Interval      | Yes | 54 |
+| SPS30    | 1...    | 60  | 0.36    | No  | 45 |
+| SGP30    | 1...    | 48  | NA      | No  | 24 |
+| BME680   | 1,3,300  | 0.9 | 0.00015 | No  | 10 |
+| CCS811   | 0.25,1,10,60   | 4   | 0.019   | Yes | 12 |
+| MLX90614 | 0.25/1    |     |         |     |  9 |
+| MAX30105 | 0.01... |     |         |     | 12 |
 
