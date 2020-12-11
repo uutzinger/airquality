@@ -68,7 +68,7 @@ Power consmpution will be high and the system should be run using AC adapter. Fo
 * TGS5042, Figaro, CO, 0-10000ppm +/- 10ppm, output is current needs transimpedance amplifier  
 * FECS40-1000, Figaro CO, 0-1000 1ppm +/-2%  
 
-### More than one compound
+### More than one Compund
 * MQ6 Hanwei, Propane, Butane, 200-10000ppm, 5V, Analog in  
 * MQ4 Hanwei, Methane, 200-10000ppm, 5V, Analog in  
 * MQ135, Winzen, Amonia, Benzene, Sufide, Hanwei, https://www.winsen-sensor.com/sensors/voc-sensor/mq135.html   
@@ -77,7 +77,7 @@ Power consmpution will be high and the system should be run using AC adapter. Fo
 * MICS5524 sgxsensortech, CO 1-1000, Ethanol 10-500, Hydrogen 1-1000, Ammonia 1-500, Methane>1000, 32mA  
 * MQ3 Hanwei, similar to MICS5524, 140mA  
  
-### CO
+### CO (Carbon Monoxide)
 * MQ7 Hanwei, CO, 20-1000ppm, 5V, Ananlog in, cycling of suppply voltage needed  
 * ME2-CO, Winzen, CO, 0-1000, external circuit needed  
 * ME3-CO, WInzen, CO, 0-1000ppm 0.5ppm, electronic circuit needed  
@@ -115,7 +115,7 @@ Curremtly the LCD is not working reliably as it corrupts the display.
 ![LCD](LCD.jpg)  
 
 ## SCD30
-The sensiorion SCD30 is a light based CO2 sensors and measures   
+The sensiorion SCD30 is a light based CO2 sensors and measures addtionally temperature and humidity.
 https://www.sensirion.com/en/environmental-sensors/carbon-dioxide-sensors/carbon-dioxide-sensors-co2/  
 ![SCD30](SCD30.jpg)  
 
