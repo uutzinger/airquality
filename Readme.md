@@ -1,10 +1,10 @@
 # Airquality Sensors with ESP8266
 The goal of this project is to connect several air quality sensors via i2c bus to a wireless microcontroller.
 
-There exisits many sensor for indoor air quality (see below). If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
+There exisits many sensor for indoor **air quality** (see below). If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
 
 The hardware includes a 3.3V to 5V with voltage level shifter and an ESP8266.
-At this time the software supports the following devices:
+At this time the software **supports the following devices**:
 - LCD 20x4  (requires 5V signal and power)
 - SCD30 Senserion CO2  
 - BME680 Bosch Temp, Humidity, Pressure, VOC  
@@ -15,14 +15,60 @@ At this time the software supports the following devices:
 - MLX90614 Melex temp contactless  
 - MAX30105 Maxim pulseox (in progress)
 
-The system displays the measured values on an LCD and also connects to an MQTT server and publish results. When connection is lost, it scans for available networks and reasblishes the connection,
+The system **displays** the measured values on an LCD and also connects to an **MQTT server** and publish results. When connection is lost, it scans for available networks and reasblishes the connection,
 
-The software currenlty supports 3 separate i2c buses. Some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame when it shares bus with many sensors. SPS30 does not properly reset after program upload when LCD driver is on the same bus. MLX sensor sometimes reports excessive or negative temperature when combined with other senors.
+The software currenlty supports **3 separate i2c buses**. Some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame when it shares bus with many sensors. SPS30 does not properly reset after program upload when LCD driver is on the same bus. MLX sensor sometimes reports excessive or negative temperature when combined with other senors.
 
 The software scans all availabel pins for i2c devices and records the pin configuration for the supported sensors.
 
-Most settings are stored in EEPROM and can be changed at runtime.
-
+Most **settings** are stored in EEPROM and can be changed at runtime: 
+```
+=================================================================================  
+.........................................................................LCD 20x4  
+.........................................................SPS30 Senserion Particle  
+..............................................................SCD30 Senserion CO2  
+.......................................................SGP30 Senserion tVOC, eCO2  
+...........................BME680/280 Bosch Temperature, Humidity, Pressure, tVOC  
+....................................................CCS811 eCO2 tVOC, Air Quality  
+...........................................MLX90614 Melex Temperature Contactless  
+==All Sensors===========================|========================================  
+| z: print all sensor data              | n: This device Name, nSensi           |  
+==SGP30=eCO2============================|==EEPROM================================  
+| e: force eCO2, e400                   | s: save to EEPROM                     |  
+| v: force tVOC, t3000                  | r: read from EEPROM                   |  
+| g: get baselines                      | p: print current settings             |  
+|                                       | d: create default settings            |  
+==SCD30=CO2=============================|==CCS811=eCO2===========================  
+| f: force CO2, f400.0 in ppm           | c: force basline, c400                |  
+| t: force temperature offset, t5.0 in C| b: get baseline                       |  
+==MLX Temp==============================|=LCD====================================  
+| m: set temp offset, m1.4              | i: simplified display                 |  
+==Network===============================|==MQTT==================================  
+| 1: SSID 1, 1myssid                    | u: mqtt username, umqtt or empty      |  
+| 2: SSID 2, 2myssid                    | w: mqtt password, ww1ldc8ts or empty  |   
+| 3: SSID 3, 3myssid                    | q: send mqtt immediatly, q            |   
+| 4: password SSID 1, 4mypas or empty   |                                       |   
+| 5: password SSID 2, 5mypas or empty   | 8: mqtt server, 8my,mqtt.com          |  
+| 6: password SSID 3, 6mypas or empty   | 9: mqtt fall back server              |   
+==Disable===============================|==Disable===============================  
+| x: 99 reset microcontroller           | x: 7 MAX30 on/off                     |  
+| x: 2 LCD on/off                       | x: 8 MLX on/off                       |  
+| x: 3 WiFi on/off                      | x: 9 BME680 on/off                    |  
+| x: 4 SCD30 on/off                     | x: 10 BME280 on/off                   |  
+| x: 5 SPS30 on/off                     | x: 11 CCS811 on/off                   |  
+| x: x: 6 SGP30 on/off                  |                                       |  
+| This does not yet intialize the sensors, you will need to power on/off or x99 |  
+==Debug Level===========================|==Debug Level===========================  
+| l: 0 ALL off                          |                                       |  
+| l: 1 ALL minimal                      | l: 6 SGP30 max level                  |  
+| l: 2 LCD max level                    | l: 7 MAX30 max level                  |  
+| l: 3 WiFi max level                   | l: 8 MLX max level                    |  
+| l: 4 SCD30 max level                  | l: 9 BME680/280 max level             |  
+| l: 5 SPS30 max level                  | l: 10 CCS811 max level                |  
+==================================Urs Utzinger===================================  
+Dont forget to save setting to EEPROM                                              
+=====================================2020========================================  
+```
 ## Air Quality Assessments
 The sensor readings are compared to expected range and LCD backlight flashes if readings are otuside recommended range. Those ranges are:
 * Pressure:  

@@ -2954,8 +2954,8 @@ void helpMenu() {
   Serial.println(F("..............................................................SCD30 Senserion CO2"));
   Serial.println(F(".......................................................SGP30 Senserion tVOC, eCO2"));
   Serial.println(F("...........................BME680/280 Bosch Temperature, Humidity, Pressure, tVOC"));
-  Serial.println(F("....................................................CCS811 eCO2 tVOC, Air Quality")); 
-  Serial.println(F("...........................................MLX90614 Melex Temperature Contactless"));               
+  Serial.println(F("....................................................CCS811 eCO2 tVOC, Air Quality"));
+  Serial.println(F("...........................................MLX90614 Melex Temperature Contactless"));
   Serial.println(F("==All Sensors===========================|========================================"));
   Serial.println(F("| z: print all sensor data              | n: This device Name, nSensi           |"));
   Serial.println(F("==SGP30=eCO2============================|==EEPROM================================"));
@@ -2981,7 +2981,7 @@ void helpMenu() {
   Serial.println(F("| x: 3 WiFi on/off                      | x: 9 BME680 on/off                    |"));
   Serial.println(F("| x: 4 SCD30 on/off                     | x: 10 BME280 on/off                   |"));
   Serial.println(F("| x: 5 SPS30 on/off                     | x: 11 CCS811 on/off                   |"));
-  Serial.println(F("| x: x: 6 SGP30 on/off                  |                                       "));
+  Serial.println(F("| x: x: 6 SGP30 on/off                  |                                       |"));
   Serial.println(F("| This does not yet intialize the sensors, you will need to power on/off or x99 |"));
   Serial.println(F("==Debug Level===========================|==Debug Level==========================="));
   Serial.println(F("| l: 0 ALL off                          |                                       |"));
