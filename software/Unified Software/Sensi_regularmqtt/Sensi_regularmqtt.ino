@@ -74,7 +74,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // This software is provided as is, no warranty to is proper opertion is implied. Use it at your own risk.
 // Urs Utzinger
-// Spring 2021, i2c scanning and pin switching
+// January 2021, i2c scanning and pin switching, OTA flashing
 // Winter 2020, fixing the i2c issues
 // Fall 2020; MQTT and Wifi
 // Summer 2020; first release
@@ -165,6 +165,8 @@
 // reporting negative temp and temp above 500C.
 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#include <ArduinoOTA.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -855,8 +857,31 @@ void setup() {
   /******************************************************************************************************/
   // Connect to WiFi
   /******************************************************************************************************/
-  initializeWiFi();
+  initializeWiFi(); // this will turn off wifi if user settings want it off
 
+  /******************************************************************************************************/
+  // ESP8266 over the Air firmware update
+  /******************************************************************************************************/  
+  if (wifi_avail && mySettings.useWiFi) {
+    ArduinoOTA.setHostname(mySettings.mqtt_mainTopic); // That would be appropriate host name
+    ArduinoOTA.setPassword("w1ldc8ts");                // That should be set by programmer and not user 
+    ArduinoOTA.onStart([]() { if (mySettings.debuglevel > 0) { Serial.println(F("Start")); } });
+    ArduinoOTA.onEnd([]()   { if (mySettings.debuglevel > 0) { Serial.println(F("\nEnd")); } });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { if (mySettings.debuglevel > 0) { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); } });
+    ArduinoOTA.onError([](ota_error_t error) {
+      if (mySettings.debuglevel > 0) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println(F("Auth Failed"));
+        else if (error == OTA_BEGIN_ERROR) Serial.println(F("Begin Failed"));
+        else if (error == OTA_CONNECT_ERROR) Serial.println(F("Connect Failed"));
+        else if (error == OTA_RECEIVE_ERROR) Serial.println(F("Receive Failed"));
+        else if (error == OTA_END_ERROR) Serial.println(F("End Failed"));
+      }
+    });
+    ArduinoOTA.begin();
+    if (mySettings.debuglevel > 0) { Serial.println(F("OTA ready")); }
+  }
+  
   /******************************************************************************************************/
   // System is initialized
   /******************************************************************************************************/
@@ -874,7 +899,7 @@ void loop() {
   /******************************************************************************************************/
   // Update the State Machines for all Devices
   /******************************************************************************************************/
-  if (wifi_avail && mySettings.useWiFi)     { updateWiFi(); }        // WiFi update
+  if (wifi_avail && mySettings.useWiFi)     { updateWiFi(); }        // WiFi update, this will reconnect if disconnected
   if (wifi_avail && mySettings.useWiFi)     { updateMQTT(); }        // MQTT update
   if (scd30_avail && mySettings.useSCD30)   { updateSCD30(); }       // SCD30 Sensirion CO2 sensor
   if (sgp30_avail && mySettings.useSGP30)   { updateSGP30(); }       // SGP30 Sensirion eCO2 sensor
@@ -884,6 +909,7 @@ void loop() {
   if (bme680_avail && mySettings.useBME680) { updateBME680(); }      // BME680, Hum, Press, Temp, Gasresistance
   if (therm_avail && mySettings.useMLX)     { updateMLX(); }         // MLX Contactless Thermal Sensor
   if (max_avail && mySettings.useMAX30)     {   }                    // MAX Pulse Ox Sensor
+  if (wifi_avail && mySettings.useWiFi)     { ArduinoOTA.handle(); } // Over the air flashing
   /***************************************************F***************************************************/
 
   /******************************************************************************************************/
