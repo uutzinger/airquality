@@ -50,7 +50,7 @@ public:
   Adafruit_BME680(int8_t cspin, SPIClass *theSPI = &SPI);
   Adafruit_BME680(int8_t cspin, int8_t mosipin, int8_t misopin, int8_t sckpin);
 
-  bool begin(uint8_t addr = BME680_DEFAULT_ADDRESS, bool initSettings = true);
+  bool begin(uint8_t addr = BME680_DEFAULT_ADDRESS, bool initSettings = true, TwoWire *theWire = &Wire);
   float readTemperature();
   float readPressure();
   float readHumidity();

@@ -121,8 +121,9 @@ Adafruit_BME680::Adafruit_BME680(int8_t cspin, int8_t mosipin, int8_t misopin,
  *          Default is true.
  *  @return True on sensor initialization success. False on failure.
  */
-bool Adafruit_BME680::begin(uint8_t addr, bool initSettings) {
+bool Adafruit_BME680::begin(uint8_t addr, bool initSettings, TwoWire *theWire) {
   _i2caddr = addr;
+  _wire = theWire;
 
   if (_cs == -1) {
     // i2c

@@ -11,7 +11,7 @@
  * See detailed document
  *
  * Development environment specifics:
- * Arduino IDE 1.8.12
+ * Arduino IDE 1.8.12 and 1.8.13
  *
  * ================ Disclaimer ===================================
  * This program is distributed in the hope that it will be useful,
@@ -86,6 +86,31 @@
  *  - added NANO 33 IOT board  = SAMD21G18A (addition from Firepoo)
  *  - added option to select in sketch any serial or wire channel to use (many user requests)
  *  - added example12 and example13 sketches to demonstrate any channel selection option
+ *
+ * version 1.4.3 / June 2020
+ *  - update to I2C_WAKEUP code
+ *
+ * version 1.4.4 / July 2020
+ *  - added embedded support for Arduino Due
+ *  - As I now have a SPS30 firmware level 2.2 to test, corrected GetStatusReg() and SetOpMode()
+ *  - changed Example11 to demonstrate reading status register only
+ *  - added Example14 to demonstrate sleep and wakeup function.
+ *
+ * version 1.4.5 / August 2020
+ *  - added example20 for connecting multiple SPS30 (5!) to single board
+ *  - updated sps30.odt around multiple SPS30 connected to Mega2560, DUE and ESP32
+ *
+ * version 1.4.6 / September 2020
+ *  - corrected return code in instruct()
+ *
+ * version 1.4.7 / September 2020
+ *  - corrected another return code in instruct()
+ *
+ * version 1.4.8 / October 2020
+ *  - added check on return code in GetStatusReg()
+ *  - added support for Artemis / Apollo3
+ *  - added setClock() for I2C as the Artemis/Apollo3 is standard 400K. SPS30 can handle up to 100K
+ *  - added flushing in case of chk_zero() (handling a problem in Artemis library 2.0.1)
  *********************************************************************
  */
 
@@ -215,7 +240,8 @@ bool SPS30::begin(TwoWire *wirePort)
 {
 #if defined INCLUDE_I2C
     _Sensor_Comms = I2C_COMMS;
-    _i2cPort = wirePort; // Grab which port the user wants us to use
+    _i2cPort = wirePort;            // Grab which port the user wants us to use
+    _i2cPort->setClock(100000);     // 1.4.8 Apollo3 is default 400K (although stated differently in 2.0.1)
     return true;
 #else
     DebugPrintf("I2C communication not enabled\n");
@@ -346,10 +372,9 @@ bool SPS30::FWCheck(uint8_t major, uint8_t minor) {
  *
  * Return obtain result
  * return
- *  ERR_OK = ok
- *  else error
+ *  ERR_OK = ok, no isues found
+ *  else ERR_OUTOFRANGE, issues found
  */
-
 uint8_t SPS30::GetStatusReg(uint8_t *status) {
     uint8_t ret, offset;
 
@@ -362,19 +387,20 @@ uint8_t SPS30::GetStatusReg(uint8_t *status) {
     if (_Sensor_Comms == I2C_COMMS) {
 
         I2C_fill_buffer(I2C_READ_STATUS_REGISTER);
-
-        ret = I2C_SetPointer_Read(5,false);
-
+        ret = I2C_SetPointer_Read(4,false);
         offset = 0;
+
+        // clear status register just in case there was an issue
+        I2C_fill_buffer(I2C_CLEAR_STATUS_REGISTER);
+        I2C_SetPointer();
     }
     else
 #endif // INCLUDE_I2C
 
 #if defined INCLUDE_UART
     {
-        // fill buffer to send
+        // fill buffer to read_status register and clear after reading
         if ( ! SHDLC_fill_buffer(SER_READ_STATUS) ) return(ERR_PARAMETER);
-
         ret = ReadFromSerial();
         offset = 5;
     }
@@ -382,11 +408,23 @@ uint8_t SPS30::GetStatusReg(uint8_t *status) {
     {}
 #endif // INCLUDE_UART
 
+    if (ret != ERR_OK) return (ret);    // added 1.4.5
+
+    /* Version 1.4.4
+     * From the datasheet : If one of the device status flags of type “Error” is set,
+     * this is also indicated in every SHDLC response frame by the Error-Flag in the state byte.
+     *
+     * often ret = 0x80 is returned when there is an error, BUT NOT always !
+     * So the return value of reading is ignored
+     */
+
     if (_Receive_BUF[offset + 1] & 0b00100000) *status |= STATUS_SPEED_ERROR;
     if (_Receive_BUF[offset + 3] & 0b00100000) *status |= STATUS_LASER_ERROR;
     if (_Receive_BUF[offset + 3] & 0b00010000) *status |= STATUS_FAN_ERROR;
 
-    return(ret);
+    if (*status != 0x0) return(ERR_OUTOFRANGE);
+
+    return(ERR_OK);
 }
 
 /**
@@ -404,14 +442,11 @@ uint8_t SPS30::GetStatusReg(uint8_t *status) {
  *  ERR_OK = ok
  *  else error
  */
-
-
 uint8_t SPS30::SetOpMode( uint8_t mode )
 {
-
 #if defined SMALLFOOTPRINT                  // add 1.4.1
    return(ERR_UNKNOWNCMD);
-#endif // SMALLFOOTPRINT
+#else
 
     // check for minimum Firmware level
     if(! FWCheck(2,0)) return(ERR_FIRMWARE);
@@ -455,10 +490,13 @@ uint8_t SPS30::SetOpMode( uint8_t mode )
 
         if (! Instruct(SER_WAKEUP))  return(ERR_PROTOCOL);
 
+        // give time for SPS30 to go idle
+        delay(100);
+
         // indicate not in sleep anymore
         _sleep = false;
 
-        // was started before instructed to go to sleep
+        // was SPS30 started before instructed to go to sleep
         if (_WasStarted) {
             if(! start()) return(ERR_PROTOCOL);
         }
@@ -467,6 +505,7 @@ uint8_t SPS30::SetOpMode( uint8_t mode )
         return(ERR_PARAMETER);
 
     return(ERR_OK);
+#endif // SMALLFOOTPRINT
 }
 
 /**
@@ -511,7 +550,7 @@ bool SPS30::Instruct(uint8_t type)
         else if(type == SER_WAKEUP)
             I2C_fill_buffer(I2C_WAKEUP);
         else
-            return(ERR_PARAMETER);
+            return(false);      // update version 1.4.6
 
         ret = I2C_SetPointer();
 
@@ -521,7 +560,7 @@ bool SPS30::Instruct(uint8_t type)
 
 #if defined INCLUDE_UART
     {    // fill buffer to send
-        if (SHDLC_fill_buffer(type) != true) return(ERR_PARAMETER);
+        if (SHDLC_fill_buffer(type) != true) return(false); // update version 1.4.7
 
         ret = ReadFromSerial();
     }
@@ -1006,13 +1045,15 @@ bool SPS30::setSerialSpeed()
             _serial = &Serial;
             break;
 // added NANO 33 IOT board  = SAMD21G18A (addition from Firepoo) // 1.4.2
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(SAMD21G18A)
+// added Arduino due version 1.4.4
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(SAMD21G18A) || defined(ARDUINO_SAM_DUE)
         case SERIALPORT1:
             Serial1.begin(_Serial_baud);
             _serial = &Serial1;
             break;
 #endif
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+// added Arduino due  version 1.4.4
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(ARDUINO_SAM_DUE)
         case SERIALPORT2:
             Serial2.begin(_Serial_baud);
             _serial = &Serial2;
@@ -1065,19 +1106,13 @@ bool SPS30::setSerialSpeed()
             else // try softserial
             {
 
-#if defined(INCLUDE_SOFTWARE_SERIAL)
-
-  #if not defined ARDUINO_ARCH_SAMD  && not defined ARDUINO_ARCH_SAM21D    // NO softserial on SAMD
-                static SoftwareSerial swSerial(Serial_RX, Serial_TX);
-                swSerial.begin(_Serial_baud);
-                _serial = &swSerial;
-  #else
-                DebugPrintf("No SoftWare Serial on SAMD\n");
-  #endif // NO softserial on SAMD
-
+#if defined(INCLUDE_SOFTWARE_SERIAL)    // defined / undef in SPS30.h
+            static SoftwareSerial swSerial(Serial_RX, Serial_TX);
+            swSerial.begin(_Serial_baud);
+            _serial = &swSerial;
 #else
-                DebugPrintf("SoftWare Serial not enabled\n");
-                return(false);
+            DebugPrintf("SoftWareSerial not enabled\n");
+            return(false);
 #endif //INCLUDE_SOFTWARE_SERIAL
             }
             break;
@@ -1168,7 +1203,7 @@ bool SPS30::SHDLC_fill_buffer(uint8_t command, uint32_t parameter)
 
         case SER_READ_STATUS:
             _Send_BUF[i++] = 1;     // length
-            _Send_BUF[i++] = 0;     // do NOT clear bits after reading
+            _Send_BUF[i++] = 1;     // Clear bits after reading (as the condition might have been cleared) //1.4.4
             break;
 
         case SER_STOP_MEASUREMENT:
@@ -1426,8 +1461,9 @@ uint8_t SPS30::I2C_expect()
  */
 void SPS30::I2C_init()
 {
-    Wire.begin();       // changed 1.4.2.
+    Wire.begin();               // changed 1.4.2.
     _i2cPort = &Wire;
+    _i2cPort->setClock(100000); // 1.4.8 Apollo3 is default 400K (although stated differently)
 }
 
 /**
@@ -1559,19 +1595,26 @@ uint8_t SPS30::I2C_ReadToBuffer(uint8_t count, bool chk_zero)
         // 2 bytes RH, 1 CRC
         if( i == 3) {
 
+            _Receive_BUF[_Receive_BUF_Length++] = data[0];
+            _Receive_BUF[_Receive_BUF_Length++] = data[1];
+
             if (data[2] != I2C_calc_CRC(&data[0])){
                 DebugPrintf("I2C CRC error: Expected 0x%02X, calculated 0x%02X\n",data[2] & 0xff,I2C_calc_CRC(&data[0]) & 0xff);
                 return(ERR_PROTOCOL);
             }
 
-            _Receive_BUF[_Receive_BUF_Length++] = data[0];
-            _Receive_BUF[_Receive_BUF_Length++] = data[1];
-
             i = 0;
 
             // check for zero termination (Serial and product code)
             if (chk_zero) {
-                if (data[0] == 0 && data[1] == 0) return(ERR_OK);
+
+                if (data[0] == 0 && data[1] == 0) {
+
+                    // flush any bytes pending (added 1.4.8 as the Apollo 2.0.1 was NOT clearing rxBuffer)
+                    // Logged as an issue and expect this could be removed in the future
+                    while (_i2cPort->available()) _i2cPort->read();
+                    return(ERR_OK);
+                }
             }
 
             if (_Receive_BUF_Length >= count) break;

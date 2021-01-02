@@ -18,6 +18,7 @@
 */
 
 #include <Wire.h>
+TwoWire Wire_1 = TwoWire();
 
 #include "SparkFun_SCD30_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_SCD30
 SCD30 airSensor;
@@ -27,9 +28,9 @@ void setup()
   Serial.begin(115200);
   Serial.println("");
   Serial.println("SCD30");
-  Wire.begin();
+  Wire_1.begin(D1,D2);
 
-  if (airSensor.begin(Wire,true) == false) //Wire interface and Autocalibrate is on
+  if (airSensor.begin(Wire_1,true) == false) //Wire interface and Autocalibrate is on
   {
     Serial.println("Air sensor not detected. Please check wiring. Freezing...");
     while (1)

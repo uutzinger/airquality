@@ -8,6 +8,7 @@
 
 /*
  * For Sensi
+I2C device found at address 0x20  ! LCD
 I2C device found at address 0x27  ! LCD
 I2C device found at address 0x57  ! MAX30105
 I2C device found at address 0x58  ! SGP30
@@ -15,17 +16,15 @@ I2C device found at address 0x5A  ! MLX IR sensor
 I2C device found at address 0x5B  ! CCS811
 I2C device found at address 0x61  ! SCD30
 I2C device found at address 0x69  ! SPS30
+I2C device found at address 0x76  ! BME280
 I2C device found at address 0x77  ! BME680
 **********************************
 */
  
 #include <Wire.h>
 
-//We need to exclude the Wake Pin for CCS811 which is on D6 in my setup
-uint8_t portArray[] = {16, 5, 4, 0, 2, 14, 13};
-String portMap[] = {"D0", "D1", "D2", "D3", "D4", "D5", "D7"}; //for Wemos
-//uint8_t portArray[] = {16, 5, 4, 0, 2, 14, 12, 13};
-//String portMap[] = {"D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"}; //for Wemos
+uint8_t portArray[] = {16, 5, 4, 0, 2, 14, 12, 13};
+String portMap[] = {"D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"}; //for Wemos
 
 void scanPorts() { 
   for (uint8_t i = 0; i < sizeof(portArray); i++) {

@@ -264,20 +264,15 @@ void setup() {
   if (TX_PIN != 0 && RX_PIN != 0) sps30.SetSerialPin(RX_PIN,TX_PIN);
 
   // Begin communication channel;
-  if (sps30.begin(SP30_COMMS) == false) {
+  if (! sps30.begin(SP30_COMMS))
     Errorloop((char *) "could not initialize communication channel.", 0);
-  }
 
   // check for SPS30 connection
-  if (sps30.probe() == false)
-    Errorloop((char *) "could not probe / connect with SPS30", 0);
-  else
-    Serial.println(F("Detected SPS30"));
+  if (! sps30.probe()) Errorloop((char *) "could not probe / connect with SPS30.", 0);
+  else  Serial.println(F("Detected SPS30."));
 
   // reset SPS30 connection
-  if (sps30.reset() == false) {
-    Errorloop((char *) "could not reset", 0);
-  }
+  if (! sps30.reset()) Errorloop((char *) "could not reset.", 0);
 
   // read device info
   GetDeviceInfo();
@@ -286,7 +281,7 @@ void setup() {
   airSensor.setDebug(DEBUG);
 
   // This will init the wire, but NOT start reading
-  if (airSensor.begin(Wire,false) == false)
+  if (! airSensor.begin(Wire,false))
     Serial.println(F("cound not start SCD30"));
   else
   {
@@ -319,10 +314,8 @@ void setup() {
     SCD30_detected = true;
 
   // start measurement
-  if (sps30.start() == true)
-    Serial.println(F("Measurement started"));
-  else
-    Errorloop((char *) "Could NOT start measurement", 0);
+  if (sps30.start())  Serial.println(F("Measurement started"));
+  else Errorloop((char *) "Could NOT start measurement", 0);
 
   serialTrigger((char *) "Hit <enter> to continue reading");
 
@@ -374,25 +367,18 @@ void GetDeviceInfo()
     return;
   }
 
-  Serial.print("Firmware level: ");
-  Serial.print(v.major);
-  Serial.print(".");
-  Serial.println(v.minor);
+  Serial.print(F("Firmware level: "));  Serial.print(v.major);
+  Serial.print("."); Serial.println(v.minor);
 
   if (SP30_COMMS != I2C_COMMS) {
-    Serial.print("Hardware level: ");
-    Serial.println(v.HW_version);
+    Serial.print(F("Hardware level: ")); Serial.println(v.HW_version);
 
-    Serial.print("SHDLC protocol: ");
-    Serial.print(v.SHDLC_major);
-    Serial.print(".");
-    Serial.println(v.SHDLC_minor);
+    Serial.print(F("SHDLC protocol: ")); Serial.print(v.SHDLC_major);
+    Serial.print("."); Serial.println(v.SHDLC_minor);
   }
 
-  Serial.print("Library level : ");
-  Serial.print(v.DRV_major);
-  Serial.print(".");
-  Serial.println(v.DRV_minor);
+  Serial.print(F("Library level : "));  Serial.print(v.DRV_major);
+  Serial.print(".");  Serial.println(v.DRV_minor);
 }
 
 /**
