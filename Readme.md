@@ -40,7 +40,7 @@ P10: >50ug/m3 is poor
 
 ### LCD
 The LCD screen is a HD44780 compatible display with 4 lines of 20 characters.  
-It uses and I2C to LCD adapter that is based on PCF8574T.
+It uses and I2C to LCD adapter that is based on PCF8574T.  
 ![LCD](LCD.jpg)  
 
 ### SCD30
