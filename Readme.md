@@ -15,11 +15,11 @@ At this time the software **supports the following devices**:
 - MLX90614 Melex temp contactless  
 - MAX30105 Maxim pulseox (in progress)
 
-The system **displays** the measured values on an LCD and also connects to an **MQTT server** and publish results. When connection is lost, it scans for available networks and reasblishes the connection,
+The system **displays** the measured values on an LCD and also connects to an **MQTT server** and publish results. When connection is lost, it scans for available networks and reestablishes the connection,
 
-The software currenlty supports **3 separate i2c buses**. Some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame when it shares bus with many sensors. SPS30 does not properly reset after program upload when LCD driver is on the same bus. MLX sensor sometimes reports excessive or negative temperature when combined with other senors.
+The software currenlty supports **3 separate i2c buses**. Some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame when it shares bus with many sensors. SPS30 does not properly reset after program upload when LCD driver is on the same bus. MLX sensor sometimes reports excessive or negative temperature when combined with other sensors.
 
-The software scans all availabel pins for i2c devices and records the pin configuration for the supported sensors.
+The software **scans** all availabel pins for i2c devices and **records the pin configuration** for the supported sensors.
 
 Most **settings** are stored in EEPROM and can be changed at runtime: 
 ```
@@ -80,6 +80,9 @@ A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. Th
 P2.5: >25ug/m3 is poor  
 P10: >50ug/m3 is poor   
 * tVOC:  a value >660ppb is poor
+
+It is common to find CO2 concentration above 1000ppm in single family homes. 
+For good airquality you need to let air circulate when possible.
 
 ## Sensor System
 ![Sensi](Sensi.jpg)  
