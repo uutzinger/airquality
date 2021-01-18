@@ -8,7 +8,7 @@
 //  - SCD30 Senserion CO2, Sparkfun library, using interrupt from data ready pin
 //  - SGP30 Senserion VOC, eCO2, Sparkfun library
 //  - BME680 Bosch Temp, Humidity, Pressure, VOC, Adafruit library
-//  - BME280 Bosch Temp, Humidity, Pressure  Sparkfun library
+//  - BM[E/P]280 Bosch Temp, [Humidity,] Pressure  Sparkfun library
 //  - CCS811 Airquality eCO2 tVOC, Spakrfun library, using interrupt from data ready pin
 //  - MLX90614 Melex temp contactless, Spakrfun library 
 //  - MAX30105 Maxim pulseox, not implemented yet, Spakfun library
@@ -37,8 +37,8 @@
 //
 // Wire/I2C:
 //  Multiple i2c pins are supported, ESP8266 Arduino supports only one active wire interface, however the pins can
-//  changed prior to each communication.
-//  At startup all pin combinations are scanned for possible scl & sda connections of the attached sensors.
+//  be changed prior to each communication.
+//  At startup, all pin combinations are scanned for possible scl & sda connections of the attached sensors.
 //  Pins of supported sensors are registered.  
 //
 //  Some breakout boards do not work well together with others.
@@ -49,7 +49,7 @@
 //
 // Improvements:
 //  Some sensor drivers were modified to have no or almost no delay functions in the code sections that 
-//  are repeatedly called. Some drivers were modivied to allow for user specified i2c port instead of standard "Wire" port.
+//  are repeatedly called. Some drivers were modified to allow for user specified i2c port instead of standard "Wire" port.
 //
 // Software implementation:
 //  The program sections are divided into intializations and updates. 
@@ -74,6 +74,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // This software is provided as is, no warranty to is proper opertion is implied. Use it at your own risk.
 // Urs Utzinger
+// Sometime, webserver
 // January 2021, i2c scanning and pin switching, OTA flashing
 // Winter 2020, fixing the i2c issues
 // Fall 2020; MQTT and Wifi
@@ -110,8 +111,8 @@
 // 2  , 3, "RX",     , high at boot, goes to USB
 // 2  , 1, "TX",     , high at boot, goes to USB, boot failure if pulled low
 //
-// Wakte and Interrupt Pin assignements
-// ------------------------------------
+// Wake and Interrupt Pin assignements
+// -----------------------------------
 // Use D8 for SCD30_RDY interrupt, goes high when data available, remains high until data is read, 
 //   this requires the sensors to be power switched after programming, 
 //   if the sensor has data available, the pin is high and the mcu can not be programmed
@@ -130,8 +131,8 @@
 //------------------------------------------------------------------------------------------
 //       5V, 100kHz,   ?, 10k, LCD 20x4
 //                    No,  5k, Level Shifter 
-//   3.3&5V, 100kHz,  No, Inf, SPS30 Senserion particle
-//   3.3-5V, 100kHz, 150, Inf, SCD30 Senserion CO2
+//   3.3&5V, 100kHz,  No, Inf, SPS30 Senserion particle, not compatible with LCD driver, power supply needs 5V, signal can be 3.3V (with pullup to 3.3V) or 5V ( with pullup to 5V)
+//   3.3-5V, 100kHz, 150, Inf, SCD30 Senserion CO2, output high level is 2.4V (TTL requires 2.7V, but might still work) 
 // 1.8-3.3V, 400kHz,  No, 10k, SGP30 Senserion VOC, eCO2
 // 1.8-3.3V, 400kHz,  No, 10k, BME680 Bosch Temp, Humidity, Pressure, VOC    
 // 1.8-3.6V, 100kHz, Yes,  5k, CCS811 Airquality eCO2 tVOC                   
@@ -166,31 +167,35 @@
 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <ArduinoOTA.h>
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool fastMode = true;                           // true:  Measure with about 5 sec intervals, 
-                                                // false: Measure in about 1 min intervals and enable sleeping and low energy modes if available
-                                                // slow mode has not been tested thorougly
-volatile unsigned int dbglevel;                 // 0 no output over USB terminal
-                                                // 1 boot info and errors 
-                                                // 2..xx turn on verbose debug mode for specific device, see help screen
-#define BAUDRATE 115200                         // serial communicaiton speed, terminal settings need to match
+bool fastMode = true;                                      // true:  Measure with about 5 sec intervals, 
+                                                           // false: Measure in about 1 min intervals and enable sleeping and low energy modes if available
+                                                           // slow mode has not been tested thorougly
+volatile unsigned int dbglevel;                            // 0 no output over USB terminal
+                                                           // 1 boot info and errors 
+                                                           // 2..xx turn on verbose debug mode for specific device, see help screen
+#define BAUDRATE 115200                                    // serial communicaiton speed, terminal settings need to match
+
+#define ADALCD                                             // we have Adafruit i2c to LCD driver
+// #undef ADALCD                                           // we have non-Adafruit i2c to LCD driver
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Hard Coded Settings
+// It is not recommeended to change settings others than the ones in the section marked "user defined" below. 
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <Wire.h>
 TwoWire myWire = TwoWire();
 
 // You can define multipl i2c ports with repeating statements above, unfortunately ESP8266 Arduino only supports one because
 // the wire library calls twi.h for which only one instance can run. 
-// We will switch pins each time we communicate to different i2c bus and use same wire instance.
+// We will switch pins each time we communicate to multiple i2c buses and use same wire instance.
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Hard Coded Settings
-// It is not recommeended to change settings others than the ones in the section marked "user" below. 
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Prepare for over the air programming
+#include <ArduinoOTA.h>
 
 /******************************************************************************************************/
 // Sensor
@@ -205,17 +210,25 @@ enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, GET_BASELI
                                                            // WAIT_STABLE    readings are not stable yet    
                                                            // HAS_ERROR      the communication with the sensor failed
 
-#define SCD30_RDY D8                                       // normal low, active high pin indicating data ready fcom SCD30 sensor (raising)
+#define SCD30_RDY D8                                       // normal low, active high pin indicating data ready from SCD30 sensor (raising)
 #define CCS811_INT D7                                      // normal high, active low interrupt, high to low (falling) at end of measurement
 #define CCS811_WAKE D0                                     // normal high, active low to wake up sensor, might need to pull low and high w resistor
 
+/// Blinking settings due to sensors warnings
+/////// User defined ========================================
+#define intervalBlinkOff 500                               // blink off time in ms
+#define intervalBlinkOn 9500                               // blink on time in ms
+/////// End user defined ========================================
 bool allGood = true;                                       // a sensor is outside recommended limits
 bool lastBlinkInten = true;                                // dark or bright?
 unsigned long lastBlink;                                   // last time we switched LCD intensity
-#define intervalBlinkOff 1000                              // blink off time
-#define intervalBlinkOn 9000                               // blink on time
-unsigned long intervalBlink = 1000;                        // 
+unsigned long intervalBlink = 1000;                        // auto populated during execution
 
+/// Baselines of certain sensors
+unsigned long lastBaseline;                                // last time baseline was onbtained
+unsigned long intervalBaseline;                            // how often do we obtain the baselines?
+#define intervalBaselineSlow 3600000                       // 1 hour
+#define intervalBaselineFast  600000                       // 10 minutes
 /******************************************************************************************************/
 // WiFi and MQTT
 /******************************************************************************************************/
@@ -226,6 +239,7 @@ unsigned long intervalBlink = 1000;                        //
 #define intervalMQTTSlow 60000                             // send MQTT sensor dta 60sec, not relevant if send data immediately is set in EEPROM
 /////// =====================================================
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
 #include <PubSubClient.h>
 enum WiFiStates{START_UP = 0, CHECK_CONNECTION, IS_SCANNING, IS_CONNECTING, IS_WAITING};
 bool wifi_avail = false;                                   // do we have wifi?
@@ -255,15 +269,15 @@ volatile WiFiStates stateMQTT = IS_WAITING;                // keeping track of M
 // Stored System settings
 /******************************************************************************************************/
 #include <EEPROM.h>
-#define EEPROM_SIZE 1024                                   // make sure this value is larger than the space required by the settings below!
+#define EEPROM_SIZE 2048                                   // make sure this value is larger than the space required by the settings below!
 //#define saveSettings 604800000                           // 7 days
-#define saveSettings 43200000                              // 12 hrs, this might impact longevity of flash memory, I dont know max number write cycles
+#define saveSettings 43200000                              // 12 hrs, this might impact longevity of flash memory, I dont know max number of write cycles
 int eepromAddress = 0;                                     // So far this location is not oeverwritten by uploading other programs
 unsigned long lastEEPROM;                                  // last time we updated EEPROM, should occur every couple days
 // ========================================================// The EEPROM section
 // This table has grown over time. So its not in order.
-// Appending new settingswill keeps the already stored settings.
-// Boolean settings are stored in as a byte.
+// Appending new settings will keeps the already stored settings.
+// Boolean settings are stored as a byte.
 struct EEPROMsettings {
   unsigned long runTime;                                   // keep track of total sensor run time
   unsigned int  debuglevel;                                // amount of debug output on serial port
@@ -300,7 +314,8 @@ struct EEPROMsettings {
   char          mqtt_fallback[255];                        // your fallback mqtt server if initial server fails, useful when on private home network
   char          mqtt_mainTopic[32];                        // name of this sensing device for mqtt broker
   bool          consumerLCD;                               // simplified display
-  bool          useBME280;                                 //
+  bool          useBME280;                                 // ...
+  float         avgP;                                      // averagePressure
 };
 EEPROMsettings mySettings;                                 // the settings
 
@@ -461,6 +476,7 @@ volatile unsigned long lastCCS811Interrupt;                // last time we updat
 unsigned long warmupCCS811;                                // sensor needs 20min conditioning 
 unsigned long intervalCCS811Baseline;                      // get the baseline every few minutes
 unsigned long intervalCCS811Humidity;                      // update the humidity every few minutes
+unsigned long intervalCCS811;                              // to check if interrupt timed out
 uint8_t ccs811Mode;                                        // operation mode, see above 
 const byte CCS811interruptPin = CCS811_INT;                // CCS811 not Interrupt Pin
 volatile SensorStates stateCCS811 = IS_IDLE;               // sensor state
@@ -644,8 +660,6 @@ float         myDelayAvg = -99;                            // average delay used
 #define LCDResetTime 43200000                              // 12 hrs, in case we want to reset and attempt cleaning corrupted display, no longer used
 #define intervalLCDFast  5000                              // 5sec
 #define intervalLCDSlow 60000                              // 1min
-#define ADALCD                                             // we have Adafruit i2c to LCD driver
-//#undef ADALCD                                            // we have non-Adafruit i2c to LCD driver
 //// End user defined =======================================
 #if defined ADALCD
   #include "Adafruit_LiquidCrystal.h"
@@ -737,7 +751,8 @@ void setup() {
           error = Wire.endTransmission();
           if (error == 0){
             // found a device
-            if      (address == 0x20) {lcd_avail    = true; lcd_port   = &myWire; lcd_i2c[0]   = portArray[i];    lcd_i2c[1]= portArray[j]; } // LCD display
+            if      (address == 0x20) {lcd_avail    = true; lcd_port   = &myWire; lcd_i2c[0]   = portArray[i];    lcd_i2c[1]= portArray[j]; } // LCD display Adafruit
+            else if (address == 0x27) {lcd_avail    = true; lcd_port   = &myWire; lcd_i2c[0]   = portArray[i];    lcd_i2c[1]= portArray[j]; } // LCD display PCF8574
             else if (address == 0x57) {max_avail    = true; max_port   = &myWire; max_i2c[0]   = portArray[i];    max_i2c[1]= portArray[j]; } // MAX 30105 Pulseox & Particle
             else if (address == 0x58) {sgp30_avail  = true; sgp30_port = &myWire; sgp30_i2c[0] = portArray[i];  sgp30_i2c[1]= portArray[j]; } // Senserion TVOC eCO2
             else if (address == 0x5A) {therm_avail  = true; mlx_port   = &myWire; mlx_i2c[0]   = portArray[i];    mlx_i2c[1]= portArray[j]; } // MLX IR sensor
@@ -773,16 +788,18 @@ void setup() {
   // Time Intervals for Loop, Display and MQTT publishing, keeping track of runtime
   /******************************************************************************************************/
 
-  if (fastMode == true) {                                  // fast mode -----------------------------------
-    intervalLoop    =                100;                  // 0.1 sec, Main Loop is run 10 times per second
-    intervalLCD     =    intervalLCDFast;                  // LCD display is updated every 10 seconds
-    intervalMQTT    =   intervalMQTTFast;                  // 
-    intervalRuntime =              60000;                  // 1 minute, uptime is updted every minute
-  } else{                                                  // slow mode -----------------------------------
-    intervalLoop    =               1000;                  // 1 sec
-    intervalLCD     =    intervalLCDSlow;                  // 1 minute
-    intervalMQTT    =   intervalMQTTSlow;                  //
-    intervalRuntime =             600000;                  // 10 minutes
+  if (fastMode == true) {                                     // fast mode -----------------------------------
+    intervalLoop     =                  100;                  // 0.1 sec, main loop runs 10 times per second
+    intervalLCD      =      intervalLCDFast;                  // LCD display is updated every 10 seconds
+    intervalMQTT     =     intervalMQTTFast;                  // 
+    intervalRuntime  =                60000;                  // 1 minute, uptime is updted every minute
+    intervalBaseline = intervalBaselineFast;                  // 10 minutes
+  } else{                                                     // slow mode -----------------------------------
+    intervalLoop     =                 1000;                  // 1 sec, main loop runs once a second
+    intervalLCD      =      intervalLCDSlow;                  // 1 minute
+    intervalMQTT     =     intervalMQTTSlow;                  //
+    intervalRuntime  =               600000;                  // 10 minutes
+    intervalBaseline = intervalBaselineSlow;                  // 1 hr
   }
 
   /******************************************************************************************************/
@@ -808,10 +825,10 @@ void setup() {
   if (max_avail && mySettings.useMAX30)     {   }                    else { max_avail    = false; }
 
   /******************************************************************************************************/
-  // Make sure i2c bus was not changed
+  // Make sure i2c bus has not changed
   // I did not check each driver to verify wether it modifies the wire settings
   // The settings below will work for all sensors supported
-  // If one has only one wire instance, it does not make sense to switch clock speed.
+  // If one has only one wire instance, it does not make sense to operate the pins at differnt clock speeds
   /******************************************************************************************************/
   myWire.setClock(100000);
   myWire.setClockStretchLimit(200000);
@@ -843,13 +860,14 @@ void setup() {
   lastMQTT            = currentTime;
   lastMQTTPublish     = currentTime;
   lastBlink           = currentTime;
+  lastBaseline        = currentTime;
   
   /******************************************************************************************************/
-  // Populate LCD screen, start with clean LCD
+  // Populate LCD screen, start with cleared LCD
   /******************************************************************************************************/
   if (lcd_avail && mySettings.useLCD) {
     tmpTime = millis();
-    if (mySettings.consumerLCD) { updateConsumerLCD(); } else {updateLCD();}
+    if (mySettings.consumerLCD) { updateSinglePageLCD(); } else {updateLCD();}
     lastLCD = currentTime;
     if (dbglevel > 0) { Serial.print(F("LCD updated in ")); Serial.print((millis()-tmpTime));  Serial.println(F("ms")); }
   }
@@ -857,12 +875,19 @@ void setup() {
   /******************************************************************************************************/
   // Connect to WiFi
   /******************************************************************************************************/
-  initializeWiFi(); // this will turn off wifi if user settings want it off
+  initializeWiFi(); // this will turn off wifi if user settings are set to off
 
   /******************************************************************************************************/
-  // ESP8266 over the Air firmware update
+  // ESP8266 over the Air firmware update and mDNS
   /******************************************************************************************************/  
   if (wifi_avail && mySettings.useWiFi) {
+    // mDNS responder setup
+    if (!MDNS.begin(mySettings.mqtt_mainTopic)) {
+      if (mySettings.debuglevel > 0) { Serial.println("Error setting up MDNS responder!"); } 
+    } else { 
+      if (mySettings.debuglevel > 0) { Serial.println("mDNS responder started"); } 
+    }
+    // OTA programming setup
     ArduinoOTA.setHostname(mySettings.mqtt_mainTopic); // That would be appropriate host name
     ArduinoOTA.setPassword("w1ldc8ts");                // That should be set by programmer and not user 
     ArduinoOTA.onStart([]() { if (mySettings.debuglevel > 0) { Serial.println(F("Start")); } });
@@ -923,7 +948,7 @@ void loop() {
   if (lcd_avail && mySettings.useLCD) { 
     if ((currentTime - lastLCD) >= intervalLCD) {
       tmpTime = millis();
-      if (mySettings.consumerLCD) { updateConsumerLCD(); } else { updateLCD(); }
+      if (mySettings.consumerLCD) { updateSinglePageLCD(); } else { updateLCD(); }
       lastLCD = currentTime;
       if (dbglevel > 0) { Serial.print(F("LCD updated in ")); Serial.print((millis()-tmpTime));  Serial.println(F("ms")); }
     }
@@ -945,7 +970,7 @@ void loop() {
     if (dbglevel > 0) { Serial.println(F("Runtime updated")); }
   }
 
-  // Update EEPROM once a week ---------------------------------------
+  // Update EEPROM infrequently ---------------------------------------
   if ((currentTime - lastEEPROM) >= saveSettings) {
     EEPROM.put(0,mySettings);
     if (EEPROM.commit()) {    
@@ -954,28 +979,34 @@ void loop() {
     }
   }
   
-  // Copy CCS811 basline to settings when warmup is finished ---------
-  if (ccs811_avail && mySettings.useCCS811) {
-    if (currentTime >= warmupCCS811) {    
-      
-      ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
-      
-      mySettings.baselineCCS811 = ccs811.getBaseline();
-      mySettings.baselineCCS811_valid = 0xF0;
-      if (dbglevel == 10) { Serial.println(F("CCS811 baseline placed into settings")); }
-      warmupCCS811 = warmupCCS811 + stablebaseCCS811; 
+  // Obtain basline from sensors that create internal baseline --------
+
+  if ((currentTime - lastBaseline) >= intervalBaseline) {
+    // Copy CCS811 basline to settings when warmup is finished 
+    if (ccs811_avail && mySettings.useCCS811) {
+      if (currentTime >= warmupCCS811) {    
+        
+        ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+        
+        mySettings.baselineCCS811 = ccs811.getBaseline();
+        mySettings.baselineCCS811_valid = 0xF0;
+        if (dbglevel == 10) { Serial.println(F("CCS811 baseline placed into settings")); }
+        // warmupCCS811 = warmupCCS811 + stablebaseCCS811; 
+      }
     }
-  }
-  
-  // Copy SGP30 basline to settings when warmup is finished ----------
-  if (sgp30_avail && mySettings.useSGP30) {  
-    if (currentTime >=  warmupSGP30) {
-      mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
-      mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
-      mySettings.baselineSGP30_valid = 0xF0;
-      if (dbglevel == 6) { Serial.println(F("SGP30 baseline setting updated")); }
-      warmupSGP30 = warmupSGP30 + intervalSGP30Baseline; 
+    
+    // Copy SGP30 basline to settings when warmup is finished
+    if (sgp30_avail && mySettings.useSGP30) {  
+      if (currentTime >=  warmupSGP30) {
+        mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
+        mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
+        mySettings.baselineSGP30_valid = 0xF0;
+        if (dbglevel == 6) { Serial.println(F("SGP30 baseline setting updated")); }
+        // warmupSGP30 = warmupSGP30 + intervalSGP30Baseline; 
+      }
     }
+
+    lastBaseline = currentTime;
   }
 
   // Update Warning --------------------------------------------------
@@ -1029,7 +1060,7 @@ void initializeLCD() {
   lcd.begin(20, 4, LCD_5x8DOTS, *lcd_port);
   lcd.setBacklight(HIGH);
 #else
-  lcd.begin(20, 4, lcd_port);
+  lcd.begin(20, 4, *lcd_port);
   lcd.setBacklight(255);
 #endif
   if (dbglevel > 0) { Serial.println(F("LCD initialized")); }
@@ -1110,6 +1141,17 @@ void initializeCCS811() {
     if (dbglevel > 0) { Serial.println(F("CCS811: it will take about 5 minutes until readings are non-zero.")); }
   }
   warmupCCS811 = currentTime + stablebaseCCS811;    
+
+  // 4=0.25s, 3=60s, 2=10sec, 1=1sec.
+  if ( ccs811Mode == 1 ) {
+    intervalCCS811 = 1000;
+  } else if ( ccs811Mode == 2 ) {
+    intervalCCS811 = 10000;
+  } else if ( ccs811Mode == 3 ) {
+    intervalCCS811 = 60000;
+  } else {
+    intervalCCS811 = 250;
+  }
 
   if (dbglevel > 0) { Serial.println(F("CCS811: configuring interrupt")); }
   pinMode(CCS811_WAKE, OUTPUT);                            // CCS811 not Wake Pin
@@ -1203,9 +1245,8 @@ void initializeSPS30() {
   ret = sps30.GetVersion(&v);
   if (ret != ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
     if (dbglevel >0 ) { Serial.println(F("SPS30: error when reading version information")); } 
-    if (v.major > 0 && v.major < 3)  { // is reasonable
-      if (v.minor == 255) { v.minor = 0;} // is not reasonable
-    }
+    v.major = 1;  // is reasonable minimal version
+    v.minor = 0;  // is not reasonable
   }
   if (dbglevel >0 ) {
     Serial.print(F("SPS30: firmware level: ")); Serial.print(v.major);        Serial.print(F(".")); Serial.println(v.minor);
@@ -1217,8 +1258,9 @@ void initializeSPS30() {
   ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
   if (ret == ERR_OK) {
     if (dbglevel > 0) { Serial.print(F("SPS30: current Auto Clean interval: ")); Serial.print(autoCleanIntervalSPS30); Serial.println(F("s")); }
-  }  else { Serial.println(F("SPS30: coulnd not obtain autoclean information")); }
-  
+  } else { 
+    if (dbglevel > 0) {Serial.println(F("SPS30: coulnd not obtain autoclean information")); }
+  }
   if (sps30.start() == true) { 
     if (dbglevel > 0) { Serial.println(F("SPS30: measurement started")); }
     stateSPS30 = IS_BUSY; 
@@ -1278,6 +1320,8 @@ void initializeBME680() {
           w_c = w_c / f_s;                                           // = normalize cut off frequency [radians]
   float     y = 1 - cos(w_c);                                        //
   alphaBME680 = -y + sqrt( y*y + 2 * y);                             // 
+
+  if ((mySettings.avgP > 30000.0) && (mySettings.avgP <= 200000.0)) { bme680_pressure24hrs = mySettings.avgP; }
   delay(50);
 }
 
@@ -1382,6 +1426,9 @@ void initializeBME280() {
        stateBME280 = IS_SLEEPING;                                     //
     }
   }
+
+  if ((mySettings.avgP > 30000.0) && (mySettings.avgP <= 200000.0)) { bme280_pressure24hrs = mySettings.avgP; }
+  
   delay(50);
 
 } // end bme280
@@ -1713,11 +1760,22 @@ void updateSCD30 () {
       lastSCD30  = currentTime;
       scd30NewData = true;
       stateSCD30 = IS_IDLE; 
+      if (dbglevel == 4) { Serial.println(F("SCD30: data read")); }
       break;
     }
     
     case IS_IDLE : { // used when RDY pin is used with ISR
+
       // wait for intrrupt to occur, 
+      // backup: if interrupt timed out, check the sensor
+      if ( (currentTime - lastSCD30) > (2*intervalSCD30) ) {
+
+        if (dbglevel == 4) { Serial.println(F("SCD30: interrupt timeout occured")); }
+        scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+
+        if (scd30.dataAvailable()) { stateSCD30 = DATA_AVAILABLE; }
+      }
+
       // update pressure if available
       if (bme680_avail && mySettings.useBME680) { // update pressure settings
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
@@ -1738,6 +1796,7 @@ void updateSCD30 () {
           if (dbglevel == 4) { Serial.print(F("SCD30: pressure updated to")); Serial.print(bme280_pressure/100.0); Serial.println(F("mbar")); }
         }
       }
+
       break;        
     }
     
@@ -1915,7 +1974,25 @@ void updateCCS811() {
     }
     
     case IS_IDLE : { //---------------------
-      // Continue ideling, we are waiting for interrupt
+      // We want to continue ideling as we are waiting for interrupt      
+      // However if if interrupt timed out, we obtain data manually
+      if ( (currentTime - lastCCS811) > 2*intervalCCS811 ) { 
+        
+        if (dbglevel == 10) { Serial.println(F("CCS811: interrupt timeout occured")); }
+        
+        ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
+        
+        if ( ccs811.dataAvailable() ) {
+          if (fastMode == true) { 
+            stateCCS811 = DATA_AVAILABLE;                        // update the sensor state
+          } else { 
+            digitalWrite(CCS811_WAKE, LOW);                      // set CCS811 to wake up 
+            stateCCS811 = IS_WAKINGUP;                           // update the sensor state
+            lastCCS811Interrupt = millis();
+          }
+        }
+      }
+      
       if (dbglevel == 10) { Serial.println(F("CCS811: is idle")); }
       // if not use ISR use this
       //if (digitalRead(CCS811_INT) == 0) {
@@ -2222,6 +2299,8 @@ void updateBME680() {
         
         if (bme680_pressure24hrs == 0.0) {bme680_pressure24hrs = bme680.pressure; } 
         else {bme680_pressure24hrs = (1.0-alphaBME680) * bme680_pressure24hrs + alphaBME680* bme680.pressure; }
+        mySettings.avgP = bme680_pressure24hrs;
+
         if (dbglevel == 9) { Serial.println(F("BME680; readout completed")); }
         bme680NewData = true;
       }
@@ -2298,6 +2377,7 @@ void updateBME280() {
       
       if (bme280_pressure24hrs == 0.0) {bme280_pressure24hrs = bme280_pressure;} 
       else { bme280_pressure24hrs = (1.0-alphaBME280) * bme280_pressure24hrs + alphaBME280 * bme280_pressure; } 
+      mySettings.avgP = bme280_pressure24hrs;
 
       if (fastMode) { stateBME280 = IS_MEASURING; }
       else {          stateBME280 = IS_SLEEPING; }
@@ -2491,22 +2571,25 @@ void checkCO2(float co2, char *message) {
   // Space station CO2 is about 2000ppbm
   // Global outdoor CO2 is well published
   if (co2 < 800.)         { strcpy(message, "Normal");
-  } else if (co2 < 1000.) { strcpy(message, "Threshold");
+  } else if (co2 < 2000.) { strcpy(message, "Threshold");
   } else if (co2 < 5000.) { strcpy(message, "Poor");
   } else                  { strcpy(message, "Excessive"); }  
 }
 
 void checkHumidity(float rH, char *message) {
   // Mayo clinic 30-50% is normal
+  // Wiki 50-60%
+  // Recommended indoor with AC 30-60%
   // Potential lower virus transmission at lower humidity
   // Humidity > 60% viruses thrive
   // Below 40% is considered dry
   // 15-25% humidity affect tear film on eye
+  // below 20% extreme
   if ((rH >= 45.) && (rH <= 55.))       { strcpy(message, "Normal");
-  } else if ((rH >= 30.) && (rH < 45.)) { strcpy(message, "Threshold Low");
-  } else if ((rH >= 55.) && (rH < 60.)) { strcpy(message, "Threshold High");
-  } else if ((rH >= 60.) && (rH < 80.)) { strcpy(message, "High");
-  } else if ((rH >  15.) && (rH < 30.)) { strcpy(message, "Low");
+  } else if ((rH >= 25.) && (rH < 45.)) { strcpy(message, "Threshold Low");
+  } else if ((rH >= 55.) && (rH < 65.)) { strcpy(message, "Threshold High");
+  } else if ((rH >= 65.) && (rH < 80.)) { strcpy(message, "High");
+  } else if ((rH >  15.) && (rH < 25.)) { strcpy(message, "Low");
   } else                                { strcpy(message, "Excessive"); }
 }
 
@@ -2675,10 +2758,10 @@ void updateLCD() {
     strncpy(&lcdDisplay[HUM3_Y][HUM3_X], lcdbuf, 5);
 
     if ((bme680.humidity >= 45) && (bme680.humidity <= 55))       { lcdbuf[0] = 'N';
-    } else if ((bme680.humidity >= 30) && (bme680.humidity < 45)) { lcdbuf[0] = 'T';
-    } else if ((bme680.humidity >= 55) && (bme680.humidity < 60)) { lcdbuf[0] = 'T';
-    } else if ((bme680.humidity >= 60) && (bme680.humidity < 80)) { lcdbuf[0] = 'H';
-    } else if ((bme680.humidity >  15) && (bme680.humidity < 30)) { lcdbuf[0] = 'L';
+    } else if ((bme680.humidity >= 25) && (bme680.humidity < 45)) { lcdbuf[0] = 'T';
+    } else if ((bme680.humidity >= 55) && (bme680.humidity < 65)) { lcdbuf[0] = 'T';
+    } else if ((bme680.humidity >= 65) && (bme680.humidity < 80)) { lcdbuf[0] = 'H';
+    } else if ((bme680.humidity >  15) && (bme680.humidity < 25)) { lcdbuf[0] = 'L';
     } else                                                        { lcdbuf[0] = '!'; }
       
     sprintf(lcdbuf,"%+5.1fC",bme680.temperature);
@@ -2804,7 +2887,177 @@ void updateLCD() {
   }
 } // update display 
 
-void updateConsumerLCD() {
+void updateSinglePageLCD() {
+  /**************************************************************************************/
+  // Update Single Page LCD
+  /**************************************************************************************/
+  float myTemp = -9999.;
+  float myHum  = -9999.;
+  float myCO2  = -9999.;
+  float mydP   = -9999.;
+  float mytVOC = -9999.;
+  float myPM25 = -9999.;
+  float myPM10 = -9999.;
+  
+  char myCO2_warning[]  = "nrm ";
+  char myTemp_warning[] = "nrm ";
+  char myHum_warning[]  = "nrm ";
+  char mydP_warning[]   = "nrm ";
+  char myPM_warning[]   = "nrm ";
+  char mytVOC_warning[] = "nrm ";
+  const char myNaN[]    = "  na";
+  
+  allGood = true;
+  
+  char lcdbuf[21];
+  const char  clearLine[] = "                    ";  // 20 spaces
+    
+  // Collect Data
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  if (scd30_avail && mySettings.useSCD30) { // ======================================================
+    myTemp = scd30_temp;
+    myHum = scd30_hum;
+    myCO2 = scd30_ppm;
+  }
+    
+  if (bme680_avail && mySettings.useBME680) { // ====================================================
+    mydP = (bme680.pressure - bme680_pressure24hrs)/100.0;
+    myTemp = bme680.temperature;
+  }
+
+  if (bme280_avail && mySettings.useBME280) { // ====================================================
+    mydP = (bme280_pressure - bme280_pressure24hrs)/100.0;
+    myTemp = bme280_temp;
+  }
+  
+  if (sgp30_avail && mySettings.useSGP30) { // ======================================================
+    mytVOC = sgp30.TVOC;    
+  } 
+
+  if (sps30_avail && mySettings.useSPS30) { // ======================================================
+    myPM25 = valSPS30.MassPM2;
+    myPM10 = valSPS30.MassPM10;
+  }
+
+  // my warnings // =================================================================================
+
+  if      (myCO2 < 800)  {    strncpy(myCO2_warning, "nrm ", 4); }
+  else if (myCO2 < 2000) {    strncpy(myCO2_warning, "thr " , 4); }
+  else if (myCO2 < 5000) {    strncpy(myCO2_warning, "poor", 4); allGood = false; }
+  else {                      strncpy(myCO2_warning, "excs", 4); allGood = false; }
+
+  if      (myTemp > 25.5){    strncpy(myTemp_warning, "hot ", 4); }
+  else if (myTemp < 20.0){    strncpy(myTemp_warning, "cld ", 4); }
+  else {                      strncpy(myTemp_warning, "nrm ", 4); }
+
+  if      ((myHum >= 45) && (myHum <= 55)) { strncpy(myHum_warning, "nrm ", 4); }
+  else if ((myHum >= 25) && (myHum < 45))  { strncpy(myHum_warning, "thr ", 4); }
+  else if ((myHum >= 55) && (myHum < 65))  { strncpy(myHum_warning, "thr ", 4); }
+  else if ((myHum >= 65) && (myHum < 80))  { strncpy(myHum_warning, "hig ", 4); allGood = false; }
+  else if ((myHum >  15) && (myHum < 25))  { strncpy(myHum_warning, "low ", 4); allGood = false; }
+  else                                     { strncpy(myHum_warning, "excs", 4); allGood = false; }
+
+  if      (mydP >= 5.0)  { strncpy(mydP_warning, "hig ", 4); allGood = false; }
+  else if (mydP <= -5.0) { strncpy(mydP_warning, "low ", 4); allGood = false; }
+  else                   { strncpy(mydP_warning, "nrm ", 4); }
+            
+  if      ((myPM25 < 10.0) && (myPM10 < 20.0))  { strncpy(myPM_warning, "nrm ", 4); }
+  else if ((myPM25 < 25.0) || (myPM10 < 50.0))  { strncpy(myPM_warning, "thr ", 4); }
+  else if ((myPM25 < 65.0) || (myPM10 < 150.0)) { strncpy(myPM_warning, "poor", 4); allGood = false; }
+  else                                          { strncpy(myPM_warning, "excs", 4); allGood = false; }
+  
+  if      (mytVOC < 220)  { strncpy(mytVOC_warning, "nrm ", 4); }
+  else if (mytVOC < 660)  { strncpy(mytVOC_warning, "thr ", 4); }
+  else if (mytVOC < 2200) { strncpy(mytVOC_warning, "poor", 4); allGood = false; }
+  else                    { strncpy(mytVOC_warning, "excs", 4); allGood = false; }
+
+  // build display
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  strncpy(&lcdDisplay[0][0],     clearLine , 20);
+  strncpy(&lcdDisplay[1][0],     clearLine , 20);
+  strncpy(&lcdDisplay[2][0],     clearLine , 20);
+  strncpy(&lcdDisplay[3][0],     clearLine , 20);
+
+  if (myTemp != -9999.) {
+    sprintf(lcdbuf,"%+5.1fC", myTemp);
+    strncpy(&lcdDisplay[1][14], lcdbuf, 6);
+    // strncpy(&lcdDisplay[2][8], "T", 1);
+    // strncpy(&lcdDisplay[3][8], myTemp_warning, 4);
+  } else {
+    strncpy(&lcdDisplay[2][8], "Temp", 4);
+    strncpy(&lcdDisplay[3][8], myNaN, 4);
+  }
+
+  if (myHum != -9999.) {
+    sprintf(lcdbuf, "%4.1f%%", myHum);
+    strncpy(&lcdDisplay[0][15], lcdbuf, 5);
+    strncpy(&lcdDisplay[0][4], "rH", 2);
+    strncpy(&lcdDisplay[1][4], myHum_warning, 4);
+  } else {
+    strncpy(&lcdDisplay[0][4], "rH", 2);
+    strncpy(&lcdDisplay[1][4], myNaN, 4);
+  }
+  
+  if (myCO2 != -9999.) {
+    sprintf(lcdbuf, "%4dppm", int(myCO2));
+    strncpy(&lcdDisplay[3][13], lcdbuf, 7);
+    strncpy(&lcdDisplay[2][0], "CO2", 3);
+    strncpy(&lcdDisplay[3][0], myCO2_warning, 4);
+  } else {
+    strncpy(&lcdDisplay[2][0], "CO2", 3);
+    strncpy(&lcdDisplay[3][0], myNaN, 4);
+  }
+  
+  if (mydP != -9999.) {
+    sprintf(lcdbuf,"%+4.1fmb", mydP);
+    strncpy(&lcdDisplay[2][14], lcdbuf, 6);
+    strncpy(&lcdDisplay[2][4], "dP", 2);
+    strncpy(&lcdDisplay[3][4], mydP_warning, 4);
+  } else {
+    strncpy(&lcdDisplay[2][4], "dP", 2);
+    strncpy(&lcdDisplay[3][4], myNaN, 4);
+  }
+
+  if (mytVOC != -9999.) {
+    strncpy(&lcdDisplay[0][8], "tVOC", 4);
+    strncpy(&lcdDisplay[1][8], mytVOC_warning, 4);
+  } else {
+    strncpy(&lcdDisplay[0][8], "tVOC", 4);
+    strncpy(&lcdDisplay[1][8], myNaN, 4);
+  }
+
+  if (myPM25 != -9999.) {
+    sprintf(lcdbuf, "%3du", int(myPM25));
+    strncpy(&lcdDisplay[2][8], lcdbuf, 4);
+    sprintf(lcdbuf, "%3du", int(myPM10));
+    strncpy(&lcdDisplay[3][8], lcdbuf, 4);
+    strncpy(&lcdDisplay[0][0], "PM", 2);
+    strncpy(&lcdDisplay[1][0], myPM_warning, 4);
+  } else {
+    strncpy(&lcdDisplay[0][0], "PM", 2);
+    strncpy(&lcdDisplay[1][0], myNaN, 4);
+  }
+
+  lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+  // lcd.clear();
+  lcd.setCursor(0, 0); 
+  
+  strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; lcd.print(lcdbuf);
+  strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0'; lcd.print(lcdbuf); 
+  strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; lcd.print(lcdbuf); 
+  strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; lcd.print(lcdbuf); 
+
+  if (dbglevel == 2) { // if dbg, display the lines also on serial port
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0'; Serial.println(lcdbuf);
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; Serial.println(lcdbuf);
+  }
+
+} // update display 
+
+void updateTwoPageLCD() {
   /**************************************************************************************/
   // Update Consumer LCD
   /**************************************************************************************/
@@ -2830,7 +3083,7 @@ void updateConsumerLCD() {
     if (scd30_avail && mySettings.useSCD30) { // =============================================================
             
       if (scd30_ppm < 800) {          lcdbuf[0] = 'N';
-      } else if (scd30_ppm < 1000) {  lcdbuf[0] = 'T';
+      } else if (scd30_ppm < 2000) {  lcdbuf[0] = 'T';
       } else if (scd30_ppm < 5000) {  lcdbuf[0] = 'P'; allGood = false;
       } else {                        lcdbuf[0] = '!'; allGood = false;}
       lcdDisplayAlt[3][18] = lcdbuf[0];
@@ -2848,13 +3101,13 @@ void updateConsumerLCD() {
     }
 
     if (bme680_avail && mySettings.useBME680) { // ====================================================
-      if ( abs(bme680_pressure24hrs - bme680.pressure)/100.0 >= 5.0 ) { lcdbuf[0] = '!'; allGood = false;
+      if ( abs(bme680.pressure - bme680_pressure24hrs)/100.0 >= 5.0 ) { lcdbuf[0] = '!'; allGood = false;
       } else                                                          { lcdbuf[0] = 'N'; }
       lcdDisplayAlt[3][11] = lcdbuf[0];
     }
 
     if (bme280_avail && mySettings.useBME280) { // ====================================================
-      if ( abs(bme280_pressure24hrs - bme280_pressure)/100.0 >= 5.0 ) { lcdbuf[0] = '!'; allGood = false;
+      if ( abs(bme280_pressure - bme280_pressure24hrs)/100.0 >= 5.0 ) { lcdbuf[0] = '!'; allGood = false;
       } else                                                          { lcdbuf[0] = 'N'; }
       lcdDisplayAlt[3][11] = lcdbuf[0];
     }
@@ -2904,14 +3157,14 @@ void updateConsumerLCD() {
     if (bme680_avail && mySettings.useBME680) { // ====================================================
       sprintf(lcdbuf,"%4dmb",(int)(bme680.pressure/100.0));
       strncpy(&lcdDisplay[2][6], lcdbuf, 6);
-      sprintf(lcdbuf,"%2dmb",(int)(abs((bme680_pressure24hrs - bme680.pressure)/100.0)));
+      sprintf(lcdbuf,"%2dmb",(int)(abs((bme680.pressure - bme680_pressure24hrs)/100.0)));
       strncpy(&lcdDisplay[3][8], lcdbuf, 4);
     }
 
     if (bme280_avail && mySettings.useBME280) { // ====================================================
       sprintf(lcdbuf,"%4dmb",(int)(bme280_pressure/100.0));
       strncpy(&lcdDisplay[2][6], lcdbuf, 6);
-      sprintf(lcdbuf,"%+4.1fmb",((bme280_pressure24hrs - bme280_pressure)/100.0));
+      sprintf(lcdbuf,"%+4.1fmb",((bme280_pressure - bme280_pressure24hrs)/100.0));
       strncpy(&lcdDisplay[3][6], lcdbuf, 6);
     }
 
@@ -3389,6 +3642,7 @@ void printSettings() {
   Serial.print(F("BME680: ....................... ")); Serial.println((mySettings.useBME680)?"on":"off");
   Serial.print(F("BME280: ....................... ")); Serial.println((mySettings.useBME280)?"on":"off");
   Serial.print(F("CCS811: ....................... ")); Serial.println((mySettings.useCCS811)?"on":"off");
+  Serial.print(F("Average Pressure: ............. ")); Serial.println(mySettings.avgP);
   Serial.println(F("========================================"));
 }
 
@@ -3429,6 +3683,7 @@ void defaultSettings() {
   mySettings.useBME280                     = true;
   mySettings.useCCS811                     = true;
   mySettings.consumerLCD                   = true;
+  mySettings.avgP                          = (float) 100000.0;
 }
 
 void printSensors() {

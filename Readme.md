@@ -1,9 +1,9 @@
 # Airquality Sensors with ESP8266
 The goal of this project is to connect several air quality sensors via i2c bus to a wireless microcontroller.
 
-There exisits many sensor for indoor **air quality** (see below). If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
+There exisit many sensorx for indoor **air quality** (see below). If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
 
-The hardware includes a 3.3V to 5V with voltage level shifter and an ESP8266.
+The hardware includes a 3.3V to 5V voltage level shifter and an ESP8266.
 At this time the software **supports the following devices**:
 - LCD 20x4  (requires 5V signal and power)
 - SCD30 Senserion CO2  
@@ -75,14 +75,14 @@ The sensor readings are compared to expected range and LCD backlight flashes if 
 A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. The program computes the avaraging filter coefficient (a) based on the sensor sample interval for a 24hr smoothing filter y = (1-a)\*y + a*x
 * CO2:  a value >1000ppm is poor
 * Temperature:  20-25.5C is normal range
-* Humidity:  30-60% is normal range
+* Humidity:  30-60% is normal range (I set threshold to 25 and 65)
 * Particles:  
 P2.5: >25ug/m3 is poor  
 P10: >50ug/m3 is poor   
 * tVOC:  a value >660ppb is poor
 
 It is common to find CO2 concentration above 1000ppm in single family homes. 
-For good airquality you need to let air circulate when possible.
+To lower CO2 concentration you need to open two windows at opposite sides of the hours and let air circulate.
 
 ## Sensor System
 ![Sensi](Sensi.jpg)  
@@ -145,12 +145,12 @@ D5..D7 are available for address selct, chip select and data ready signals. D0 a
 | MAX30105 | 0.01... |     |         |     | 12 |
 
 ## Air Quality Sensors to Consider
-Below is a list of sensors to consider for airquality measurements. This projects incldes software to support the ones marked in bold.
+Below is a list of sensors to consider for airquality measurements. This project includes software to support the ones marked in bold.
 
 ### Temperature, Humidity Pressure
 * **BME680**, Bosch, Temp, Humidity 8s, Pressure, 1s VOC +/-15% IAQ output, AliExpress $12  
-* BME280, Bosch, Temp, Humidity, Pressure Aliexpresss $3  
-* BMP280, Pressure and Temp, $1  
+* **BME280**, Bosch, Temp, Humidity, Pressure Aliexpresss $3  
+* **BMP280**, Pressure and Temp, $1  
 * MS8607
 
 ### Temperature
@@ -187,7 +187,7 @@ Below is a list of sensors to consider for airquality measurements. This project
 * HONEYWELL HPMA115S0-TIR l, $19  
 
 ### Volotile Organic Compounds (VOC)
-* CCS811, TVOCs, eCO2, NTC option, burn in and run in, AliExpress $10  
+* **CCS811**, TVOCs, eCO2, NTC option, burn in and run in, AliExpress $10  
 * **SGP30**, SENSIRION, TVOCs, eCO2, minimal run in, AliExpress $11  
 
 ### Figaro
