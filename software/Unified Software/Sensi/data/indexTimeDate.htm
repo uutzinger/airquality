@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <title>Sensi</title>
+  
+  <! -- document styles and scripts go here -->
+  <link rel="stylesheet" type="text/css" href="main.css">
+  <link rel="icon" type="image/png" sizes="144x144" href="/airquality-144x144.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/airquality.ico">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#00878f">
+  <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
+</head>
+
+<body>
+  <header>
+    <h1><img src="airquality-48x48.png"> Sensor Server</h1>
+  </header>
+
+	<h2>Date and Time</h2>
+	  Time <spawn id="Hour">--</spawn>:<spawn id="Minute">--</spawn> <br>
+	  Date <spawn id="Month">--</spawn>,<spawn id="Day">--</spawn>,<spawn id="Year">--</spawn> <br>
+
+	<h2>Wi Fi</h2>
+	  <spawn id="Hostname">-----</spawn> is at <spawn id="IP">---.---.---.---</spawn>
+      
+  <br><br><a href="https://github.com/uutzinger">Urs Utzinger</a>
+
+  <script>
+
+  getTime();
+  getDate();
+  getHostname();
+  getIP();
+  setInterval(getHostname,60000);
+  setInterval(getIP,      60000);
+  setInterval(getDate,    60000);
+  setInterval(getTime,    60000);
+
+  <!-- {"time":{"hour":7,"minute":24,"second":"54"}} -->
+  function getTime() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var txt = this.responseText;
+        var obj = JSON.parse(txt); 
+        document.getElementById('Hour').innerHTML   = String(obj.time.hour).padStart(2,'0');
+        document.getElementById('Minute').innerHTML = String(obj.time.minute).padStart(2,'0');
+      } 
+    };
+    xhttp.open("GET", "time", true);
+    xhttp.send();
+  }
+
+  <!-- {"date":{"day":1,"month":1,"year":"1970"}} -->
+  function getDate() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var txt = this.responseText;
+        var obj = JSON.parse(txt); 
+        document.getElementById('Month').innerHTML = obj.date.month;
+        document.getElementById('Day').innerHTML   = obj.date.day;
+        document.getElementById('Year').innerHTML  = obj.date.year;
+      }  
+    };
+    xhttp.open("GET", "date", true);
+    xhttp.send();
+  }
+
+  <!-- {"hostname":"esp8266-e3fce0"} -->
+  function getHostname() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var txt = this.responseText;
+        var obj = JSON.parse(txt); 
+        document.getElementById('Hostname').innerHTML = obj.hostname;
+      }
+    };
+    xhttp.open("GET", "hostname", true);
+    xhttp.send();
+  }
+
+  <!-- {"ip":"192.168.16.217"} -->
+  function getIP() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var txt = this.responseText;
+        var obj = JSON.parse(txt); 
+        document.getElementById('IP').innerHTML = obj.ip;
+      }
+    };
+    xhttp.open("GET", "ip", true);
+    xhttp.send();
+  }
+
+  </script>
+
+</body>
+</html>

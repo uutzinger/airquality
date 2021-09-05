@@ -1,0 +1,412 @@
+[
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\cores\\esp8266"
+  },
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\variants\\d1"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "Wire.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\Wire"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SPI.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\SPI"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "EEPROM.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\EEPROM"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "LittleFS.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\LittleFS\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ArduinoJson.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\ArduinoJson\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ESP8266WiFi.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ArduinoOTA.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ArduinoOTA"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ESP8266mDNS.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "WebSocketsServer.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "PubSubClient.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\PubSubClient\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ESPNtpClient.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\ESPNtpClient\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "Ticker.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\Ticker\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ESP8266WebServer.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WebServer\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "ESP8266HTTPUpdateServer.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266HTTPUpdateServer\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SparkFun_SCD30_Arduino_Library.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_SCD30_Arduino_Library\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "sps30.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\PaulVha_SPS30_Library\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SoftwareSerial.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\SoftwareSerial\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SparkFun_SGP30_Arduino_Library.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_SGP30_Arduino_Library\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SparkFunCCS811.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_CCS811_Arduino_Library\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "Adafruit_Sensor.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\Adafruit_Sensor"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "Adafruit_BME680.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\Adafruit_BME680"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SparkFunBME280.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_BME280_Arduino_Library\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "SparkFunMLX90614.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_MLX90614_Arduino_Library\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "LiquidCrystal_PCF8574.h",
+    "Includepath": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\LiquidCrystal_PCF8574\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\Unified Software\\Sensi\\build\\sketch\\Sensi.ino.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\Wire\\Wire.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\SPI\\SPI.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\EEPROM\\EEPROM.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\LittleFS\\src\\LittleFS.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\LittleFS\\src\\lfs.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\LittleFS\\src\\lfs_util.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\BearSSLHelpers.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\CertStoreBearSSL.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFi.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiAP.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiGeneric.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiGratuitous.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiMulti.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiSTA-WPS.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiSTA.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\ESP8266WiFiScan.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiClientSecureAxTLS.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiClientSecureBearSSL.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiServer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiServerSecureAxTLS.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiServerSecureBearSSL.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WiFi\\src\\WiFiUdp.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ArduinoOTA\\ArduinoOTA.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\ESP8266mDNS.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\ESP8266mDNS_Legacy.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\LEAmDNS.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\LEAmDNS_Control.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\LEAmDNS_Helpers.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\LEAmDNS_Structs.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266mDNS\\src\\LEAmDNS_Transfer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\SocketIOclient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\WebSockets.cpp",
+    "Include": "Hash.h",
+    "Includepath": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\Hash\\src"
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\WebSockets.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\WebSocketsClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\WebSocketsServer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\libb64\\cdecode.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\libb64\\cencode.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\arduinoWebSockets\\src\\libsha1\\libsha1.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\PubSubClient\\src\\PubSubClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\ESPNtpClient\\src\\ESPNtpClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\Ticker\\src\\Ticker.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\ESP8266WebServer\\src\\detail\\mimetable.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_SCD30_Arduino_Library\\src\\SparkFun_SCD30_Arduino_Library.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\PaulVha_SPS30_Library\\src\\sps30.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\SoftwareSerial\\src\\SoftwareSerial.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_SGP30_Arduino_Library\\src\\SparkFun_SGP30_Arduino_Library.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_CCS811_Arduino_Library\\src\\SparkFunCCS811.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\Adafruit_Sensor\\Adafruit_Sensor.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\Adafruit_BME680\\Adafruit_BME680.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\Adafruit_BME680\\bme680.c",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_BME280_Arduino_Library\\src\\SparkFunBME280.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\SparkFun_MLX90614_Arduino_Library\\src\\SparkFunMLX90614.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "D:\\GitHub\\ESP Playground\\AirQuality\\software\\libraries\\LiquidCrystal_PCF8574\\src\\LiquidCrystal_PCF8574.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Urs Utzinger\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\libraries\\Hash\\src\\Hash.cpp",
+    "Include": "",
+    "Includepath": null
+  }
+]

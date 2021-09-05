@@ -329,7 +329,7 @@ int16_t IRTherm::calcRawTemp(float calcTemp)
 			tempFloat = calcTemp;
 		}
 		// Then multiply by 0.02 degK / bit
-		tempFloat *= 50;
+		tempFloat *= 50.0;
 		rawTemp = (int16_t) tempFloat;
 	}
 	return rawTemp;
@@ -351,7 +351,7 @@ float IRTherm::calcTemperature(int16_t rawTemp)
 			retTemp -= 273.15;
 			if (_defaultUnit == TEMP_F)
 			{
-				retTemp = retTemp * 9.0 / 5.0 + 32;
+				retTemp = retTemp * 9.0 / 5.0 + 32.0;
 			}
 		}
 	}

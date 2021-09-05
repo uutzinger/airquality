@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>HTML File Upload</title>
+    <link href='main.css' rel='stylesheet' type='text/css'>
+    <link rel="icon" type="image/png" sizes="144x144"  href="/upload-144x144.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="/upload.ico">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00878f">
+    <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport'>
+</head>
+
+<body>
+	<header>
+      <h1>LittleFS File Upload</h1>
+	</header>
+    <p>Select a new file to upload to the ESP8266. Existing files will be replaced.</p>
+		<form method="post" enctype="multipart/form-data" style="margin: 0px auto 8px auto" >
+			<input type="file" name="Choose file" accept=".gz,.htm,.html,.ico,.js,.css,.png">
+			<input class="button" type="submit" value="Upload" name="submit">
+		</form>            
+</body>
+
+</html>
+

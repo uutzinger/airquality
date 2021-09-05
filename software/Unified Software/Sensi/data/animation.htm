@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<svg width="720" height="720">
+<g id="R1" transform="translate(360 360)"> 
+  <ellipse rx="100" ry="0" opacity=".3">
+  <animateTransform attributeName="transform" type="rotate" dur="7s" from="0" to="360" repeatCount="indefinite" />
+  <animate attributeName="cx" dur="8s" values="-20; 220; -20" repeatCount="indefinite" />
+  <animate attributeName="ry" dur="3s" values="10; 60; 10" repeatCount="indefinite" />
+  </ellipse>
+</g>
+<use xlink:href="#R1" transform="rotate(72 360 320)" />
+<use xlink:href="#R1" transform="rotate(144 360 320)" />
+<use xlink:href="#R1" transform="rotate(216 360 320)" />
+<use xlink:href="#R1" transform="rotate(288 360 320)" />
+</svg>
+
+</body>
+</html>
