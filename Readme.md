@@ -1,9 +1,33 @@
 # Airquality Sensors with ESP8266
-The goal of this project is to connect several air quality sensors via i2c bus to a wireless microcontroller.
+The goal of this project is to connect several air quality sensors via i2c bus to 
+the ESP8266 microcontroller.
 
-There exisit many sensorx for indoor **air quality** (see below). If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
+- [Airquality Sensors with ESP8266](#airquality-sensors-with-esp8266)
+  * [Air Quality Sensor](#air-quality-sensor)
+  * [Build Insrtuctions](#build-insrtuctions)
+  * [Programming Instructions](#programming-instructions)
+  * [Features](#features)
+  * [Air Quality Assessments](#air-quality-assessments)
+  * [Sensor System](#sensor-system)
+    + [LCD](#lcd)
+    + [SCD30](#scd30)
+    + [SPS30](#sps30)
+    + [SGP30](#sgp30)
+    + [BME680](#bme680)
+    + [CCS811](#ccs811)
+    + [MLX90614](#mlx90614)
+    + [MAX30105](#max30105)
+  * [References](#references)
 
-The hardware includes a 3.3V to 5V voltage level shifter and an ESP8266.
+<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
+
+## Air Quality Sensor 
+There are many sensors for indoor **air quality**. 
+
+If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
+
+A selection of sensors if listed in [**Air Quality Sensors List**](Air_Quality_Sensors_List.md)
+
 At this time the software **supports the following devices**:
 - LCD 20x4  (requires 5V signal and power)
 - SCD30 Senserion CO2  
@@ -15,76 +39,67 @@ At this time the software **supports the following devices**:
 - MLX90614 Melex temp contactless  
 - MAX30105 Maxim pulseox (in progress)
 
-The system **displays** the measured values on an LCD and also connects to an **MQTT server** and publish results. When connection is lost, it scans for available networks and reestablishes the connection,
+Using a logit level shifter from 3.3V to 5V voltage allows support for older devices. The software scan all pins for potential device connections and self configures if multiple i2c buses are used.
 
-The software currenlty supports **3 separate i2c buses**. Some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame when it shares bus with many sensors. SPS30 does not properly reset after program upload when LCD driver is on the same bus. MLX sensor sometimes reports excessive or negative temperature when combined with other sensors.
+It should be straight forward to use the frame work to expand but also to remove unwanted modules.
 
-The software **scans** all availabel pins for i2c devices and **records the pin configuration** for the supported sensors.
+The electrical and softare specifications of the selected sensors are listed in [**Sensor Specs**](Sensor_Specs.md).
 
-Most **settings** are stored in EEPROM and can be changed at runtime: 
-```
-=================================================================================  
-.........................................................................LCD 20x4  
-.........................................................SPS30 Senserion Particle  
-..............................................................SCD30 Senserion CO2  
-.......................................................SGP30 Senserion tVOC, eCO2  
-...........................BME680/280 Bosch Temperature, Humidity, Pressure, tVOC  
-....................................................CCS811 eCO2 tVOC, Air Quality  
-...........................................MLX90614 Melex Temperature Contactless  
-==All Sensors===========================|========================================  
-| z: print all sensor data              | n: This device Name, nSensi           |  
-==SGP30=eCO2============================|==EEPROM================================  
-| e: force eCO2, e400                   | s: save to EEPROM                     |  
-| v: force tVOC, t3000                  | r: read from EEPROM                   |  
-| g: get baselines                      | p: print current settings             |  
-|                                       | d: create default settings            |  
-==SCD30=CO2=============================|==CCS811=eCO2===========================  
-| f: force CO2, f400.0 in ppm           | c: force basline, c400                |  
-| t: force temperature offset, t5.0 in C| b: get baseline                       |  
-==MLX Temp==============================|=LCD====================================  
-| m: set temp offset, m1.4              | i: simplified display                 |  
-==Network===============================|==MQTT==================================  
-| 1: SSID 1, 1myssid                    | u: mqtt username, umqtt or empty      |  
-| 2: SSID 2, 2myssid                    | w: mqtt password, ww1ldc8ts or empty  |   
-| 3: SSID 3, 3myssid                    | q: send mqtt immediatly, q            |   
-| 4: password SSID 1, 4mypas or empty   |                                       |   
-| 5: password SSID 2, 5mypas or empty   | 8: mqtt server, 8my,mqtt.com          |  
-| 6: password SSID 3, 6mypas or empty   | 9: mqtt fall back server              |   
-==Disable===============================|==Disable===============================  
-| x: 99 reset microcontroller           | x: 7 MAX30 on/off                     |  
-| x: 2 LCD on/off                       | x: 8 MLX on/off                       |  
-| x: 3 WiFi on/off                      | x: 9 BME680 on/off                    |  
-| x: 4 SCD30 on/off                     | x: 10 BME280 on/off                   |  
-| x: 5 SPS30 on/off                     | x: 11 CCS811 on/off                   |  
-| x: x: 6 SGP30 on/off                  |                                       |  
-| This does not yet intialize the sensors, you will need to power on/off or x99 |  
-==Debug Level===========================|==Debug Level===========================  
-| l: 0 ALL off                          |                                       |  
-| l: 1 ALL minimal                      | l: 6 SGP30 max level                  |  
-| l: 2 LCD max level                    | l: 7 MAX30 max level                  |  
-| l: 3 WiFi max level                   | l: 8 MLX max level                    |  
-| l: 4 SCD30 max level                  | l: 9 BME680/280 max level             |  
-| l: 5 SPS30 max level                  | l: 10 CCS811 max level                |  
-==================================Urs Utzinger===================================  
-Dont forget to save setting to EEPROM                                              
-=====================================2020========================================  
-```
+## Build Insrtuctions
+To build the system one will need to consider the [**ESP8266 pinout and configuratin**](ESP8266_i2c.md) as well as the [**Wiring of the Board**](Wiring_of_board.md)
+As can be seen in the images below, I use a standard PCB and add JST connectors and socker for ESP.
+The front and back panel I cut on laser cutter. I use M2.5 stand offs. Sorry no circuit diagram with pullup and wire connections has been made to include in the docs at this time.
+
+## Programming Instructions
+The software folder in this destribution should become the main sketch folder. When opening Sensi main program, all other files are loaded. 
+
+The drivers and programs will compile with ESP8266 2.x Arduino Libary but NOT 3.x.
+
+All hard coded settings are stored in .h files in the src folder.
+
+If you want to edit the software using Visual Studio Code, you can enable the definition in the VSC.h file. That instructs the editor to load the appropriate include files.
+
+For the first time progamming you will need to upload via USB cable. Then you can use OTA.
+
+## Features
+
+Data is displayed on an **LCD** and can be sent to **MQTT server** or viewed through **Web Page**. A **Websocket** interface has been created that transmitts data in JSON format. It is unwise to enable MQTT and Web Page services simultanously as likley there is not enough memory and CPU time available to handle both.
+
+When wireless connection is lost, the wifi driver scans for available networks and reestablishes the connection. Up to 3 netids can be setup.
+
+The software currenlty works with **multiple separate i2c buses**. The software **scans** all availabel pins for i2c devices and **identifies the pin configuration for SCL and SDA** for the supported sensors. The motivation to provide multiple ports was that some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame. SPS30 does not properly reset after program upload. MLX sensor sometimes reports excessive or negative temperature. ESP8266 Arduino frame work does not provide independent i2c interfaces and all share one single layer. Its not possible to run multiple i2c ports at different clock speeds and with different clock stretching simultanously. However before each communication one can switch to differnt SCL and SDA pins.
+
+Most **settings** are stored in EEPROM and can be changed at runtime. Over the air programming **OTA**, **JSON** encoding, **HTTP firmware updater** (http://host:8890/firmware), **telnet** interface, **HTTP** server are provided and can be enabled/disabled.
+
+Runtime settings are listed in [**Runtime Settings**](Runtime_Settings.md)
+
+Passwords are set but since SSL is not available, the system is not particulary secure.
+
+Debugging of code was enabled with three approaches:
+1) Setting debugging levels (0 = no ouptut to serial or telnet). Setting debug level to 99 will printout sensor values and system status continously. 
+2) Enable ```#define DBG``` creates DBG output at all essential function calls, so that a software crash can be pin pointed. 
+3) Enable ```#define PROFILE``` will measure execution times of essential function calls. 
+
+DBG and PROFILE should not be enabled in final software.
+
 ## Air Quality Assessments
-The sensor readings are compared to expected range and LCD backlight flashes if readings are otuside recommended range. Those ranges are:
+
+The sensor readings are compared to expected range and **LCD backlight flashes** if readings are outside recommended range. Those ranges are:
+
 * Pressure:  
-A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. The program computes the avaraging filter coefficient (a) based on the sensor sample interval for a 24hr smoothing filter y = (1-a)\*y + a*x
+A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. The program computes the avaraging filter coefficient (a) based on the sensor sample interval for a 24hr smoothing filter of y_smoothed = (1-a)\*y_smoothed + a*x_newdatapoint. 
 * CO2:  a value >1000ppm is poor
 * Temperature:  20-25.5C is normal range
-* Humidity:  30-60% is normal range (I set threshold to 25 and 65)
+* Humidity:  30-60% is normal range (Since this project was made in Arizona, 25-65 is a better range)
 * Particles:  
 P2.5: >25ug/m3 is poor  
 P10: >50ug/m3 is poor   
 * tVOC:  a value >660ppb is poor
 
-It is common to find CO2 concentration above 1000ppm in single family homes. 
-To lower CO2 concentration you need to open two windows at opposite sides of the hours and let air circulate.
+It is common to find CO2 concentration above 1000ppm in single family homes. To lower CO2 concentration you need to open two windows at opposite sides of the hours and let air circulate.
 
 ## Sensor System
+
 ![Sensi](Sensi.jpg)  
 
 ### LCD
@@ -127,107 +142,71 @@ The Maxim 30105 is a multi wavlength reflectance sensor, built to detect heartbe
 https://www.maximintegrated.com/en/products/interface/sensor-interface/MAX30105.html  
 ![MAX30105](MAX30105.jpg)  
 
-### ESP8266
-![ESP8266](ESP8266.png)  
-D5..D7 are available for address selct, chip select and data ready signals. D0 affects boot behaviour if connected.
+## References
 
-## Power Consumption
-| Sensor | Measurement Interval | Power Consumption | Sleepmode/Idlemode | Data ready hardware | Cost |
-| --- | --- | --- | --- | --- | --- |
-|| min, max [default] [s]| [mW]| [mW]|| $
-| LCD      | 0.3...
-| SCD30    | 2..1800 [4]  | 19  | Reduce Interval      | Yes | 54 |
-| SPS30    | 1...    | 60  | 0.36    | No  | 45 |
-| SGP30    | 1...    | 48  | NA      | No  | 24 |
-| BME680   | 1,3,300  | 0.9 | 0.00015 | No  | 10 |
-| CCS811   | 0.25,1,10,60   | 4   | 0.019   | Yes | 12 |
-| MLX90614 | 0.25/1    |     |         |     |  9 |
-| MAX30105 | 0.01... |     |         |     | 12 |
+### All you need to know about ESP8266 programming
+- https://tttapa.github.io/ESP8266/Chap01%20-%20ESP8266.html
+- https://arduino-esp8266.readthedocs.io/en/latest/index.html
 
-## Air Quality Sensors to Consider
-Below is a list of sensors to consider for airquality measurements. This project includes software to support the ones marked in bold.
+### ESP8266 memory optimization
+- https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
+- https://esp8266life.wordpress.com/2019/01/13/memory-memory-always-memory/
 
-### Temperature, Humidity Pressure
-* **BME680**, Bosch, Temp, Humidity 8s, Pressure, 1s VOC +/-15% IAQ output, AliExpress $12  
-* **BME280**, Bosch, Temp, Humidity, Pressure Aliexpresss $3  
-* **BMP280**, Pressure and Temp, $1  
-* MS8607
+### Arduino Software Libraries
 
-### Temperature
-* TMP102, Texas Instruments, 0.5C, -25-85C 
-* TMP117, Teaxs Instruments, 3C without calibration, -40-125C
+- SPS30 Senserion particle,                     Paul Vah library,
+- SCD30 Senserion CO2,                          Sparkfun library, using interrupt from data ready pin
+- SGP30 Senserion VOC, eCO2,                    Sparkfun library
+- BME680 Bosch Temp, Humidity, Pressure, VOC,   Adafruit library
+- BM[E/P]280 Bosch Temp, [Humidity,] Pressure   Sparkfun library
+- CCS811 Airquality eCO2 tVOC,                  Sparkfun library, using interrupt from data ready pin
+- MLX90614 Melex temp contactless,              Sparkfun library
+- MAX30105 Maxim pulseox, not implemented yet,  Sparkfun library
 
-### Humidity
-* HTU21D
-* AHT20
-* SHTC3
-* Si7021
-* HIH6130
+Data display through:
+- LCD 20x4,                                     LiquidCrystal_PCF8574 or Adafruit_LCD library
 
-### Pressure
-* MS5803-30BA, 14bar
-* MS5803-14BA, 14bar
-* MS5803-02BA, 2bar
-* MS5803-01BA, 1bar
-* MS5637-02BA, 2bar
-* MS5637-30BA, 30bar
-* BMP085
-* BMP180
+Network related libraries:
+- MQTT publication to broker                    PubSubClient library http://pubsubclient.knolleary.net
+- ESP_Telnet                                    https://github.com/LennartHennigs/ESPTelnet
+- ESPNTPClient                                  https://github.com/gmag11/ESPNtpClient
+- ArduWebSockets:                               https://github.com/Links2004/arduinoWebSockets
 
-### Particle Sensor
-* **SPS30**, Sensirion Digikey $50  
-* ZH03, Winzen, PM2.5, PM1 and PM10, 5V serial with fan  
-* ZH03A, ALiexpress $14.5  
-* ZH03B, AliExpress $13  
-* ZPH01, Winzen, PM2.5, VOC  
-* PMS503 GS, Plantower aliexpress $13  
-* GP2Y1010AU0F,Sharp,  AliExpress $3.23  
-* PM2.5 with GP2Y... with display AliExpress $17.5  
-* SDS011, HAILANGNIAO, AliExpress $19  
-* HONEYWELL HPMA115S0-TIR l, $19  
+Other Libraries:
+ArduJSON                                         https://github.com/bblanchon/ArduinoJson.git
 
-### Volotile Organic Compounds (VOC)
-* **CCS811**, TVOCs, eCO2, NTC option, burn in and run in, AliExpress $10  
-* **SGP30**, SENSIRION, TVOCs, eCO2, minimal run in, AliExpress $11  
+### Wifi
+- https://arduino-esp8266.readthedocs.io/en/latest/esp8266wifi/
 
-### Figaro
-* TGS8100, Figaro, airpollutant  
-* CDM7160, Figaro, CO2, 360-5000ppm +/-50ppm, 5V 10mA avg, I2C   
-* TGS5042, Figaro, CO, 0-10000ppm +/- 10ppm, output is current needs transimpedance amplifier  
-* FECS40-1000, Figaro CO, 0-1000 1ppm +/-2%  
+### Displaying Data through Web Site
+- https://www.mischianti.org/2020/05/24/rest-server-on-esp8266-and-esp32-get-and-json-formatter-part-2/
+- https://tttapa.github.io/ESP8266/Chap16%20-%20Data%20Logging.html
+- https://gist.github.com/maditnerd/c08c50c8eb2bb841bfd993f4f2beee7b
+- https://github.com/Links2004/arduinoWebSockets
 
-### More than one Compund
-* MQ6 Hanwei, Propane, Butane, 200-10000ppm, 5V, Analog in  
-* MQ4 Hanwei, Methane, 200-10000ppm, 5V, Analog in  
-* MQ135, Winzen, Amonia, Benzene, Sufide, Hanwei, https://www.winsen-sensor.com/sensors/voc-sensor/mq135.html   
-* MQ138, Winzen, VOC, 5V analog in  
-* ME3-NH3, Winzen, Amonia  
-* MICS5524 sgxsensortech, CO 1-1000, Ethanol 10-500, Hydrogen 1-1000, Ammonia 1-500, Methane>1000, 32mA  
-* MQ3 Hanwei, similar to MICS5524, 140mA  
- 
-### CO (Carbon Monoxide)
-* MQ7 Hanwei, CO, 20-1000ppm, 5V, Ananlog in, cycling of suppply voltage needed  
-* ME2-CO, Winzen, CO, 0-1000, external circuit needed  
-* ME3-CO, WInzen, CO, 0-1000ppm 0.5ppm, electronic circuit needed  
-* ME4-CO, Winzen, CO, 0-1000,  external circuit needed  
-* MQ7B, Winzen, CO 10-500ppm, 5V analog, 60s heater time  
-* ME9B, Winzen, CO and Methane, 10-500ppm, 300-10000ppm, analog  
-* ZE03, Winzen, CO and many others  
-* AP-0005, Alphasense, 0-5000ppm electronic circuit needed, gaslabs $69 with mxboard $199  
-* EC4-500-CO, SGX Sensortech  
+### Working with JSON:
+- https://en.wikipedia.org/wiki/JSON
+- https://circuits4you.com/2019/01/11/nodemcu-esp8266-arduino-json-parsing-example/
 
-### Oxygen
-* Alphasense, O2-A3, electrochemical, current output, gaslabs.com $60  
+- Creating Webcontent on ESP
+- GET & POST https://randomnerdtutorials.com/esp8266-nodemcu-http-get-post-arduino/
+- JSON & autoupdate https://circuits4you.com/2019/03/22/esp8266-weather-station-arduino/
+- JSON & tabulated data https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
+- Simple autorefresh https://circuits4you.com/2018/02/04/esp8266-ajax-update-part-of-web-page-without-refreshing/
 
-### CO2
-* ExplorIR®-W CO2 Sensor, GSS 0-100 CO2, serial out, gaslabab.com $120  
-* Telaire T6613, Amphenol, 0-2000ppm CO2, i2c, Aliexpress $120  
-* MG812, Winzen, CO2 300-10000ppm, electrolyte, 5V analog in  
-* MD62, Winzen, CO2, 0-100%, thermal, full bridge  
-* MH-Z14, Winze, CO2, 0-5% optical, 5V serial 3.3  
-* MH-Z14A, Winzen, CO2 0-5% +/- 50ppm 5V serial  
-* MH-Z19B, Winzen, CO2 0-2000ppm +/-50ppm, 5V serial, solderless pcb compatible  
-* MH-410D, Winzen, CO2 0-5% +/- 50ppm, 5V serial  
-* MHZ16, Winzen, CO2 0-5% +/-50ppm, 5V serial long tube  
-* **SCD30**, Sensirion, CO2, I2C  
-* **SCD40**, smaller than SCD30, not yet released
+### WebSocket
+- https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
+- https://www.mischianti.org/2020/12/21/websocket-on-arduino-esp8266-and-esp32-temperature-and-humidity-realtime-update-3/
+- http://www.martyncurrey.com/esp8266-and-the-arduino-ide-part-10a-iot-website-temperature-and-humidity-monitor/
+
+### HTTP Update Server for Firmware Update
+- https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
+
+### NTP
+- https://tttapa.github.io/ESP8266/Chap15%20-%20NTP.html
+
+### Air Quality
+- Indoor: https://www.dhs.wisconsin.gov/chemical/carbondioxide.htm
+
+### Weather Data (not included yet)
+- http://api.openweathermap.org/data/2.5/weather?q=Tucson,US&APPID=e05a9231d55d12a90f7e9d7903218b3c

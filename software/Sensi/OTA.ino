@@ -20,6 +20,8 @@ void onstartOTA() {
 void onendOTA() {
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("\r\nOTA: End\r\n")); } 
   otaInProgress = false;
+  Serial.flush();
+  ESP.restart();  
 }
 
 void onprogressOTA(unsigned int progress, unsigned int total) {
@@ -36,7 +38,8 @@ void onerrorOTA(ota_error_t error) {
     else if (error == OTA_RECEIVE_ERROR) { printSerialTelnet(F("Receive Failed\r\n")); }
     else if (error == OTA_END_ERROR)     { printSerialTelnet(F("End Failed\r\n")); }
   }
-  otaInProgress = false;
+  otaInProgress = false;  // get out of exclusive update loop
+  LittleFS.begin();       // get FS back online
 }
 
 void updateOTA() {

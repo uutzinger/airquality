@@ -107,7 +107,6 @@ bool initializeSPS30() {
   } else { 
     if (mySettings.debuglevel > 0) {printSerialTelnet(F("SPS30: could NOT start measurement\r\n")); }
     stateSPS30 = HAS_ERROR;
-    sps30_avail = false;
     success = false;
   }
 
@@ -315,7 +314,7 @@ bool updateSPS30() {
       }
       if (sps30.probe() == false) { 
         sps30.reset();
-        delay(100);
+        delay(500);
         if (sps30.probe() == false) {
           stateSPS30 = HAS_ERROR;
           sps30_avail = false;
@@ -342,7 +341,6 @@ bool updateSPS30() {
         stateSPS30 = IS_BUSY; 
       } else { 
         stateSPS30 = HAS_ERROR;
-        sps30_avail = false;
         success = false;
         if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize\r\n")); }
         break;

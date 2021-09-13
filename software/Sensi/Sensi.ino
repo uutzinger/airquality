@@ -106,84 +106,6 @@
 // 2020 Summer, first release
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Wiring configuration of the sensors
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Wemos D1_mini ESP8266
-// PIN CONFIGURATION
-// ---------------------
-// There are a limitted number of pins available and some affect the boot behaviour of the system.
-// https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
-// Symbols below:
-//  2 indicates that pin can be used for i2c, pin is usually pulled high
-//  l indictes pin is usually low,
-//  c can be used for control,
-//  i can be used for interrupt.
-//  RX,TX, is needed if you want serial debug and USB terminal (Serial.begin()), therefore they are not available if you user serial user input over the terminal.
-// Code, Pinnumber, Pinname, Usual Function, behaviour:
-// lc ,         16,    "D0",               , no pull up, wake from sleep, no PWM or I2C, no interrupt, high at boot
-// 2  ,          5,    "D1",           SCL , avail
-// 2  ,          4,    "D2",           SDA , avail
-// 2  ,          0,    "D3",               , pulled up, connected to flash, boot fails if pulled low
-// 2  ,          2,    "D4",               , pulled up, high at boot, boot fails if pulled low
-// 2  ,         14,    "D5",           SCK , avail
-// 2  ,         12,    "D6",           MISO, avail
-// 2  ,         13,    "D7",           MOSI, avail
-// li ,         15,    "D8",             SS, pulled low, cannot use pull up, boot fails if pulled high
-// 2  ,          3,    "RX",               , high at boot, goes to USB
-// 2  ,          1,    "TX",               , high at boot, goes to USB, boot failure if pulled low
-//
-// Sensor characteristics
-// NAME  Power Sup, Clock Speed, Clock Stretch, Pull ups on breakout board, Board name
-// ------------------------------------------------------------------------------------------
-// LCD20x4      5V,      100kHz,             ?                           ?, LCD display
-// LEVEL    3.3&5V             ,           No,                          5k, Level Shifter
-// SPS30    3.3&5V,      100kHz,           No,                         Inf, SPS30 Senserion particle, not compatible with LCD driver, power supply needs 5V, signal can be 3.3V (with pullup to 3.3V) or 5V (with pullup to 5V)
-// SCD30    3.3-5V,      100kHz,          150,                         Inf, SCD30 Senserion CO2, output high level is 2.4V (TTL standard is 2.7V)
-// SGP30  1.8-3.3V,      400kHz,           No,                         10k, SGP30 Senserion VOC, eCO2
-// BME680 1.8-3.3V,      400kHz,           No,                         10k, BME680 Bosch Temp, Humidity, Pressure, VOC
-// CCS811 1.8-3.6V,      100kHz,          Yes,                          5k, CCS811 Airquality eCO2 tVOC
-// MLX       3or5V,      100kHz,           No,                         Inf, MLX90614 Melex temp contactless
-// MAX    1.8&3.3V,      400kHz,           No,                          5k, MAX30105 Maxim pulseox
-//
-// Sensirion sensors without pullups (Inf) need an external 10k pullup on SDA and SCL according the driver documentation from Paul Vah.
-// ESP8266 has builtin pullups on standard i2c pins, but it appears external ones are needed in addition.
-// If another sensor board on the same bus aledady has pullup resistors, one would not need additional pullups.
-// All pullups will add in parallel and lower the total pullup resistor value, therfore requiring more current to operate the i2c bus.
-//
-// I2C interfaces
-// -------------------------------------------------
-// I2C_1 D1 D2 400kHz no clock stretch
-//   SGP30     58
-//   BME680    77
-//   MAX30105  57
-//
-// I2C_2 D3 D4 100kHz with extra clock stretch
-//   SPS30     69, with 5V power and pullup to 3.3V
-//   SCD30     61
-//   CCS811    5B
-//
-// I2C_3 D5 D6 100kHz no extra clock stretch
-//   LCD       27, after 5V Level Shifter, this sensor affects operation of other sensors
-//   MLX90614  5A, to 3.3V side, this sensor might be affected by other breakout boards and erroniously reporting negative temp and temp above 500C.
-//
-// Wake and Interrupt Pin assignements
-// ------------------------------------
-// D8: SCD30_RDY interrupt, goes high when data available, remains high until data is read,
-//   this requires the sensors to be power switched after uploadiong new program to ESP,
-//   if the sensor has data available, the pin is high and the mcu can not be programmed
-//
-// D0: CCS811_Wake, needs to be low when communicating with sensors, most of the time its high
-//
-// D7: CCS811_INT, goes low when data is available, most of the time its high, needs pull up configuration via software
-//
-// CCS811 address needs to be set to high which is accomplished with connecting adress pin to 3.3V signal
-//
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 #undef DEBUG                                             
 //#define DEBUG
 // enabling this will pin point where program crashed as it displays a DBG statement that can be searched in the program
@@ -601,7 +523,7 @@ void setup() {
   #endif
   if (lcd_avail && mySettings.useLCD) {
     if (mySettings.consumerLCD) { updateSinglePageLCDwTime(); } else { updateLCD(); }
-    if (mySettings.debuglevel > 1) { printSerialTelnet(F("LCD updated.")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnet(F("LCD updated.")); }
   }
   
   /******************************************************************************************************/
@@ -1080,7 +1002,7 @@ void loop() {
         #endif
         
         if (  mySettings.consumerLCD ) { updateSinglePageLCDwTime(); } else { updateLCD(); } //<<<<<<<<<<<<<<<<<<<<
-        if ( (mySettings.debuglevel > 0) && mySettings.useSerial ) { printSerialTelnet(F("LCD updated\r\n")); }
+        if ( (mySettings.debuglevel > 1) && mySettings.useSerial ) { printSerialTelnet(F("LCD updated\r\n")); }
         
         #if defined(PROFILE)
         deltaUpdate = millis() - tmpTime;
@@ -1232,7 +1154,7 @@ void loop() {
       #endif
       mySettings.runTime = mySettings.runTime + ((currentTime - lastTime) / 1000);
       lastTime = currentTime;
-      if (mySettings.debuglevel >1) { printSerialTelnet(F("Runtime updated\r\n")); }
+      if (mySettings.debuglevel > 1) { printSerialTelnet(F("Runtime updated\r\n")); }
       #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
       if (maxUpdateRT < deltaUpdate) { maxUpdateRT = deltaUpdate; }
@@ -1583,7 +1505,7 @@ void helpMenu() {
   printSerialTelnet(F("==Network===============================|==MQTT==================================\r\n"));
   printSerialTelnet(F("| P1: SSID 1, P1myssid                  | u: mqtt username, umqtt or empty      |\r\n"));
   printSerialTelnet(F("| P2: SSID 2, P2myssid                  | w: mqtt password, ww1ldc8ts or empty  |\r\n"));
-  printSerialTelnet(F("| P3: SSID 3, P3myssid                  | q: send mqtt immediatly, q            |\r\n"));
+  printSerialTelnet(F("| P3: SSID 3, P3myssid                  | q: toggle send mqtt immediatly, q     |\r\n"));
   printSerialTelnet(F("| P4: password SSID 1, P4mypas or empty |                                       |\r\n"));
   printSerialTelnet(F("| P5: password SSID 2, P5mypas or empty | P8: mqtt server, P8my.mqtt.com        |\r\n"));
   printSerialTelnet(F("| P6: password SSID 3, P6mypas or empty | P9: mqtt fall back server             |\r\n"));
