@@ -19,7 +19,7 @@ Sensirion sensors without pullups (Inf) need an external 10k pullup on SDA and S
 || min, max [default] [s]| [mW]| [mW]|| $
 | LCD      | 0.3...
 | SCD30    | 2..1800 [4]  | 19  | Reduce Interval      | Yes | 54 |
-| SPS30    | 1...    | 60  | 0.36    | No  | 45 |
+| SPS30    | 1       | 60  | 0.36    | No  | 45 |
 | SGP30    | 1...    | 48  | NA      | No  | 24 |
 | BME680   | 1,3,300  | 0.9 | 0.00015 | No  | 10 |
 | CCS811   | 0.25,1,10,60   | 4   | 0.019   | Yes | 12 |

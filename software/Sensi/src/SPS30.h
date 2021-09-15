@@ -18,7 +18,7 @@
 // Sleep mode can be entered when sensor is idle but only with firmware 2.2 or greater.
 // There appears to be no firmware updater on Sensirion support website.
 //
-#define intervalSPS30Fast  5000                            // minimum is 1 sec
+#define intervalSPS30Fast  1000                            // minimum is 1 sec
 #define intervalSPS30Slow 60000                            // system will sleep for intervalSPS30Slow - timetoStable if sleep function is available
 #define SPS30Debug 0                                       // define driver debug: 
 //   0 - no messages,

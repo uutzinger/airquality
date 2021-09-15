@@ -231,8 +231,6 @@ bool updateSinglePageLCDwTime() {
     strncpy(&lcdDisplay[2][5], myNaN, 1);
   }
 
-
-
   if (time_avail && mySettings.useNTP ) {
     // Data and Time
     sprintf_P(lcdbuf,PSTR("%d%d.%d%d.%d"), 
@@ -565,7 +563,7 @@ bool updateTwoPageLCD() {
   } // end alt display
 
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
-  lcd.clear();
+  //lcd.clear();
   lcd.setCursor(0, 0); 
   
   if (altDisplay) {
@@ -730,7 +728,7 @@ bool updateLCD() {
   altDisplay = !altDisplay;
   
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
-  lcd.clear();
+  //lcd.clear();
   lcd.setCursor(0, 0); 
   
   // 1st line continues at 3d line

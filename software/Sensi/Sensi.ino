@@ -3,7 +3,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Supported Hardware:
-//  - ESP8266 micro controller.                     Using 2.x Arduino Libary (3.x is not compatible with third party drivers)
+//  - ESP8266 micro controller.                     Using 2.x Arduino Libary  
+//                                                  3.x is not compatible withthird party drivers
 //  - SPS30 Senserion particle,                     Paul Vah library
 //  - SCD30 Senserion CO2,                          Sparkfun library, using interrupt from data ready pin
 //  - SGP30 Senserion VOC, eCO2,                    Sparkfun library
@@ -23,7 +24,7 @@
 //  - ArduWebSockets:                               https://github.com/Links2004/arduinoWebSockets
 //
 // Other Libraries:
-// ArduJSON                                         https://github.com/bblanchon/ArduinoJson.git
+//  - ArduJSON                                      https://github.com/bblanchon/ArduinoJson.git
 //
 // Operation:
 //  Fast Mode: read often, minimal power saving, some sensors have higher sampling rate than others
@@ -36,12 +37,8 @@
 // Settings:
 //  Check help-screen (send ? in terminal)
 //  3 wifi passwords and 2 mqtt servers.
-//  There are two places settings are stored. In the EEPRO and in Sensi.json on LittleFS.
-//  During boot up settings are read form EEPROM in binary (not LitteFS).
+//  Settings are stored in EEPROM.
 //  Settings are saved every couple of hours in EEPROM.
-//  Settings are saved every couple of days in JSON file.
-//  User can read settings through console.
-//  User can save settings trhough constole and it will generate Sensi.json in LittelFS and store them also in EEPROM.
 //
 // Wifi:
 //  Scans network for known ssid, attempts connection with username password, if disconnected attempts reconnection.
@@ -67,19 +64,18 @@
 //  The MLX sensor might report negative or excessive high temperature when combined with arbitrary sensors.
 //
 // Improvements:
-//  Some sensor drivers were modified to have no or almost no delay functions in the frequently called code sections.
 //  Some drivers were modified to allow for user specified i2c port instead of standard "Wire" port.
+//  SDS30 library was modified to function with devices that have faulty version information
 //
 // Software implementation:
-//  The sensor driver is divided into intializations and updates.
+//  The sensor driver is divided into intializations and update section.
 //  The updates are implemented as state machines and called on regular basis in the main loop.
 
 // Quality Assessments:
 //  The LCD screen background light is blinking when a sensor is outside its recommended range.
 //  Pressure:
 //    A change of 5mbar within in 24hrs can cause headaches in suseptible subjects
-//    The program computes the avaraging filter coefficients based on the sensor sample interval 
-//    for a 24hr smoothing filter y = (1-a)*y + a*x
+//    The program computes the daily average pressure and the difference to the current pressure
 //  CO2:
 //    >1000ppm is poor
 //  Temperature:
@@ -88,17 +84,19 @@
 //    30-60% is normal range
 //  Particles
 //    P2.5: >25ug/m3 is poor
-//    P10: >50ug/m3 is poor
+//    P10:  >50ug/m3 is poor
 //  tVOC:
 //    >660ppb is poor
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // This software is provided as is, no warranty to its proper operation is implied. Use it at your own risk.
 // Urs Utzinger
-// Sometime: MAX pulseox software (requires proximit detection and rewritting signal processing code)
-// Sometime: Configuration of system through website
-// 2021 September: Testing and release
-// 2021 July: Telnet
-// 2021 June: Webserver, NTP
+// Sometime: MAX pulseox software (requires proximit detection and rewritting signal processing library)
+// Sometime: Configuration of system through website UI
+// Sometime: Logfile to record system issues
+// Sometime: Support for TFT display
+// 2021 September: testing and release
+// 2021 July: telnet
+// 2021 June: webserver, NTP
 // 2021 February, March: display update, mDNS, OTA
 // 2021 January, i2c scanning and pin switching, OTA flashing
 // 2020 Winter, fixing the i2c issues
@@ -162,7 +160,7 @@ TwoWire myWire = TwoWire(); //  inintialize the two wire system.
 #include <SPI.h>
 
 /******************************************************************************************************/
-// Main Program Definitions
+// Program Definitions
 /******************************************************************************************************/
 #include "src/Sensi.h"
 // Uses EEPROM and LittleFS to store settings in binary as well as JSON file
@@ -311,6 +309,7 @@ void setup() {
   // it can become uint_8. When the program sets these boolean values from true to false, it will convert 
   // from 255 to 254 and not to 0.
   // At boot time we  need to ensure that any non zero value for boolean settings are forced to true.
+  // Once the varibales a set with code below and written back to EEPROM, this should not be necessary any longer.
   if (mySettings.useLCD            > 0) { mySettings.useLCD            = true; } else { mySettings.useLCD              = false; }
   if (mySettings.useWiFi           > 0) { mySettings.useWiFi           = true; } else { mySettings.useWiFi             = false; }
   if (mySettings.useSCD30          > 0) { mySettings.useSCD30          = true; } else { mySettings.useSCD30            = false; }
@@ -532,7 +531,7 @@ void setup() {
   #if defined(DEBUG)
     printSerialTelnet(F("DBG:INI: Wifi\r\n"));
   #endif
-  initializeWiFi(); // if user settings are set to off, functions depebding on wifi will not be enbaled
+  initializeWiFi(); // if user request wifi to be off, functions depebding on wifi will not be enabled
 
   /******************************************************************************************************/
   // System is initialized
@@ -578,7 +577,7 @@ void loop() {
       
       // every minute, broadcast time, window to occur is 0..29 secs
       // we need to give window because some service routines of ESP might block execution for several seconds
-      // and we can not guarantee that we reach this code at exactly specified second
+      // and we can not guarantee that we reach this code at the exactly specified second
       if (localTime->tm_sec < 30) {
         if (updateTime == true) {
           timeNewDataWS = true; //brodcast time on websocket 
@@ -622,6 +621,7 @@ void loop() {
       #endif
       
     }
+    
     /******************************************************************************************************/
     // Update the State Machines for all Devices and System Processes
     /******************************************************************************************************/
@@ -935,7 +935,7 @@ void loop() {
     #endif
     
     /******************************************************************************************************/
-    // Broadcast MQTT and WebSocket Message
+    // Broadcast MQTT and WebSocket Messages
     /******************************************************************************************************/
     if (mqtt_connected)                                               {
       #if defined(DEBUG)
@@ -945,7 +945,9 @@ void loop() {
       #if defined(PROFILE)
       startUpdate = millis();
       #endif
+      
       updateMQTTMessage();  //<<<<<<<<<<<<<<<<<<<<
+      
       #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
       if (maxUpdateMQTTMESSAGE < deltaUpdate) { maxUpdateMQTTMESSAGE = deltaUpdate; }
@@ -1217,7 +1219,7 @@ void loop() {
       #endif
     }
     **/
-    // Obtain basline from sensors that create internal baseline --------
+    // Obtain basline from sensors to create internal baseline --------
     if ((currentTime - lastBaseline) >= intervalBaseline) {
       #if defined(DEBUG) 
       printSerialTelnet(F("DBG:UPDATE: BASELINE\r\n"));
@@ -1262,7 +1264,7 @@ void loop() {
       startUpdate = millis();
       #endif
       lastWarning = currentTime;
-      allGood = sensorsWarning();
+      allGood = sensorsWarning(); // <<<<<<<<<<<<<<<<<<
       #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
       if (maxUpdateALLGOOD < deltaUpdate) { maxUpdateALLGOOD = deltaUpdate; }
@@ -1332,6 +1334,7 @@ void loop() {
     } // blinking interval
 
     // Deal with request to reboot --------------------------------------
+    // This occurs if sensors reading results in error and driver fails to recover
     // Reboot at preset time
     if (scheduleReboot == true) {
       #if defined(DEBUG)
@@ -1390,7 +1393,7 @@ void loop() {
     #endif
     
     // Free up Processor
-    // This crashes ESP
+    // This crashes ESP, with that many susbsystems enabled, we run without delays
     /*
     myDelay = long(currentTime + intervalLoop) - long(millis()); // how much time is left until system loop expires
     if (myDelay < myDelayMin) { myDelayMin = myDelay; }
