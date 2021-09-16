@@ -33,14 +33,15 @@
 
 bool initializeSPS30() { 
   bool success = true;
-  
+
+  sps30.EnableDebugging(SPS30Debug);
+
   if (fastMode == true) { intervalSPS30 = intervalSPS30Fast; }
   else                  { intervalSPS30 = intervalSPS30Slow; }
 
   if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("SPS: Interval: %lums\r\n"),intervalSPS30); printSerialTelnet(tmpStr); }
   sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
   delay(1);
-  sps30.EnableDebugging(SPS30Debug);
 
   if (sps30.begin(sps30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: Sensor not detected in I2C. Please check wiring\r\n")); }
@@ -74,6 +75,7 @@ bool initializeSPS30() {
   }  
 
   // read device info
+
   if (mySettings.debuglevel > 0) {
     printSerialTelnet(F("SPS30: obtaining device information:\r\n"));
     ret = sps30.GetSerialNumber(buf, 32);
@@ -112,6 +114,8 @@ bool initializeSPS30() {
   } else { 
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: coulnd not obtain autoclean information\r\n")); }
   }
+
+  // Start the device, will create internal readings every  1 sec
   if (sps30.start() == true) { // takes 20ms
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: measurement started\r\n")); }
     stateSPS30 = IS_BUSY; 
@@ -182,13 +186,18 @@ bool updateSPS30() {
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
         if (mySettings.debuglevel == 5)  { sprintf_P(tmpStr, PSTR("SPS30: values read in %ims\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr); }
-        if (ret == ERR_DATALENGTH) { 
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: error data length during reading values\r\n")); }
-          stateSPS30 = HAS_ERROR;
+        if (ret == ERR_DATALENGTH || valSPS30.MassPM1 == 0) { 
+          if (mySettings.debuglevel > 0.0) { printSerialTelnet(F("SPS30: error data length while reading values or zero reading\r\n")); }
+          // allow a few more attempts to read data
+          if (sps_error_cnt++>3) {stateSPS30 = HAS_ERROR;} // give up after 3 tries
+          lastSPS30 = currentTime; 
+          break; // remains in same state and try again in about a second
         } else if (ret != ERR_OK) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: %hu\r\n"), ret); printSerialTelnet(tmpStr); }
-          stateSPS30 = HAS_ERROR;
-        }        
+          stateSPS30 = HAS_ERROR; // got to recovery
+          break;
+        }
+        sps_error_cnt = 0;
         lastSPS30 = currentTime; 
         // adjust time to get stable readings, it takes longer  with lower concentration to get a precise reading
         totalParticles = (valSPS30.NumPM0 + valSPS30.NumPM1 + valSPS30.NumPM2 + valSPS30.NumPM4 + valSPS30.NumPM10);
@@ -215,6 +224,24 @@ bool updateSPS30() {
       if (currentTime >= timeSPS30Stable) {
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);
         delay(1);  
+        tmpTime = millis();
+        ret = sps30.GetValues(&valSPS30);
+        if (mySettings.debuglevel == 5) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr); }
+        if (ret == ERR_DATALENGTH || valSPS30.MassPM1 == 0.0) { 
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: error data length while reading values or zero reading\r\n"));  }
+          // we will allow this to happen up to 3 times in a row until we throw error
+          if (sps_error_cnt++>3) { stateSPS30 = HAS_ERROR; } // give up after 3 tries
+          timeSPS30Stable = currentTime + 1000;  
+          break; // remain in same state and try again in a second
+        } else if (ret != ERR_OK) {
+          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: %hu\r\n"), ret); printSerialTelnet(tmpStr); }
+          stateSPS30 = HAS_ERROR;
+          break;
+        }
+        sps_error_cnt = 0; // we got values
+        sps30NewData   = true;
+        sps30NewDataWS = true;
+
         // obtain device status
         if (((v.major==2) && (v.minor>=2)) || (v.major>2)) {
           ret = sps30.GetStatusReg(&st);// takes 20ms
@@ -226,27 +253,16 @@ bool updateSPS30() {
               if (mySettings.debuglevel > 0) {
                 if (st & STATUS_SPEED_ERROR) { printSerialTelnet(F("SPS30: warning, fan is turning too fast or too slow\r\n"));  }
                 if (st & STATUS_LASER_ERROR) { printSerialTelnet(F("SPS30: error laser failure\r\n")); }
-                if (st & STATUS_FAN_ERROR)   { printSerialTelnet(F("SPS30: Eerror fan failure, fan is mechanically blocked or broken\r\n")); }
+                if (st & STATUS_FAN_ERROR)   { printSerialTelnet(F("SPS30: error fan failure, fan is mechanically blocked or broken\r\n")); }
               }
-              stateSPS30 = HAS_ERROR;
+              // stateSPS30 = HAS_ERROR; // continue using the sensor anyway?
             } // status ok/notok
           } else {
             if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not read status\r\n")); }
-            stateSPS30 = HAS_ERROR;
+            // stateSPS30 = HAS_ERROR; // continue using the sensor anyway?
           } // read status
         } // Firmware >= 2.2
-        tmpTime = millis();
-        ret = sps30.GetValues(&valSPS30);
-        if (mySettings.debuglevel == 5) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr); }
-        if (ret == ERR_DATALENGTH) { 
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: error data length during reading values\r\n"));  }
-          stateSPS30 = HAS_ERROR;
-        } else if (ret != ERR_OK) {
-          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: %hu\r\n"), ret); printSerialTelnet(tmpStr); }
-          stateSPS30 = HAS_ERROR;
-        }
-        sps30NewData   = true;
-        sps30NewDataWS = true;
+
         if (mySettings.debuglevel == 5) { printSerialTelnet(F("SPS30: going to idle\r\n")); }
         lastSPS30 = currentTime; 
         stateSPS30 = IS_IDLE;          
@@ -317,8 +333,7 @@ bool updateSPS30() {
       break;
     }
 
-    case HAS_ERROR : { //---------------------
-      // trying to recover sensor
+    case HAS_ERROR : { //--------------------  trying to recover sensor
       sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
       delay(1); 
       sps30.EnableDebugging(SPS30Debug);

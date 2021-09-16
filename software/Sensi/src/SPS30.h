@@ -18,9 +18,9 @@
 // Sleep mode can be entered when sensor is idle but only with firmware 2.2 or greater.
 // There appears to be no firmware updater on Sensirion support website.
 //
-#define intervalSPS30Fast  1000                            // minimum is 1 sec
+#define intervalSPS30Fast  5000                            // minimum is 1 sec
 #define intervalSPS30Slow 60000                            // system will sleep for intervalSPS30Slow - timetoStable if sleep function is available
-#define SPS30Debug 0                                       // define driver debug: 
+#define SPS30Debug 0                                       // define driver debug: 0 np debug
 //   0 - no messages,
 //   1 - request sending and receiving,
 //   2 - request sending and receiving + show protocol errors */
@@ -41,6 +41,7 @@ TwoWire *sps30_port =0;                                    // pointer to the i2c
 uint8_t sps30_i2c[2];                                      // the pins for the i2c port, set during initialization
 volatile SensorStates stateSPS30 = IS_BUSY;                // sensor state
 struct sps_values valSPS30;                                // will hold the readings from sensor
+unsigned int sps_error_cnt = 0;                            // give a few retiries if error data length occurs while reading sensor values
 SPS30_version v;                                           // version structure of sensor
 bool initializeSPS30(void);
 bool updateSPS30(void);
