@@ -18,6 +18,7 @@ TwoWire *mlx_port =0;                                      // pointer to the i2c
 uint8_t mlx_i2c[2];                                        // the pins for the i2c port, set during initialization
 unsigned long lastMLX;                                     // last time we interacted with sensor
 unsigned long sleepTimeMLX;                                // computed internally
+uint8_t mlx_error_cnt = 0;                                 //
 volatile SensorStates stateMLX = IS_IDLE;                  // sensor state
 bool initializeMLX(void);
 bool updateMLX(void);

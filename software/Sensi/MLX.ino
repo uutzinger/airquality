@@ -62,6 +62,7 @@ bool updateMLX() {
         if (therm.read()) {
           if (mySettings.debuglevel == 8) { printSerialTelnet(F("MLX: temperature measured\r\n")); }
           lastMLX = currentTime;
+          mlx_error_cnt = 0;
           mlxNewData = true;
           mlxNewDataWS = true;
           if (fastMode == false) {
@@ -71,15 +72,20 @@ bool updateMLX() {
           }
         } else {
           // read error
-          if (mySettings.debuglevel == 8) { printSerialTelnet(F("MLX: read error\r\n")); }
-          stateMLX = HAS_ERROR;
+          lastMLX = currentTime;
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: read error\r\n")); }
+          if (mlx_error_cnt++>3) { // allow 3 retires
+            stateMLX = HAS_ERROR;
+            break;
+          }
           success = false;
-          break;
-        }
+        }        
         // check if temperature is in valid range
         if ( (therm.object() < -273.15) || ( therm.ambient() < -273.15) ) { 
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: data error\r\n")); }
-          stateMLX = HAS_ERROR;
+          if (mlx_error_cnt++>3) { // allow 3 retries
+            stateMLX = HAS_ERROR;
+          }
           success = false;
         }
       }
@@ -104,7 +110,7 @@ bool updateMLX() {
         therm.setUnit(TEMP_C); // Set the library's units to Centigrade
         therm.setEmissivity(emissivity); // hard coded from definitions file
         stateMLX = IS_MEASURING;      
-      } else {
+      } else { // could not recover
         stateMLX = HAS_ERROR;
         therm_avail = false;
         success = false;

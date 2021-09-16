@@ -41,7 +41,7 @@ TwoWire *sps30_port =0;                                    // pointer to the i2c
 uint8_t sps30_i2c[2];                                      // the pins for the i2c port, set during initialization
 volatile SensorStates stateSPS30 = IS_BUSY;                // sensor state
 struct sps_values valSPS30;                                // will hold the readings from sensor
-unsigned int sps_error_cnt = 0;                            // give a few retiries if error data length occurs while reading sensor values
+uint8_t sps_error_cnt = 0;                                 // give a few retiries if error data length occurs while reading sensor values
 SPS30_version v;                                           // version structure of sensor
 bool initializeSPS30(void);
 bool updateSPS30(void);
