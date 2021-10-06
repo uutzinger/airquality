@@ -38,7 +38,7 @@ void saveConfiguration(const Settings &config) {
       doc["tempOffset_MLX_valid"]         = config.tempOffset_MLX_valid;                     // 0xF0 = valid
       doc["tempOffset_MLX"]               = config.tempOffset_MLX;                           // in C
       
-      //printSerialTelnet(F("DBG:JSON 2\r\n"));
+      D_printSerialTelnet(F("DBG:JSON 2\r\n"));
     
       doc["useWiFi"]                      = config.useWiFi;                                  // use/not use WiFi and MQTT
     
@@ -49,7 +49,7 @@ void saveConfiguration(const Settings &config) {
       doc["ssid3"]                        = config.ssid3;                                    // 3rd set of WiFi credentials
       doc["pw3"]                          = config.pw3;                                      //
   
-      //printSerialTelnet(F("DBG:JSON 3\r\n"));
+      D_printSerialTelnet(F("DBG:JSON 3\r\n"));
     
       doc["useMQTT"]                      = config.useMQTT;                                  // provide MQTT data
       doc["mqtt_server"]                  = config.mqtt_server;                              // your mqtt server
@@ -65,7 +65,7 @@ void saveConfiguration(const Settings &config) {
       doc["nightBegin"]                   = config.nightBegin;                               // minutes from midnight when to stop changing backlight because of low airquality
       doc["nightEnd"]                     = config.nightEnd;                                 // minutes from midnight when to start changing backight because of low airquality
   
-      //printSerialTelnet(F("DBG:JSON 4\r\n"));
+      D_printSerialTelnet(F("DBG:JSON 4\r\n"));
     
       doc["useSCD30"]                     = config.useSCD30;                                 // ...
       doc["useSPS30"]                     = config.useSPS30;                                 // ...
@@ -84,7 +84,7 @@ void saveConfiguration(const Settings &config) {
       doc["useTelnet"]                    = config.useTelnet;                                // use Telnet for Serial
       doc["useSerial"]                    = config.useSerial;                                // use USB for Serial
     
-      //printSerialTelnet(F("DBG:JSON 5\r\n"));
+      D_printSerialTelnet(F("DBG:JSON 5\r\n"));
       doc["useNTP"]                       = config.useNTP;                                   // want network time
       doc["ntpServer"]                    = config.ntpServer;                                // ntp server
       doc["timeZone"]                     = config.timeZone;                                 // time zone according second column in https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv
@@ -92,9 +92,7 @@ void saveConfiguration(const Settings &config) {
     
       //serializeJsonPretty(doc, Serial);  Serial.println();
       
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:JSON OPEN\r\n"));
-      #endif
+      D_printSerialTelnet(F("DBG:JSON OPEN\r\n"));
       // Open file for writing
       #if defined(DEBUG)
       sprintf_P(tmpStr,PSTR("Filename is: %s\r\n","/Sensi.json")); printSerialTelnet(tmpStr);
@@ -103,14 +101,10 @@ void saveConfiguration(const Settings &config) {
       File cfgFile = LittleFS.open("/Sensi.json", "w+");
       if (!cfgFile) { printSerialTelnet(F("Failed to create file\r\n")); return; }
       else {
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:JSON Serialze to File\r\n"));
-        #endif
+        D_printSerialTelnet(F("DBG:JSON Serialze to File\r\n"));
         // Serialize JSON to file      
         if (serializeJsonPretty(doc, cfgFile) == 0) { printSerialTelnet(F("Failed to write to file\r\n")); }
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:JSON CLOSE\r\n"));
-        #endif
+        D_printSerialTelnet(F("DBG:JSON CLOSE\r\n"));
         // Close the file
         cfgFile.close();
       }

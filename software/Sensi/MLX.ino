@@ -13,9 +13,9 @@
 #endif
 
 bool initializeMLX(){
-  bool success = true;
   
   mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
+  mlx_port->setClock(I2C_REGULAR);
   delay(1); // might resolves -600C issues
   
   if (therm.begin(0x5A, *mlx_port) == true) { 
@@ -26,7 +26,7 @@ bool initializeMLX(){
   } else {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: sensor not detected. Please check wiring\r\n")); }
     stateMLX = HAS_ERROR;
-    therm_avail = false;
+    return(false);
   }
   sleepTimeMLX = intervalMLX - timeToStableMLX - 50;
   if (mySettings.debuglevel > 0) {
@@ -44,25 +44,25 @@ bool initializeMLX(){
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: initialized\r\n")); }
   delay(50);
 
-  return success;
+  return(true);
 }
 
 /******************************************************************************************************/
 // Update MLX
 /******************************************************************************************************/
 bool updateMLX() {
-  bool success = true;
+  bool success = true;  // when ERROR recovery fails, success becomes false
   
   switch(stateMLX) {
     
     case IS_MEASURING : { //---------------------
-      if ((currentTime - lastMLX) > intervalMLX) {
+      if ( (currentTime - lastMLX) > intervalMLX ) {
         mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
+        mlx_port->setClock(I2C_REGULAR);
         delay(1); // might resolves -600C issues
         if (therm.read()) {
           if (mySettings.debuglevel == 8) { printSerialTelnet(F("MLX: temperature measured\r\n")); }
           lastMLX = currentTime;
-          mlx_error_cnt = 0;
           mlxNewData = true;
           mlxNewDataWS = true;
           if (fastMode == false) {
@@ -73,31 +73,23 @@ bool updateMLX() {
         } else {
           // read error
           lastMLX = currentTime;
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: read error\r\n")); }
-          if (mlx_error_cnt++>3) { // allow 3 retires
+          if (mySettings.debuglevel > 0) { 
+            sprintf_P(tmpStr, PSTR("MLX: read error, %u\r\n"), mlx_error_cnt); printSerialTelnet(tmpStr);          
+          }
+          if (mlx_error_cnt++ > 3) { // allow 3 retires
             stateMLX = HAS_ERROR;
             break;
           }
-          success = false;
-        }        
+        }
         // check if temperature is in valid range
         if ( (therm.object() < -273.15) || ( therm.ambient() < -273.15) ) { 
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: data error\r\n")); }
-          if (mlx_error_cnt++>3) { // allow 3 retries
+          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("MLX: data range error, %u\r\n"), mlx_error_cnt); printSerialTelnet(tmpStr); }
+          if (mlx_error_cnt++ > 3) { // allow 3 retries
             stateMLX = HAS_ERROR;
           }
-          success = false;
+        } else { 
+          mlx_error_cnt = 0; 
         }
-      }
-      break;
-    }
-
-    case IS_SLEEPING : { //---------------------
-      if ((currentTime - lastMLX) > sleepTimeMLX) {
-        mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
-        therm.wake(); // takes 250ms to wake up, sleepTime is shorter than intervalMLX to accomodate that
-        if (mySettings.debuglevel == 8) { printSerialTelnet(F("MLX: initiated wake up\r\n")); }
-        stateMLX = IS_MEASURING;
       }
       break;
     }
@@ -105,6 +97,7 @@ bool updateMLX() {
     case HAS_ERROR : { // ----------------------
       // trying to recover sensor
       mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
+      mlx_port->setClock(I2C_REGULAR);
       delay(1);
       if (therm.begin(0x5A, *mlx_port) == true) { 
         therm.setUnit(TEMP_C); // Set the library's units to Centigrade
@@ -121,7 +114,21 @@ bool updateMLX() {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX Error:  invalid switch statement")); break;}}
+    case IS_SLEEPING : { //---------------------
+      if ((currentTime - lastMLX) > sleepTimeMLX) {
+        mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
+        mlx_port->setClock(I2C_REGULAR);
+        therm.wake(); // takes 250ms to wake up, sleepTime is shorter than intervalMLX to accomodate that
+        if (mySettings.debuglevel == 8) { printSerialTelnet(F("MLX: initiated wake up\r\n")); }
+        stateMLX = IS_MEASURING;
+      }
+      break;
+    }
+
+    default: {
+      if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX Error:  invalid switch statement")); }
+      break;
+    }
 
   } // switch
 

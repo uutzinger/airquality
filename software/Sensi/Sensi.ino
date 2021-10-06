@@ -5,7 +5,7 @@
 // Supported Hardware:
 //  - ESP8266 micro controller.                     Using 2.x Arduino Libary  
 //                                                  3.x is not compatible withthird party drivers
-//  - SPS30 Senserion particle,                     Paul Vah library
+//  - SPS30 Senserion particle,                     Paul Van Haastrecht library
 //  - SCD30 Senserion CO2,                          Sparkfun library, using interrupt from data ready pin
 //  - SGP30 Senserion VOC, eCO2,                    Sparkfun library
 //  - BME680 Bosch Temp, Humidity, Pressure, VOC,   Adafruit library
@@ -52,7 +52,7 @@
 //
 // Wire/I2C:
 //  Multiple i2c pins are supported, ESP8266 Arduino supports only one active wire interface, however the pins can
-//  be changed prior to each communication.
+//  be changed prior to each communication. The i2c clock can also be adapted prior to each communcation.
 //  At startup, all pin combinations are scanned for possible scl & sda connections of the attached sensors.
 //  Pins of supported sensors are registered.
 //
@@ -60,12 +60,12 @@
 //  Sensors might engage in excessive clockstretching and some have pull up resistor requirements beyond the one provided 
 //  by the microcontroller.
 //  For example CCS911 and SCD30 require long clock stretching. They are "slow" sensors. Its best to place them on separate i2c bus.
-//  The LCD display requires 5V logic and corrupts regulalry when the i2c bus is shared, it should be placed on separate bus.
+//  The LCD display requires 5V logic and corrupts regularly when the i2c bus is shared, it should be placed on separate bus.
 //  The MLX sensor might report negative or excessive high temperature when combined with arbitrary sensors.
 //
 // Improvements:
 //  Some drivers were modified to allow for user specified i2c port instead of standard "Wire" port.
-//  SDS30 library was modified to function with devices that have faulty version information
+//  SDS30 library was modified to function with devices that have faulty version information; content of the readoperation is available regradless wheter CRC error occured.
 //
 // Software implementation:
 //  The sensor driver is divided into intializations and update section.
@@ -88,12 +88,13 @@
 //  tVOC:
 //    >660ppb is poor
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-// This software is provided as is, no warranty to its proper operation is implied. Use it at your own risk.
+// This software is provided as is, no warranty on its proper operation is implied. Use it at your own risk.
 // Urs Utzinger
 // Sometime: MAX pulseox software (requires proximit detection and rewritting signal processing library)
 // Sometime: Configuration of system through website UI
 // Sometime: Logfile to record system issues
 // Sometime: Support for TFT display
+// Sometime: Website adjsuting to available sensors
 // 2021 September: testing and release
 // 2021 July: telnet
 // 2021 June: webserver, NTP
@@ -106,11 +107,13 @@
 
 #undef DEBUG                                             
 //#define DEBUG
-// enabling this will pin point where program crashed as it displays a DBG statement that can be searched in the program
+// enabling this will pin point where the program crashed as it displays a DBG statement beofre most subroutines are called.
 
-#undef PROFILE
-//#define PROFILE
-// enabling this will measure execution times of code segments
+#if defined DEBUG
+  #define D_printSerialTelnet(X) printSerialTelnet(X)
+#else
+  #define D_printSerialTelnet(X)
+#endif
 
 // #define ADALCD                                          // we have Adafruit i2c to LCD driver
 #undef ADALCD                                              // we have non-Adafruit i2c to LCD driver
@@ -120,7 +123,7 @@
 // false: Measure in about 1 min intervals and enable sensor sleeping and low energy modes if available
 // Slow mode needs tweaking and testing to determine which WiFi services are compatible with it.
 // MQTT will need to update with single message. Likley OTA, Updater, Telnet will have issues with slow mode.
-// With current software version we can not switch between slow and fast during runtime
+// With current software version we can not switch between slow and fast during runtime.
 
 // If you edit this code with Visual Studio Code: Set the define in VSC.h so that it findes the include files.
 // To compile the code, disable the defines in VSC.h
@@ -187,22 +190,15 @@ ESP8266WebServer httpServer(80);                           // Server on port 80
 #include "src/HTTPUpdater.h"
 ESP8266WebServer httpUpdateServer(8890);
 ESP8266HTTPUpdateServer httpUpdater;                       // Code update server
-// --- SCD30; Sensirion CO2 sensor, Likely  most accurate sensor for CO2
-#include "src/SCD30.h"
-// --- SPS30; Senserion Particle Sensor,  likely most accurate sensor for PM2. PM110 might not be accurate though.
-#include "src/SPS30.h"
-// --- SGP30; Senserion TVOC, eCO2, accuracy is not known
-#include "src/SGP30.h"
-// --- CCS811; Airquality CO2 tVOC, traditional make comunity sensor
-#include "src/CCS811.h"
-// --- BME680; Bosch Temp, Humidity, Pressure, VOC, more features than 280 sensor, dont need both 280 and 680
-#include "src/BME680.h"
-// --- BME280; Bosch Temp, Humidity, Pressure, there is BME and BMP version.  One is lacking hymidity sensor.
-#include "src/BME280.h"
-// --- MLX contact less tempreture sensor, Thermal sensor for forehead readings. Likely not accurate.
-#include "src/MLX.h"
-// --- MAX30105; pulseoximeter, Not implemented yet
-#include "src/MAX.h"
+
+#include "src/SCD30.h"  // --- SCD30; Sensirion CO2 sensor, Likely  most accurate sensor for CO2
+#include "src/SPS30.h"  // --- SPS30; Senserion Particle Sensor,  likely most accurate sensor for PM2. PM110 might not be accurate though.
+#include "src/SGP30.h"  // --- SGP30; Senserion TVOC, eCO2, accuracy is not known
+#include "src/CCS811.h" // --- CCS811; Airquality CO2 tVOC, traditional make comunity sensor
+#include "src/BME680.h" // --- BME680; Bosch Temp, Humidity, Pressure, VOC, more features than 280 sensor, dont need both 280 and 680
+#include "src/BME280.h" // --- BME280; Bosch Temp, Humidity, Pressure, there is BME and BMP version.  One is lacking hymidity sensor.
+#include "src/MLX.h"    // --- MLX contact less tempreture sensor, Thermal sensor for forehead readings. Likely not accurate.
+#include "src/MAX.h"    // --- MAX30105; pulseoximeter, Not implemented yet
 // --- LCD Display
 // Classic display, uses "old" driver software. Update is slow.
 // Maybe replace later with other display.
@@ -214,10 +210,8 @@ ESP8266HTTPUpdateServer httpUpdater;                       // Code update server
   LiquidCrystal_PCF8574 lcd(0x27);                           // set the LCD address to 0x27 
 #endif
 #include "src/LCDlayout.h"
-#include "src/LCD.h"
-// --- Signal Interpretation
-// See inside source code for the assessments and thresholds.
-#include "src/Quality.h"
+#include "src/LCD.h"     // --- LCD 4x20 display
+#include "src/Quality.h" // --- Signal assessment
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lets get started
@@ -231,8 +225,8 @@ void setup() {
   // Initialize wire interface
   // These settings might get changed inside the sensor drivers and should be reasserted after initialization.
   myWire.begin(D1, D2);
-  myWire.setClock(100000); // 100kHz or 400kHz speed
-  myWire.setClockStretchLimit(200000);
+  myWire.setClock(I2C_REGULAR);             // 100kHz or 400kHz speed, we need to use slowest of all sensors
+  myWire.setClockStretchLimit(150000); // we need to use largest of all sensors
 
   /******************************************************************************************************/
   // Configuration setup and read
@@ -272,9 +266,7 @@ void setup() {
   //mySettings.useTelnet = false;
   //mySettings.useSerial = true;
 
-  if (mySettings.useSerial) {
-    Serial.begin(BAUDRATE);
-  }
+  if (mySettings.useSerial) { Serial.begin(BAUDRATE); }
   if ( mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("\r\nDebug level is: %d\r\n"), mySettings.debuglevel);  printSerialTelnet(tmpStr); }
 
   /******************************************************************************************************/
@@ -352,6 +344,7 @@ void setup() {
       if (i != j) {
         sprintf_P(tmpStr, PSTR("Scanning (SDA:SCL) - %s:%s\r\n"), portMap[i], portMap[j]); printSerialTelnet(tmpStr);
         Wire.begin(portArray[i], portArray[j]);
+        Wire.setClock(I2C_SLOW);
         for (address = 1; address < 127; address++ )  {
           Wire.beginTransmission(address);
           error = Wire.endTransmission();
@@ -411,11 +404,13 @@ void setup() {
   // Time Intervals for Loop, Display and MQTT publishing, keeping track of runtime
   /******************************************************************************************************/
   // Software is designed to run either with frequent updates or in slow mode with updates in the minutes
-  
+
+  // Update rate of devices is defined in their respective .h files
+  // Theser are updates created directly in the main loop
   if (fastMode == true) {                                     // fast mode -----------------------------------
     intervalLoop     =                  100;                  // 0.1 sec, main loop runs 10 times per second
     intervalLCD      =      intervalLCDFast;                  // LCD display is updated every 10 seconds
-    intervalMQTT     =     intervalMQTTFast;                  //
+    intervalMQTT     =     intervalMQTTFast;                  // 
     intervalRuntime  =                60000;                  // 1 minute, uptime is updted every minute
     intervalBaseline = intervalBaselineFast;                  // 10 minutes
   } else {                                                    // slow mode -----------------------------------
@@ -430,42 +425,24 @@ void setup() {
   // Initialize all devices
   /******************************************************************************************************/
 
-  if (lcd_avail && mySettings.useLCD)       { if (initializeLCD()    == false) { lcd_avail    = false; } } else { lcd_avail    = false; }  // Initialize LCD Screen
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: LCD\r\n"));
-  #endif
-  if (scd30_avail && mySettings.useSCD30)   { if (initializeSCD30()  == false) { scd30_avail  = false; } } else { scd30_avail  = false; }  // Initialize SCD30 CO2 sensor
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: SCD30\r\n"));
-  #endif
-  if (sgp30_avail && mySettings.useSGP30)   { if (initializeSGP30()  == false) { sgp30_avail  = false; } } else { sgp30_avail  = false; }  // SGP30 Initialize
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: SGP30\r\n"));
-  #endif
+  if (lcd_avail && mySettings.useLCD)       { if (initializeLCD()    == false) { lcd_avail = false;    } } else { lcd_avail    = false; }  // Initialize LCD Screen
+  D_printSerialTelnet(F("DBG:INI: LCD\r\n"));
+  if (scd30_avail && mySettings.useSCD30)   { if (initializeSCD30()  == false) { scd30_avail = false;  } } else { scd30_avail  = false; }  // Initialize SCD30 CO2 sensor
+  D_printSerialTelnet(F("DBG:INI: SCD30\r\n"));
+  if (sgp30_avail && mySettings.useSGP30)   { if (initializeSGP30()  == false) { sgp30_avail = false;  } } else { sgp30_avail  = false; }  // SGP30 Initialize
+  D_printSerialTelnet(F("DBG:INI: SGP30\r\n"));
   if (ccs811_avail && mySettings.useCCS811) { if (initializeCCS811() == false) { ccs811_avail = false; } } else { ccs811_avail = false; }  // CCS811 Initialize
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: CCS811\r\n"));
-  #endif
-  if (sps30_avail && mySettings.useSPS30)   { if (initializeSPS30()  == false) { sps30_avail  = false; } } else { sps30_avail  = false; }  // SPS30 Initialize Particle Sensor
-  #if defined(DEBUG) 
-  printSerialTelnet(F("DBG:INI: SPS30\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:INI: CCS811\r\n"));
+  if (sps30_avail && mySettings.useSPS30)   { if (initializeSPS30()  == false) { sps30_avail = false;  } } else { sps30_avail  = false; }  // SPS30 Initialize Particle Sensor
+  D_printSerialTelnet(F("DBG:INI: SPS30\r\n"));
   if (bme680_avail && mySettings.useBME680) { if (initializeBME680() == false) { bme680_avail = false; } } else { bme680_avail = false; }  // Initialize BME680
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: BME680\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:INI: BME680\r\n"));
   if (bme280_avail && mySettings.useBME280) { if (initializeBME280() == false) { bme280_avail = false; } } else { bme280_avail = false; }  // Initialize BME280
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: BME280\r\n"));
-  #endif
-  if (therm_avail && mySettings.useMLX)     { if (initializeMLX()    == false) { therm_avail  = false; } } else { therm_avail  = false; }  // Initialize MLX Sensor
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: MLX\r\n"));
-  #endif
-  if (max_avail && mySettings.useMAX30)     {                                                            } else { max_avail    = false; }  // Initialize MAX Pulse OX Sensor, N.A.
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: MAX30\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:INI: BME280\r\n"));
+  if (therm_avail && mySettings.useMLX)     { if (initializeMLX()    == false) { therm_avail = false;  } } else { therm_avail  = false; }  // Initialize MLX Sensor
+  D_printSerialTelnet(F("DBG:INI: MLX\r\n"));
+  if (max_avail && mySettings.useMAX30)     { if (false == false)              { max_avail = false;    } } else { max_avail    = false; }  // Initialize MAX Pulse OX Sensor, N.A.
+  D_printSerialTelnet(F("DBG:INI: MAX30\r\n"));
 
   /******************************************************************************************************/
   // Make sure i2c bus was not changed during above's initializations.
@@ -473,8 +450,8 @@ void setup() {
   // Since one has only one wire instance available on EPS8266, it does not make sense to operate the
   // pins at differnt clock speeds.
   /******************************************************************************************************/
-  myWire.setClock(100000);
-  myWire.setClockStretchLimit(200000);
+  myWire.setClock(I2C_REGULAR);             // in Hz
+  myWire.setClockStretchLimit(150000);      // in micro seconds
 
   /******************************************************************************************************/
   // Initialize Timing System
@@ -514,12 +491,23 @@ void setup() {
   lastWarning         = currentTime;
   yieldTimeBefore     = currentTime;
 
+  // how often do we reset the cpu usage time counters for the subroutines?
+  intervalSYS                                     = intervalWiFi;
+  if (intervalBME280 > intervalSYS) { intervalSYS = intervalBME280; }
+  if (intervalBME680 > intervalSYS) { intervalSYS = intervalBME680; }
+  if (intervalCCS811 > intervalSYS) { intervalSYS = intervalCCS811; }
+  if (intervalLCD    > intervalSYS) { intervalSYS = intervalLCD;    }
+  if (intervalMAX30  > intervalSYS) { intervalSYS = intervalMAX30;  }
+  if (intervalMLX    > intervalSYS) { intervalSYS = intervalMLX;    }
+  if (intervalMQTT   > intervalSYS) { intervalSYS = intervalMQTT;   }
+  if (intervalSCD30  > intervalSYS) { intervalSYS = intervalSCD30;  }
+  if (intervalSGP30  > intervalSYS) { intervalSYS = intervalSGP30;  }
+  if (intervalSPS30  > intervalSYS) { intervalSYS = intervalSPS30;  }
+
   /******************************************************************************************************/
   // Populate LCD screen, start with cleared LCD
   /******************************************************************************************************/
-  #if defined(DEBUG)
-    printSerialTelnet(F("DBG:SET: LCD\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:SET: LCD\r\n"));
   if (lcd_avail && mySettings.useLCD) {
     if (mySettings.consumerLCD) { updateSinglePageLCDwTime(); } else { updateLCD(); }
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("LCD updated.")); }
@@ -528,18 +516,14 @@ void setup() {
   /******************************************************************************************************/
   // Connect to WiFi
   /******************************************************************************************************/
-  #if defined(DEBUG)
-    printSerialTelnet(F("DBG:INI: Wifi\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:INI: Wifi\r\n"));
   initializeWiFi(); // if user request wifi to be off, functions depebding on wifi will not be enabled
 
   /******************************************************************************************************/
   // System is initialized
   /******************************************************************************************************/
   if ( (mySettings.debuglevel > 0) && mySettings.useSerial ) {  printSerialTelnet(F("System initialized\r\n")); }
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:INI: COMPLETED\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:INI: COMPLETED\r\n"));
 
   scheduleReboot = false;
 
@@ -559,17 +543,12 @@ void loop() {
   if (otaInProgress) { updateOTA(); } // when OTA is in progress we do not do anything else
   else { // OTA is not in progress, we update the subsystems
 
-    // update current time every second
+    // update current time every second -----------------------------------------------------------------
     if ( (currentTime - lastcurrentTime) >= 1000 ) {
       lastcurrentTime = currentTime;
 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: DATE&TIME\r\n"));
-      #endif
-
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: DATE&TIME\r\n"));
       startUpdate = millis(); // how long does this code segment take?
-      #endif
       
       actualTime = time(NULL);
       localTime = localtime(&actualTime);        // convert to localtime with daylight saving time
@@ -602,23 +581,16 @@ void loop() {
       #if defined(DEBUG)
       sprintf_P(tmpStr, PSTR("DBG:NTP:TIME ntp: %u local: %u, internal: %u\r\n"), NTP.millis()/1000, (unsigned long) actualTime, currentTime/1000 );
       printSerialTelnet(tmpStr);
-      sprintf_P(tmpStr, PSTR("DBG:NTP:DATE %d:%d:%d %d,%d,%d\r\n"),localTime->tm_hour, localTime->tm_min, localTime->tm_sec, localTime->tm_mon, localTime->tm_mday, localTime->tm_year+1900 );
+      sprintf_P(tmpStr, PSTR("DBG:NTP:DATE %d:%d:%d %d,%d,%d\r\n"),localTime->tm_hour, localTime->tm_min, localTime->tm_sec, localTime->tm_mon+1, localTime->tm_mday, localTime->tm_year+1900 );
       printSerialTelnet(tmpStr);
       #endif
 
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate; // this code segment took delta ms
-      if (maxUpdateTime < deltaUpdate) { maxUpdateTime = deltaUpdate; } // current max updatetime for this code segment
+      if (maxUpdateTime    < deltaUpdate) { maxUpdateTime = deltaUpdate; } // current max updatetime for this code segment
       if (AllmaxUpdateTime < deltaUpdate) { AllmaxUpdateTime = deltaUpdate; } // longest global updatetime for this code segement
-      #endif
-      
-      #if defined(PROFILE)
       yieldTimeBefore = millis(); 
-      #endif
       yield(); 
-      #if defined(PROFILE)
       yieldTime += (millis()-yieldTimeBefore); 
-      #endif
       
     }
     
@@ -627,367 +599,183 @@ void loop() {
     /******************************************************************************************************/
     // Update Wireless Services
     if (wifi_avail && mySettings.useWiFi)                         { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: Wifi\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
-      startUpdate = millis();
-      #endif
-      
-      updateWiFi(); //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: Wifi\r\n"));
+      startUpdate = millis();      
+      updateWiFi(); //<<<<<<<<<<<<<<<<<<<<-----------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateWifi < deltaUpdate) { maxUpdateWifi = deltaUpdate; }
+      if (maxUpdateWifi    < deltaUpdate) { maxUpdateWifi = deltaUpdate; }
       if (AllmaxUpdateWifi < deltaUpdate) { AllmaxUpdateWifi = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- WiFi update, this will reconnect if disconnected
     if (wifi_avail     && mySettings.useWiFi && mySettings.useOTA)    { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: OTA\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: OTA\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateOTA(); //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateOTA(); //<<<<<<<<<<<<<<<<<<<<------------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateOTA < deltaUpdate) { maxUpdateOTA = deltaUpdate; }         
+      if (maxUpdateOTA    < deltaUpdate) { maxUpdateOTA = deltaUpdate; }         
       if (AllmaxUpdateOTA < deltaUpdate) { AllmaxUpdateOTA = deltaUpdate; }         
-      #endif
     } // -------------------------------------------------------------- Update OTA
     if (wifi_avail     && mySettings.useWiFi && mySettings.useNTP)    { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: NTP\r\n"));
-      #endif  
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: NTP\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateNTP();  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateNTP();  //<<<<<<<<<<<<<<<<<<<<----------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateNTP < deltaUpdate) { maxUpdateNTP = deltaUpdate; }
+      if (maxUpdateNTP    < deltaUpdate) { maxUpdateNTP = deltaUpdate; }
       if (AllmaxUpdateNTP < deltaUpdate) { AllmaxUpdateNTP = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- Update network time
     if (wifi_avail     && mySettings.useWiFi && mySettings.useMQTT)   { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: MQTT\r\n"));
-      #endif
-
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: MQTT\r\n"));
       startUpdate = millis();
-      #endif
-
-      updateMQTT(); //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateMQTT(); //<<<<<<<<<<<<<<<<<<<<----------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateMQTT < deltaUpdate) { maxUpdateMQTT = deltaUpdate; }
+      if (maxUpdateMQTT    < deltaUpdate) { maxUpdateMQTT = deltaUpdate; }
       if (AllmaxUpdateMQTT < deltaUpdate) { AllmaxUpdateMQTT = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- MQTT update server connection
     if (wifi_avail     && mySettings.useWiFi && mySettings.useHTTP)   { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: WS\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: WS\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateWebSocket(); //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateWebSocket(); //<<<<<<<<<<<<<<<<<<<<-----------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateWS < deltaUpdate) { maxUpdateWS = deltaUpdate; }
+      if (maxUpdateWS    < deltaUpdate) { maxUpdateWS = deltaUpdate; }
       if (AllmaxUpdateWS < deltaUpdate) { AllmaxUpdateWS = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- Websocket update server connection
     if (wifi_avail     && mySettings.useWiFi && mySettings.useHTTP)   { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: HTTP\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: HTTP\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateHTTP(); //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateHTTP(); //<<<<<<<<<<<<<<<<<<<<----------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateHTTP < deltaUpdate) { maxUpdateHTTP = deltaUpdate; }
+      if (maxUpdateHTTP    < deltaUpdate)  { maxUpdateHTTP = deltaUpdate; }
       if (AllmaxUpdateHTTP < deltaUpdate) { AllmaxUpdateHTTP = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- Update web server
     if (wifi_avail     && mySettings.useWiFi && mySettings.useHTTPUpdater)   { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: HTTPUPDATER\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: HTTPUPDATER\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateHTTPUpdater();  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateHTTPUpdater();  //<<<<<<<<<<<<<<<<<<<<--------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateHTTPUPDATER < deltaUpdate) { maxUpdateHTTPUPDATER = deltaUpdate; }
+      if (maxUpdateHTTPUPDATER    < deltaUpdate) { maxUpdateHTTPUPDATER = deltaUpdate; }
       if (AllmaxUpdateHTTPUPDATER < deltaUpdate) { AllmaxUpdateHTTPUPDATER = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- Update firmware web server
     if (wifi_avail     && mySettings.useWiFi && mySettings.usemDNS)   { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: mDNS\r\n"));
-      #endif  
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: mDNS\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateMDNS(); //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateMDNS(); //<<<<<<<<<<<<<<<<<<<<----------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdatemDNS < deltaUpdate) { maxUpdatemDNS = deltaUpdate; }
+      if (maxUpdatemDNS    < deltaUpdate) { maxUpdatemDNS = deltaUpdate; }
       if (AllmaxUpdatemDNS < deltaUpdate) { AllmaxUpdatemDNS = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- Update mDNS
 
-
     if (wifi_avail     && mySettings.useWiFi && mySettings.useTelnet)    { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: Telnet\r\n"));
-      #endif  
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: Telnet\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateTelnet();  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateTelnet();  //<<<<<<<<<<<<<<<<<<<<-------------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateTelnet < deltaUpdate) { maxUpdateTelnet = deltaUpdate; }
+      if (maxUpdateTelnet    < deltaUpdate) { maxUpdateTelnet = deltaUpdate; }
       if (AllmaxUpdateTelnet < deltaUpdate) { AllmaxUpdateTelnet = deltaUpdate; }
-      #endif
     }
 
-    #if defined(PROFILE)
     yieldTimeBefore = millis(); 
-    #endif
     yield(); 
-    #if defined(PROFILE)
     yieldTime += (millis()-yieldTimeBefore); 
-    #endif
     
     // Update Sensor Readings
     if (scd30_avail    && mySettings.useSCD30)                        { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: SCD30\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: SCD30\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateSCD30()  == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateSCD30()  == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<-------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateSCD30 < deltaUpdate) { maxUpdateSCD30 = deltaUpdate; }
+      if (maxUpdateSCD30    < deltaUpdate) { maxUpdateSCD30 = deltaUpdate; }
       if (AllmaxUpdateSCD30 < deltaUpdate) { AllmaxUpdateSCD30 = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- SCD30 Sensirion CO2 sensor
     if (sgp30_avail    && mySettings.useSGP30)                        { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: SGP30\r\n"));
-      #endif  
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: SGP30\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateSGP30()  == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateSGP30()  == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<-------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateSGP30 < deltaUpdate) { maxUpdateSGP30 = deltaUpdate; }
+      if (maxUpdateSGP30 < deltaUpdate)    { maxUpdateSGP30 = deltaUpdate; }
       if (AllmaxUpdateSGP30 < deltaUpdate) { AllmaxUpdateSGP30 = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- SGP30 Sensirion eCO2 sensor
     if (ccs811_avail   && mySettings.useCCS811)                       { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: CCS811\r\n"));
-      #endif
-
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: CCS811\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateCCS811() == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateCCS811() == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<-----------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateCCS811 < deltaUpdate) { maxUpdateCCS811 = deltaUpdate; }
+      if (maxUpdateCCS811    < deltaUpdate)    { maxUpdateCCS811 = deltaUpdate; }
       if (AllmaxUpdateCCS811 < deltaUpdate) { AllmaxUpdateCCS811 = deltaUpdate; }
-      #endif
     } // CCS811
     if (sps30_avail    && mySettings.useSPS30)                        { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: SPS30\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: SPS30\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateSPS30()  == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateSPS30()  == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<-----------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateSPS30 < deltaUpdate) { maxUpdateSPS30 = deltaUpdate; }
+      if (maxUpdateSPS30    < deltaUpdate) { maxUpdateSPS30 = deltaUpdate; }
       if (AllmaxUpdateSPS30 < deltaUpdate) { AllmaxUpdateSPS30 = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- SPS30 Sensirion Particle Sensor State Machine
     if (bme280_avail   && mySettings.useBME280)                       { 
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: BME280\r\n"));
-      #endif  
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: BME280\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateBME280() == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateBME280() == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<-----------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateBME280 < deltaUpdate) { maxUpdateBME280 = deltaUpdate; }
+      if (maxUpdateBME280    < deltaUpdate) { maxUpdateBME280 = deltaUpdate; }
       if (AllmaxUpdateBME280 < deltaUpdate) { AllmaxUpdateBME280 = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- BME280, Hum, Press, Temp
     if (bme680_avail   && mySettings.useBME680)                       { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: BME680\r\n"));
-      #endif  
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: BME680\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateBME680() == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateBME680() == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<-----------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateBME680 < deltaUpdate) { maxUpdateBME680 = deltaUpdate; }
+      if (maxUpdateBME680    < deltaUpdate) { maxUpdateBME680 = deltaUpdate; }
       if (AllmaxUpdateBME680 < deltaUpdate) { AllmaxUpdateBME680 = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- BME680, Hum, Press, Temp, Gasresistance
     if (therm_avail    && mySettings.useMLX)                          { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: MLX\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: MLX\r\n"));
       startUpdate = millis();
-      #endif
-      
-      if (updateMLX()    == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      if (updateMLX()    == false) {scheduleReboot = true;}  //<<<<<<<<<<<<<<<<<<<<----------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateMLX < deltaUpdate) { maxUpdateMLX = deltaUpdate; }      
+      if (maxUpdateMLX    < deltaUpdate) { maxUpdateMLX = deltaUpdate; }      
       if (AllmaxUpdateMLX < deltaUpdate) { AllmaxUpdateMLX = deltaUpdate; }      
-      #endif
     } // -------------------------------------------------------------- MLX Contactless Thermal Sensor
     if (max_avail      && mySettings.useMAX30)                        {
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: MAX30\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: MAX30\r\n"));
       startUpdate = millis();
-      #endif
-      
-      #if defined(PROFILE)
+
+      // goes here      
+
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateMAX < deltaUpdate) { maxUpdateMAX = deltaUpdate; } //<<<<<<<<<<<<<<<<<<<<
+      if (maxUpdateMAX    < deltaUpdate) { maxUpdateMAX = deltaUpdate; } 
       if (AllmaxUpdateMAX < deltaUpdate) { AllmaxUpdateMAX = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- MAX Pulse Ox Sensor
 
-    #if defined(PROFILE)
     yieldTimeBefore = millis(); 
-    #endif
     yield(); 
-    #if defined(PROFILE)
     yieldTime += (millis()-yieldTimeBefore); 
-    #endif
     
     /******************************************************************************************************/
     // Broadcast MQTT and WebSocket Messages
     /******************************************************************************************************/
     if (mqtt_connected)                                               {
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: MQTTMESSAGE\r\n"));
-      #endif
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: MQTTMESSAGE\r\n"));
       startUpdate = millis();
-      #endif
-      
-      updateMQTTMessage();  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      updateMQTTMessage();  //<<<<<<<<<<<<<<<<<<<<----------------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateMQTTMESSAGE < deltaUpdate) { maxUpdateMQTTMESSAGE = deltaUpdate; }
+      if (maxUpdateMQTTMESSAGE    < deltaUpdate) { maxUpdateMQTTMESSAGE = deltaUpdate; }
       if (AllmaxUpdateMQTTMESSAGE < deltaUpdate) { AllmaxUpdateMQTTMESSAGE = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- MQTT send sensor data
 
-    #if defined(PROFILE)
     yieldTimeBefore = millis();
-    #endif
     yield(); 
-    #if defined(PROFILE)
     yieldTime += (millis()-yieldTimeBefore); 
-    #endif
 
     if (ws_connected)                                                 { 
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: WSMESSAGE\r\n"));
-      #endif
-
-      #if defined(PROFILE)
-      startUpdate = millis();
-      #endif
-      
-      updateWebSocketMessage();  //<<<<<<<<<<<<<<<<<<<<
-      
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: WSMESSAGE\r\n"));
+      startUpdate = millis();      
+      updateWebSocketMessage();  //<<<<<<<<<<<<<<<<<<<<--------------------------------------------------
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateWSMESSAGE < deltaUpdate) { maxUpdateWSMESSAGE = deltaUpdate; }
+      if (maxUpdateWSMESSAGE    < deltaUpdate) { maxUpdateWSMESSAGE = deltaUpdate; }
       if (AllmaxUpdateWSMESSAGE < deltaUpdate) { AllmaxUpdateWSMESSAGE = deltaUpdate; }
-      #endif
     } // -------------------------------------------------------------- WebSocket send sensor data
 
-    #if defined(PROFILE)
     yieldTimeBefore = millis(); 
-    #endif
     yield(); 
-    #if defined(PROFILE)
     yieldTime += (millis()-yieldTimeBefore); 
-    #endif
     
     /******************************************************************************************************/
     // LCD: Display Sensor Data
@@ -995,30 +783,17 @@ void loop() {
     if (lcd_avail && mySettings.useLCD) {
       if ((currentTime - lastLCD) >= intervalLCD) {
         lastLCD = currentTime;
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:UPDATE: LCD\r\n"));
-        #endif
-        
-        #if defined(PROFILE)
+        D_printSerialTelnet(F("DBG:UPDATE: LCD\r\n"));
         tmpTime = millis();
-        #endif
-        
-        if (  mySettings.consumerLCD ) { updateSinglePageLCDwTime(); } else { updateLCD(); } //<<<<<<<<<<<<<<<<<<<<
+        if (  mySettings.consumerLCD ) { updateSinglePageLCDwTime(); } else { updateLCD(); } //<<<<<<------
         if ( (mySettings.debuglevel > 1) && mySettings.useSerial ) { printSerialTelnet(F("LCD updated\r\n")); }
-        
-        #if defined(PROFILE)
         deltaUpdate = millis() - tmpTime;
-        if (maxUpdateLCD < deltaUpdate) { maxUpdateLCD = deltaUpdate; }
+        if (maxUpdateLCD    < deltaUpdate) { maxUpdateLCD = deltaUpdate; }
         if (AllmaxUpdateLCD < deltaUpdate) { AllmaxUpdateLCD = deltaUpdate; }
-        #endif
 
-        #if defined(PROFILE)
         yieldTimeBefore = millis(); 
-        #endif
         yield(); 
-        #if defined(PROFILE)
         yieldTime += (millis()-yieldTimeBefore); 
-        #endif
         
       }
     }
@@ -1029,92 +804,36 @@ void loop() {
     if ((currentTime - lastSYS) >= intervalSYS) {
       lastSYS = currentTime;
       
-      if (mySettings.debuglevel == 99) {
-
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:UPDATE: SYS\r\n"));
-        #endif
-
-        #if defined(PROFILE)
+      if (mySettings.debuglevel == 99) { // update continously
+        D_printSerialTelnet(F("DBG:UPDATE: SYS\r\n"));
         startUpdate = millis();
-        #endif
-
-        // Updating these values over serial display takes longer than the average loop time, therefore the minimum loop delay is always negative (meaning there is not enough time to complete a loop every 1/10 second).
-        // However average loop delay is calculated only from positive values.
-
-        printSerialTelnet(FPSTR(clearHome)); // clear and home characters in terminal
-        printSerialTelnet(FPSTR(doubleSeparator)); //---------------------------------------------------------------------------------------------------//        
-        sprintf_P(tmpStr, PSTR("Average loop time %f[ms]  Min/Max/Alltime: %d/%d/%d[ms] Current: %d[ms]\r\n"), myLoopAvg, myLoopMin, myLoopMax, myLoopMaxAllTime, myLoop); printSerialTelnet(tmpStr);
-        sprintf_P(tmpStr, PSTR("Free Heap Size: %dbytes Heap Fragmentation: %d%% Max Block Size: %dbytes\r\n"), ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize()); printSerialTelnet(tmpStr);
-        printSerialTelnet(FPSTR(doubleSeparator)); //---------------------------------------------------------------------------------------------------//
-
-        #if defined(PROFILE)
-        // This displays the amount of time it took complete the update routines.
-        // The currentMax/alltimeMax is displayed. Alltime max is reset when network services are started up in their update routines.
-        sprintf_P(tmpStr, PSTR("Update Time&Date: %4u %4u mDNS:   %4u %4u HTTPupd: %4u %4u HTTP:    %4u %4u\r\nUpdate MQTT:      %4u %4u WS:     %4u %4u NTP:     %4u %4u OTA:     %4u %4u\r\nUpdate Wifi:      %4u %4u \r\n"), 
-                         maxUpdateTime, AllmaxUpdateTime, maxUpdatemDNS, AllmaxUpdatemDNS, maxUpdateHTTPUPDATER, AllmaxUpdateHTTPUPDATER, maxUpdateHTTP, AllmaxUpdateHTTP, maxUpdateMQTT, AllmaxUpdateMQTT, 
-                         maxUpdateWS, AllmaxUpdateWS, maxUpdateNTP, AllmaxUpdateNTP, maxUpdateOTA, AllmaxUpdateOTA, maxUpdateWifi, AllmaxUpdateWifi);         
-        printSerialTelnet(tmpStr);
-        sprintf_P(tmpStr, PSTR("Update SCD30:     %4u %4u SGP30:  %4u %4u CCS811:  %4u %4u SPS30:   %4u %4u\r\nUpdate BME280:    %4u %4u BME680: %4u %4u MLX:     %4u %4u MAX:     %4u %4u\r\n"), maxUpdateSCD30, AllmaxUpdateSCD30, 
-                         maxUpdateSGP30, AllmaxUpdateSGP30, maxUpdateCCS811, AllmaxUpdateCCS811, maxUpdateSPS30, AllmaxUpdateSPS30, maxUpdateBME280, AllmaxUpdateBME280, maxUpdateBME680, AllmaxUpdateBME680, maxUpdateMLX, AllmaxUpdateMLX, maxUpdateMAX, AllmaxUpdateMAX);
-        printSerialTelnet(tmpStr);
-        sprintf_P(tmpStr, PSTR("Update MQTTmsg:   %4u %4u WSmsg:  %4u %4u LCD:     %4u %4u Input:   %4u %4u\r\nUpdate RunTime:   %4u %4u EEPROM: %4u %4u\r\n"), maxUpdateMQTTMESSAGE, AllmaxUpdateMQTTMESSAGE, maxUpdateWSMESSAGE, AllmaxUpdateWSMESSAGE, 
-                         maxUpdateLCD, AllmaxUpdateLCD, maxUpdateINPUT, AllmaxUpdateINPUT, maxUpdateRT, AllmaxUpdateRT, maxUpdateEEPROM, AllmaxUpdateEEPROM);
-                         //maxUpdateJS, AllmaxUpdateJS
-        printSerialTelnet(tmpStr);
-        sprintf_P(tmpStr, PSTR("Update Baseline:  %4u %4u Blink:  %4u %4u Reboot:  %4u %4u AllGood: %4u %4u\r\n"), 
-                         maxUpdateBASE, AllmaxUpdateBASE, AllmaxUpdateBLINK, maxUpdateBLINK, AllmaxUpdateREBOOT, maxUpdateREBOOT, AllmaxUpdateALLGOOD, maxUpdateALLGOOD);
-        printSerialTelnet(tmpStr);
-        sprintf_P(tmpStr, PSTR("Update this display: %u\r\n"), 
-                         maxUpdateSYS);
-        printSerialTelnet(tmpStr);
-        sprintf_P(tmpStr, PSTR("Yield Time:          %u %u %u          ", 
-                         yieldTimeMin, yieldTimeMax, yieldTimeMaxAllTime); 
-        printSerialTelnet(tmpStr);
-        yieldTimeMin = yieldTimeMax = 0;
-        printSerialTelnet(F("All values in [ms]\r\n"));
-        printSerialTelnet(FPSTR(singleSeparator)); //---------------------------------------------------------------------------------------------------//
-        #endif
-
-        printState();
-        
+        printProfile();
+        printState();        
         printSensors();
-        
-        #if defined(PROFILE)
         deltaUpdate = millis() - startUpdate;
         if (maxUpdateSYS < deltaUpdate) { maxUpdateSYS = deltaUpdate; }
-        #endif
 
-        #if defined(PROFILE)
         yieldTimeBefore = millis(); 
-        #endif
         yield(); 
-        #if defined(PROFILE)
         yieldTime += (millis()-yieldTimeBefore); 
-        #endif
+        
 
       } // dbg level 99
       // reset max values and measure them again until next display
       // AllmaxUpdate... are the runtime maxima that are not reset between each display update
-      myDelayMin = intervalSYS; myLoopMin = intervalSYS; myLoopMax = 0;
-      
-      #if defined(PROFILE)
+      yieldTimeMin = yieldTimeMax = 0;
+      myDelayMin = intervalSYS; myLoopMin = intervalSYS; myLoopMax = 0;      
       maxUpdateTime = maxUpdateWifi = maxUpdateOTA =  maxUpdateNTP = maxUpdateMQTT = maxUpdateHTTP = maxUpdateHTTPUPDATER = maxUpdatemDNS = 0;
       maxUpdateSCD30 = maxUpdateSGP30 =  maxUpdateCCS811 = maxUpdateSPS30 = maxUpdateBME280 = maxUpdateBME680 = maxUpdateMLX = maxUpdateMAX = 0;
       maxUpdateMQTTMESSAGE = maxUpdateWSMESSAGE = maxUpdateLCD = maxUpdateINPUT = maxUpdateRT = maxUpdateEEPROM = maxUpdateBASE = maxUpdateBLINK = maxUpdateREBOOT = maxUpdateALLGOOD = 0;
       //maxUpdateJS
-      #endif
     }
   
     /******************************************************************************************************/
     // Serial or Telnet User Input
     /******************************************************************************************************/
-    #if defined(DEBUG)
-    printSerialTelnet(F("DBG:UPDATE: SERIALINPUT\r\n"));
-    #endif
-    #if defined(PROFILE)
+    D_printSerialTelnet(F("DBG:UPDATE: SERIALINPUT\r\n"));
     startUpdate = millis();
-    #endif
 
     // Serial input capture
     if (Serial.available()) {
@@ -1128,19 +847,13 @@ void loop() {
 
     inputHandle();                                                     // Serial input handling
     
-    #if defined(PROFILE)
     deltaUpdate = millis() - startUpdate;
     if (maxUpdateINPUT < deltaUpdate) { maxUpdateINPUT = deltaUpdate; }
     if (AllmaxUpdateINPUT < deltaUpdate) { AllmaxUpdateINPUT = deltaUpdate; }
-    #endif
 
-    #if defined(PROFILE)
     yieldTimeBefore = millis(); 
-    #endif
     yield(); 
-    #if defined(PROFILE)
     yieldTime += (millis()-yieldTimeBefore); 
-    #endif
 
     /******************************************************************************************************/
     // Other Time Managed Events such as runtime, saving baseline, rebooting, blinking LCD for warning
@@ -1148,90 +861,61 @@ void loop() {
   
     // Update runtime every minute -------------------------------------
     if ((currentTime - lastTime) >= intervalRuntime) {
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: RUNTIME\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: RUNTIME\r\n"));
       startUpdate = millis();
-      #endif
       mySettings.runTime = mySettings.runTime + ((currentTime - lastTime) / 1000);
       lastTime = currentTime;
       if (mySettings.debuglevel > 1) { printSerialTelnet(F("Runtime updated\r\n")); }
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateRT < deltaUpdate) { maxUpdateRT = deltaUpdate; }
+      if (maxUpdateRT    < deltaUpdate) { maxUpdateRT = deltaUpdate; }
       if (AllmaxUpdateRT < deltaUpdate) { AllmaxUpdateRT = deltaUpdate; }
-      #endif
     }
   
     // Safe Configuration infrequently ---------------------------------------
     if ((currentTime - lastSaveSettings) >= intervalSettings) {
       lastSaveSettings = currentTime;
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: EEPROM\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: EEPROM\r\n"));
       startUpdate = millis();
-      #endif
       EEPROM.put(0, mySettings);
       if (EEPROM.commit()) {
         lastSaveSettings = currentTime;
         if (mySettings.debuglevel >0) { printSerialTelnet(F("EEPROM updated")); }
       }
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateEEPROM < deltaUpdate) { maxUpdateEEPROM = deltaUpdate; }
+      if (maxUpdateEEPROM    < deltaUpdate) { maxUpdateEEPROM = deltaUpdate; }
       if (AllmaxUpdateEEPROM < deltaUpdate) { AllmaxUpdateEEPROM = deltaUpdate; }
-      #endif
 
-      #if defined(PROFILE)
       yieldTimeBefore = millis(); 
-      #endif
       yield(); 
-      #if defined(PROFILE)
       yieldTime += (millis()-yieldTimeBefore); 
-      #endif
     }
     
     /** JSON savinge to LittelFS crashes ESP8266
     if ((currentTime - lastSaveSettingsJSON) >= intervalSettingsJSON) {
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: JSON config file\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: JSON config file\r\n"));
       startUpdate = millis();
-      #endif
       saveConfiguration(mySettings);
       lastSaveSettingsJSON = currentTime;
       if (mySettings.debuglevel >0) { printSerialTelnet(F("Sensi.json updated\r\n")); }
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateJS < deltaUpdate) { maxUpdateJS = deltaUpdate; }
+      if (maxUpdateJS    < deltaUpdate) { maxUpdateJS = deltaUpdate; }
       if (AllmaxUpdateJS < deltaUpdate) { AllmaxUpdateJS = deltaUpdate; }
-      #endif
 
-      #if defined(PROFILE)
       yieldTimeBefore = millis(); 
-      #endif
       yield(); 
-      #if defined(PROFILE)
       yieldTime += (millis()-yieldTimeBefore); 
-      #endif
     }
     **/
-    // Obtain basline from sensors to create internal baseline --------
+    // Obtain basline from sensors to create internal baseline -------------------
     if ((currentTime - lastBaseline) >= intervalBaseline) {
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: BASELINE\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: BASELINE\r\n"));
       startUpdate = millis();
-      #endif
       lastBaseline = currentTime;
       // Copy CCS811 basline to settings when warmup is finished
       if (ccs811_avail && mySettings.useCCS811) {
         if (currentTime >= warmupCCS811) {
           ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+          ccs811_port->setClock(I2C_FAST);
           mySettings.baselineCCS811 = ccs811.getBaseline();
           mySettings.baselineCCS811_valid = 0xF0;
           if (mySettings.debuglevel == 10) { printSerialTelnet(F("CCS811 baseline placed into settings")); }
@@ -1248,37 +932,26 @@ void loop() {
           // warmupSGP30 = warmupSGP30 + intervalSGP30Baseline;
         }
       }
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateBASE < deltaUpdate) { maxUpdateBASE = deltaUpdate; }
+      if (maxUpdateBASE    < deltaUpdate) { maxUpdateBASE = deltaUpdate; }
       if (AllmaxUpdateBASE < deltaUpdate) { AllmaxUpdateBASE = deltaUpdate; }
-      #endif
     }
 
-    // Update AirQuality Warning --------------------------------------------------
+    // Update AirQuality Warning -------------------------------------------------
     if ((currentTime - lastWarning) > intervalWarning) {                         // warning interval
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: AQ ALL GOOD\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: AQ ALL GOOD?\r\n"));
       startUpdate = millis();
-      #endif
       lastWarning = currentTime;
       allGood = sensorsWarning(); // <<<<<<<<<<<<<<<<<<
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateALLGOOD < deltaUpdate) { maxUpdateALLGOOD = deltaUpdate; }
+      if (maxUpdateALLGOOD    < deltaUpdate) { maxUpdateALLGOOD = deltaUpdate; }
       if (AllmaxUpdateALLGOOD < deltaUpdate) { AllmaxUpdateALLGOOD = deltaUpdate; }
-      #endif
     }
-    // Warning ----------------------------------------------------------    
+    
+    // Do we want to blink LCD?  -------------------------------------------------    
     if ((currentTime - lastBlink) > intervalBlink) {                             // blink interval
-      #if defined(DEBUG) 
-      printSerialTelnet(F("DBG:UPDATE: BLINK\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: BLINK\r\n"));
       startUpdate = millis();
-      #endif
       bool blinkLCD = false;
       // do we want to blink the LCD background ?
       if (mySettings.useBacklight && (allGood == false)) {
@@ -1292,6 +965,7 @@ void loop() {
       } else { // just make sure the back light is on when we dont blink
         if (lastBlinkInten == false) { // make sure backlight is on
           lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+          lcd_port->setClock(I2C_REGULAR);
           #if defined(ADALCD)
           if (mySettings.useBacklight) { lcd.setBacklight(HIGH); } else { lcd.setBacklight(LOW); }
           #else
@@ -1302,10 +976,11 @@ void loop() {
         }    
       }
       
-      // blink LCD background
+      // blink LCD background ----------------------------------------------------
       if (blinkLCD) {
         // if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("Sensors out of normal range!")); }
         lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+        lcd_port->setClock(I2C_REGULAR);
         lastBlink = currentTime;
         lastBlinkInten = !lastBlinkInten;
         #if defined(ADALCD)
@@ -1326,23 +1001,17 @@ void loop() {
         }
         #endif
       } // toggel the LCD background
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateBLINK < deltaUpdate) { maxUpdateBLINK = deltaUpdate; }       
+      if (maxUpdateBLINK    < deltaUpdate) { maxUpdateBLINK = deltaUpdate; }       
       if (AllmaxUpdateBLINK < deltaUpdate) { AllmaxUpdateBLINK = deltaUpdate; }       
-      #endif
     } // blinking interval
 
     // Deal with request to reboot --------------------------------------
     // This occurs if sensors reading results in error and driver fails to recover
     // Reboot at preset time
     if (scheduleReboot == true) {
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: REBOOT CHECK\r\n"));
-      #endif
-      #if defined(PROFILE)
+      D_printSerialTelnet(F("DBG:UPDATE: REBOOT CHECK\r\n"));
       startUpdate = millis();
-      #endif
       if ( (mySettings.rebootMinute>=0) && (mySettings.rebootMinute<=1440) ) { // do not reboot if rebootMinute is -1 or bigger than 24hrs
         if (timeSynced) {
           if (localTime->tm_hour*60+localTime->tm_min == mySettings.rebootMinute) {
@@ -1351,16 +1020,13 @@ void loop() {
             ESP.reset();
           }  
         } else {
-          if (mySettings.debuglevel > 0) {  printSerialTelnet(F("Rebooting...")); }
-          Serial.flush() ;
-          ESP.reset();
+          // we might not want to reboot whenever a sensor fails
+          if (mySettings.debuglevel > 0) {  printSerialTelnet(F("Rebooting when time is synced...")); }
         }
       }
-      #if defined(PROFILE)
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateREBOOT < deltaUpdate) { maxUpdateREBOOT = deltaUpdate; }
+      if (maxUpdateREBOOT    < deltaUpdate) { maxUpdateREBOOT = deltaUpdate; }
       if (AllmaxUpdateREBOOT < deltaUpdate) { AllmaxUpdateREBOOT = deltaUpdate; }
-      #endif
     }
   
     /******************************************************************************************************/
@@ -1376,11 +1042,8 @@ void loop() {
       }
     }
   
-    #if defined(PROFILE)
     yieldTimeBefore = millis(); 
-    #endif
     yield(); 
-    #if defined(PROFILE)
     yieldTime += (millis()-yieldTimeBefore); 
     if ( yieldTime > 0 ) { 
       if ( yieldTime < yieldTimeMin ) { yieldTimeMin = yieldTime; }
@@ -1390,17 +1053,14 @@ void loop() {
       }
     }
     yieldTime = 0;
-    #endif
     
     // Free up Processor
-    // This crashes ESP, with that many susbsystems enabled, we run without delays
+    // This crashes ESP. With that many susbsystems enabled, we should  run without delays
     /*
     myDelay = long(currentTime + intervalLoop) - long(millis()); // how much time is left until system loop expires
     if (myDelay < myDelayMin) { myDelayMin = myDelay; }
     if (myDelay > 0) { // there is time left, so initiate a delay, could also go to sleep here
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:UPDATE: LOOP DELAY");
-      #endif
+      D_printSerialTelnet(F("DBG:UPDATE: LOOP DELAY");
       myDelayAvg = 0.9 * myDelayAvg + 0.1 * float(myDelay);
       delay(myDelay); 
     }
@@ -1480,7 +1140,7 @@ void timeJSON(char *payLoad) {
 void dateJSON(char *payLoad) {
       sprintf_P(payLoad, "{\"date\":{\"day\":%d,\"month\":%d,\"year\":%d}}",
       localTime->tm_mday,
-      localTime->tm_mon,
+      localTime->tm_mon+1,
       localTime->tm_year+1900); 
 }
 
@@ -1490,65 +1150,65 @@ void dateJSON(char *payLoad) {
 
 void helpMenu() {
   printSerialTelnet(FPSTR(doubleSeparator)); //================================================================//
-  printSerialTelnet(F("| Sensi, 2020, 2021, Urs Utzinger                                               |\r\n"));
+  printSerialTelnet(F("| Sensi, 2020, 2021, Urs Utzinger                                              |\r\n"));
   printSerialTelnet(FPSTR(doubleSeparator)); //================================================================//
-  printSerialTelnet(F("Supports.........................................................................\r\n"));
-  printSerialTelnet(F(".........................................................................LCD 20x4\r\n"));
-  printSerialTelnet(F(".........................................................SPS30 Senserion Particle\r\n"));
-  printSerialTelnet(F("..............................................................SCD30 Senserion CO2\r\n"));
-  printSerialTelnet(F(".......................................................SGP30 Senserion tVOC, eCO2\r\n"));
-  printSerialTelnet(F("...........................BME680/280 Bosch Temperature, Humidity, Pressure, tVOC\r\n"));
-  printSerialTelnet(F("....................................................CCS811 eCO2 tVOC, Air Quality\r\n"));
-  printSerialTelnet(F("...........................................MLX90614 Melex Temperature Contactless\r\n"));
-  printSerialTelnet(F("==All Sensors===========================|========================================\r\n"));
-  printSerialTelnet(F("| z: print all sensor data              | n: this device Name, nSensi           |\r\n"));
-  printSerialTelnet(F("| p: print current settings             | s: save settings (JSON & binary)      |\r\n"));
-  printSerialTelnet(F("| d: create default seetings            | r: read settings (JSON)               |\r\n"));
-  printSerialTelnet(F("|                                       | L: list content of filesystem         |\r\n"));
-  printSerialTelnet(F("==Network===============================|==MQTT==================================\r\n"));
-  printSerialTelnet(F("| P1: SSID 1, P1myssid                  | u: mqtt username, umqtt or empty      |\r\n"));
-  printSerialTelnet(F("| P2: SSID 2, P2myssid                  | w: mqtt password, ww1ldc8ts or empty  |\r\n"));
-  printSerialTelnet(F("| P3: SSID 3, P3myssid                  | q: toggle send mqtt immediatly, q     |\r\n"));
-  printSerialTelnet(F("| P4: password SSID 1, P4mypas or empty |                                       |\r\n"));
-  printSerialTelnet(F("| P5: password SSID 2, P5mypas or empty | P8: mqtt server, P8my.mqtt.com        |\r\n"));
-  printSerialTelnet(F("| P6: password SSID 3, P6mypas or empty | P9: mqtt fall back server             |\r\n"));
-  printSerialTelnet(F("|-Network Time--------------------------|---------------------------------------|\r\n"));
-  printSerialTelnet(F("| o: set time zone oMST7                | N: ntp server, Ntime.nist.gov         |\r\n"));
-  printSerialTelnet(F("| https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv   |\r\n"));
-  printSerialTelnet(F("| a: night start in min after midnight  | A: night end                          |\r\n"));
-  printSerialTelnet(F("| R: reboot time in min after midnight: -1=off                                  |\r\n"));
-  printSerialTelnet(F("==Sensors========================================================================\r\n"));
-  printSerialTelnet(F("|-SGP30-eCO2----------------------------|-MAX-----------------------------------|\r\n"));
-  printSerialTelnet(F("| e: force eCO2, e400                   |                                       |\r\n"));
-  printSerialTelnet(F("| v: force tVOC, t3000                  |                                       |\r\n"));
-  printSerialTelnet(F("| g: get baselines                      |                                       |\r\n"));
-  printSerialTelnet(F("|-SCD30=CO2-----------------------------|--CCS811-eCO2--------------------------|\r\n"));
-  printSerialTelnet(F("| f: force CO2, f400.0 in ppm           | c: force basline, c400                |\r\n"));
-  printSerialTelnet(F("| t: force temperature offset, t5.0 in C| b: get baseline                       |\r\n"));
-  printSerialTelnet(F("|-MLX Temp------------------------------|-LCD-----------------------------------|\r\n"));
-  printSerialTelnet(F("| m: set temp offset, m1.4              | i: simplified display                 |\r\n"));
-  printSerialTelnet(F("==Disable===============================|==Disable===============================\r\n"));
-  printSerialTelnet(F("| x: 2 LCD on/off                       | x: 11 MLX on/off                      |\r\n"));
-  printSerialTelnet(F("| x: 3 WiFi on/off                      | x: 12 BME680 on/off                   |\r\n"));
-  printSerialTelnet(F("| x: 4 SCD30 on/off                     | x: 13 BME280 on/off                   |\r\n"));
-  printSerialTelnet(F("| x: 5 SPS30 on/off                     | x: 14 CCS811 on/off                   |\r\n"));
-  printSerialTelnet(F("| x: 6 SGP30 on/off                     | x: 15 LCD backlight on/off            |\r\n"));
-  printSerialTelnet(F("| x: 7 MQTT on/off                      | x: 16 HTML server on/off              |\r\n"));
-  printSerialTelnet(F("| x: 8 NTP on/off                       | x: 17 OTA on/off                      |\r\n"));
-  printSerialTelnet(F("| x: 9 mDNS on/off                      | x: 18 Serial on/off                   |\r\n"));
-  printSerialTelnet(F("| x: 10 MAX30 on/off                    | x: 19 Telnet on/off                   |\r\n"));
-  printSerialTelnet(F("| x: 99 reset microcontroller           | x: 20 HTTP Updater on/off             |\r\n"));
-  printSerialTelnet(F("|---------------------------------------|---------------------------------------|\r\n"));
-  printSerialTelnet(F("| You will need to x99 to initialize the sensor                                 |\r\n"));
-  printSerialTelnet(F("==Debug Level===========================|==Debug Level===========================\r\n"));
-  printSerialTelnet(F("| l: 0 ALL off                          | l: 99 continous                       |\r\n"));
-  printSerialTelnet(F("| l: 1 minimal                          | l: 6 SGP30 max level                  |\r\n"));
-  printSerialTelnet(F("| l: 2 LCD max level                    | l: 7 MAX30 max level                  |\r\n"));
-  printSerialTelnet(F("| l: 3 WiFi max level                   | l: 8 MLX max level                    |\r\n"));
-  printSerialTelnet(F("| l: 4 SCD30 max level                  | l: 9 BME680/280 max level             |\r\n"));
-  printSerialTelnet(F("| l: 5 SPS30 max level                  | l: 10 CCS811 max level                |\r\n"));
-  printSerialTelnet(FPSTR(doubleSeparator)); //================================================================//
-  printSerialTelnet(F("|  Dont forget to save settings                                                 |\r\n"));
+  printSerialTelnet(F("Supports........................................................................\r\n"));
+  printSerialTelnet(F("........................................................................LCD 20x4\r\n"));
+  printSerialTelnet(F("........................................................SPS30 Senserion Particle\r\n"));
+  printSerialTelnet(F(".............................................................SCD30 Senserion CO2\r\n"));
+  printSerialTelnet(F("......................................................SGP30 Senserion tVOC, eCO2\r\n"));
+  printSerialTelnet(F("..........................BME680/280 Bosch Temperature, Humidity, Pressure, tVOC\r\n"));
+  printSerialTelnet(F("...................................................CCS811 eCO2 tVOC, Air Quality\r\n"));
+  printSerialTelnet(F("..........................................MLX90614 Melex Temperature Contactless\r\n"));
+  printSerialTelnet(F("==All Sensors===========================|=======================================\r\n"));
+  printSerialTelnet(F("| z: print all sensor data              | n: this device Name, nSensi          |\r\n"));
+  printSerialTelnet(F("| p: print current settings             | s: save settings (EEPROM)            |\r\n"));
+  printSerialTelnet(F("| d: create default seetings            | r: read settings (EEPROM)            |\r\n"));
+  printSerialTelnet(F("| .: execution times                    | L: list content of filesystem        |\r\n"));
+  printSerialTelnet(F("==Network===============================|==MQTT=================================\r\n"));
+  printSerialTelnet(F("| P1: SSID 1, P1myssid                  | u: mqtt username, umqtt or empty     |\r\n"));
+  printSerialTelnet(F("| P2: SSID 2, P2myssid                  | w: mqtt password, ww1ldc8ts or empty |\r\n"));
+  printSerialTelnet(F("| P3: SSID 3, P3myssid                  | q: toggle send mqtt immediatly, q    |\r\n"));
+  printSerialTelnet(F("| P4: password SSID 1, P4mypas or empty |                                      |\r\n"));
+  printSerialTelnet(F("| P5: password SSID 2, P5mypas or empty | P8: mqtt server, P8my.mqtt.com       |\r\n"));
+  printSerialTelnet(F("| P6: password SSID 3, P6mypas or empty | P9: mqtt fall back server            |\r\n"));
+  printSerialTelnet(F("|-Network Time--------------------------|--------------------------------------|\r\n"));
+  printSerialTelnet(F("| o: set time zone oMST7                | N: ntp server, Ntime.nist.gov        |\r\n"));
+  printSerialTelnet(F("| https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv  |\r\n"));
+  printSerialTelnet(F("| a: night start in min after midnight  | A: night end                         |\r\n"));
+  printSerialTelnet(F("| R: reboot time in min after midnight: -1=off                                 |\r\n"));
+  printSerialTelnet(F("==Sensors=======================================================================\r\n"));
+  printSerialTelnet(F("|-SGP30-eCO2----------------------------|-MAX----------------------------------|\r\n"));
+  printSerialTelnet(F("| e: force eCO2, e400                   |                                      |\r\n"));
+  printSerialTelnet(F("| v: force tVOC, t3000                  |                                      |\r\n"));
+  printSerialTelnet(F("| g: get baselines                      |                                      |\r\n"));
+  printSerialTelnet(F("|-SCD30=CO2-----------------------------|--CCS811-eCO2-------------------------|\r\n"));
+  printSerialTelnet(F("| f: force CO2, f400.0 in ppm           | c: force basline, c400               |\r\n"));
+  printSerialTelnet(F("| t: force temperature offset, t5.0 in C| b: get baseline                      |\r\n"));
+  printSerialTelnet(F("|-MLX Temp------------------------------|-LCD----------------------------------|\r\n"));
+  printSerialTelnet(F("| m: set temp offset, m1.4              | i: simplified display                |\r\n"));
+  printSerialTelnet(F("==Disable===============================|==Disable==============================\r\n"));
+  printSerialTelnet(F("| x: 2 LCD on/off                       | x: 11 MLX on/off                     |\r\n"));
+  printSerialTelnet(F("| x: 3 WiFi on/off                      | x: 12 BME680 on/off                  |\r\n"));
+  printSerialTelnet(F("| x: 4 SCD30 on/off                     | x: 13 BME280 on/off                  |\r\n"));
+  printSerialTelnet(F("| x: 5 SPS30 on/off                     | x: 14 CCS811 on/off                  |\r\n"));
+  printSerialTelnet(F("| x: 6 SGP30 on/off                     | x: 15 LCD backlight on/off           |\r\n"));
+  printSerialTelnet(F("| x: 7 MQTT on/off                      | x: 16 HTML server on/off             |\r\n"));
+  printSerialTelnet(F("| x: 8 NTP on/off                       | x: 17 OTA on/off                     |\r\n"));
+  printSerialTelnet(F("| x: 9 mDNS on/off                      | x: 18 Serial on/off                  |\r\n"));
+  printSerialTelnet(F("| x: 10 MAX30 on/off                    | x: 19 Telnet on/off                  |\r\n"));
+  printSerialTelnet(F("| x: 99 reset microcontroller           | x: 20 HTTP Updater on/off            |\r\n"));
+  printSerialTelnet(F("|---------------------------------------|--------------------------------------|\r\n"));
+  printSerialTelnet(F("| You will need to x99 to initialize the sensor                                |\r\n"));
+  printSerialTelnet(F("==Debug Level===========================|==Debug Level==========================\r\n"));
+  printSerialTelnet(F("| l: 0 ALL off                          | l: 99 continous                      |\r\n"));
+  printSerialTelnet(F("| l: 1 minimal                          | l: 6 SGP30 max level                 |\r\n"));
+  printSerialTelnet(F("| l: 2 LCD max level                    | l: 7 MAX30 max level                 |\r\n"));
+  printSerialTelnet(F("| l: 3 WiFi max level                   | l: 8 MLX max level                   |\r\n"));
+  printSerialTelnet(F("| l: 4 SCD30 max level                  | l: 9 BME680/280 max level            |\r\n"));
+  printSerialTelnet(F("| l: 5 SPS30 max level                  | l: 10 CCS811 max level               |\r\n"));
+  printSerialTelnet(FPSTR(doubleSeparator)); //===============================================================//
+  printSerialTelnet(F("|  Dont forget to save settings                                                |\r\n"));
   printSerialTelnet(FPSTR(doubleSeparator)); //================================================================//
 }
 
@@ -1559,25 +1219,28 @@ void inputHandle() {
   uint16_t tmpuI;
   int16_t  tmpI;
   float    tmpF;
-  String   value;
-  String   command;
-  String   instruction;
+  String   value = "";
+  String   command = "";
+  String   instruction = "";
   bool     process = false;
 
   if (serialReceived) {
     instruction = String(serialInputBuff);
+    if ( instruction.length() > 0) { process = true; }
+    else                           { process = false; } 
+    serialInputBuff[0] = '\0';
     serialReceived = false;
-    process = true;
   } 
 
   if (telnetReceived) {
-    telnetReceived = false;
     instruction = telnetInputBuff;
-    process = true;
+    if ( instruction.length() > 0) { process = true; }
+    else                           { process = false; } 
+    telnetInputBuff = "";
+    telnetReceived = false;
   }
 
   if (process) { 
-
     command = instruction.substring(0, 1);
     if (instruction.length() > 1) { // we have also a value
       value = instruction.substring(1, instruction.length());
@@ -1630,6 +1293,13 @@ void inputHandle() {
       printState();
     }
 
+    else if (command == ".") {                                            // print a clear execution times of subroutines
+      startUpdate = millis();
+      printProfile();
+      deltaUpdate = millis() - startUpdate;
+      if (maxUpdateSYS < deltaUpdate) { maxUpdateSYS = deltaUpdate; }
+    }
+
     else if (command == "L") {                                            // list content of Little File System
       printSerialTelnet(F("LittleFS Contents:\r\n"));
       if (fsOK) {
@@ -1650,6 +1320,7 @@ void inputHandle() {
       if ((tmpuI >= 400) && (tmpuI <= 2000)) {
         if (sgp30_avail && mySettings.useSGP30) {
           sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
+          sgp30_port->setClock(I2C_FAST);
           sgp30.getBaseline();
           mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
           sgp30.setBaseline((uint16_t)tmpuI, (uint16_t)mySettings.baselinetVOC_SGP30); // set CO2 and TVOC baseline
@@ -1667,6 +1338,7 @@ void inputHandle() {
       if ((tmpuI > 400) && (tmpuI < 2000)) {
         if (sgp30_avail && mySettings.useSGP30) {
           sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
+          sgp30_port->setClock(I2C_FAST);
           sgp30.getBaseline();
           mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
           sgp30.setBaseline((uint16_t)mySettings.baselineeCO2_SGP30, (uint16_t)tmpuI);
@@ -1680,6 +1352,7 @@ void inputHandle() {
     else if (command == "g") {                                            // forced tVOC set setpoint
       if (sgp30_avail && mySettings.useSGP30) {
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
+        sgp30_port->setClock(I2C_FAST);
         sgp30.getBaseline();
         mySettings.baselineSGP30_valid = 0xF0;
         mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
@@ -1696,6 +1369,7 @@ void inputHandle() {
       if ((tmpuI >= 400) && (tmpuI <= 2000)) {
         if (scd30_avail && mySettings.useSCD30) {
           scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
+          scd30_port->setClock(I2C_SLOW);
           scd30.setForcedRecalibrationFactor((uint16_t)tmpuI);
           sprintf_P(tmpStr, PSTR("Calibration point is: %u\r\n"), tmpuI); printSerialTelnet(tmpStr);
         }
@@ -1709,6 +1383,7 @@ void inputHandle() {
       if ((tmpF >= 0.0) && (tmpF <= 10.0)) {
         if (scd30_avail && mySettings.useSCD30) {
           scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
+          scd30_port->setClock(I2C_SLOW);
           scd30.setTemperatureOffset(tmpF);
           mySettings.tempOffset_SCD30_valid = 0xF0;
           mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
@@ -1727,6 +1402,7 @@ void inputHandle() {
       if ((tmpuI >= 0) && (tmpuI <= 100000)) {
         if (ccs811_avail && mySettings.useCCS811) {
           ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+          ccs811_port->setClock(I2C_FAST);
           ccs811.setBaseline((uint16_t)tmpuI);
           mySettings.baselineCCS811_valid = 0xF0;
           mySettings.baselineCCS811 = (uint16_t)tmpuI;
@@ -1740,6 +1416,7 @@ void inputHandle() {
     else if (command == "b") {                                            // getbaseline
       if (ccs811_avail && mySettings.useCCS811) {
         ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+        ccs811_port->setClock(I2C_FAST);
         mySettings.baselineCCS811 = ccs811.getBaseline();
         sprintf_P(tmpStr, PSTR("CCS811: baseline is %d\r\n"), mySettings.baselineCCS811); printSerialTelnet(tmpStr);
       }
@@ -1765,18 +1442,14 @@ void inputHandle() {
     ///////////////////////////////////////////////////////////////////
     else if (command == "s") {                                            // save EEPROM
       tmpTime = millis();
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:SAVE: EEPROM\r\n"));
-      #endif  
+      D_printSerialTelnet(F("DBG:SAVE: EEPROM\r\n"));
       EEPROM.put(0, mySettings);
       if (EEPROM.commit()) { sprintf_P(tmpStr, PSTR("EEPROM saved in: %dms\r\n"), millis() - tmpTime); } 
       else {sprintf_P(tmpStr, PSTR("EEPROM failed to commit\r\n"));} 
       printSerialTelnet(tmpStr);
       
       /**
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:SAVE: JSON/LittleFS\r\n"));
-      #endif
+      D_printSerialTelnet(F("DBG:SAVE: JSON/LittleFS\r\n"));
       tmpTime = millis();
       saveConfiguration(mySettings);
       sprintf_P(tmpStr, PSTR("Settings saved to JSON file in: %dms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr);
@@ -1973,6 +1646,7 @@ void inputHandle() {
     }
 
     else if (command == "j") {                                          // test json output
+      D_printSerialTelnet(F("DBG:DISPLAY: JSON"));
       char payLoad[256];
       timeJSON(payLoad);   printSerialTelnet(payLoad); sprintf_P(tmpStr, PSTR(" len: %u\r\n"), strlen(payLoad)); printSerialTelnet(tmpStr);
       dateJSON(payLoad);   printSerialTelnet(payLoad); sprintf_P(tmpStr, PSTR(" len: %u\r\n"), strlen(payLoad)); printSerialTelnet(tmpStr);
@@ -1983,9 +1657,6 @@ void inputHandle() {
       scd30JSON(payLoad);  printSerialTelnet(payLoad); sprintf_P(tmpStr, PSTR(" len: %u\r\n"), strlen(payLoad)); printSerialTelnet(tmpStr);
       sgp30JSON(payLoad);  printSerialTelnet(payLoad); sprintf_P(tmpStr, PSTR(" len: %u\r\n"), strlen(payLoad)); printSerialTelnet(tmpStr);
       sps30JSON(payLoad);  printSerialTelnet(payLoad); sprintf_P(tmpStr, PSTR(" len: %u\r\n"), strlen(payLoad)); printSerialTelnet(tmpStr);
-      #if defined(DEBUG)
-      printSerialTelnet(F("DBG:DISPLAY: JSON"));
-      #endif
     }
 
     // Should produce something like:
@@ -2008,11 +1679,15 @@ void inputHandle() {
       }
     }
 
-    else {                                                          // unrecognized command
+    else if (command =="?") {                                                          // help requested
       helpMenu();
+    }
+
+    else {                                                                             // unrecognized command
+      printSerialTelnet(F("Command not available\r\n"));
     } // end if
 
-  } // end serial available
+  } // end if process
 } // end Input
 
 void printSettings() {
@@ -2104,7 +1779,7 @@ void defaultSettings() {
   strcpy_P(mySettings.mqtt_fallback,         PSTR("192.168.1.1"));
   strcpy_P(mySettings.mqtt_username,         PSTR("mqtt"));
   strcpy_P(mySettings.mqtt_password,         PSTR(""));
-  strcpy_P(mySettings.mqtt_mainTopic,        PSTR("Sensi"));
+  strcpy_P(mySettings.mqtt_mainTopic,        PSTR("Airquality"));
   mySettings.sendMQTTimmediate             = true;
   mySettings.useLCD                        = true;
   mySettings.useWiFi                       = true;
@@ -2149,6 +1824,7 @@ void printSensors() {
   if (scd30_avail && mySettings.useSCD30) {
     char qualityMessage[16];
     scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
+    scd30_port->setClock(I2C_SLOW);
     sprintf_P(tmpStr, PSTR("SCD30 CO2:%hu[ppm], rH:%4.1f[%%], T:%4.1f[C] T_offset:%4.1f[C}\r\n"), scd30_ppm, scd30_hum, scd30_temp, scd30.getTemperatureOffset() ); printSerialTelnet(tmpStr);
     checkCO2(float(scd30_ppm),qualityMessage,15);
     sprintf_P(tmpStr, PSTR("SCD30 CO2 is: %s\r\n"), qualityMessage);  printSerialTelnet(tmpStr);
@@ -2211,6 +1887,7 @@ void printSensors() {
     uint16_t CO2uI = ccs811.getCO2();
     uint16_t TVOCuI = ccs811.getTVOC();
     ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+    ccs811_port->setClock(I2C_FAST);
     uint16_t BaselineuI = ccs811.getBaseline();
     sprintf_P(tmpStr,PSTR("CCS811 CO2:%hu tVOC:%hu CCS811_baseline:%hu\r\n"), CO2uI, TVOCuI, BaselineuI);  printSerialTelnet(tmpStr);
     checkCO2(float(CO2uI),qualityMessage,15);                                          
@@ -2243,7 +1920,8 @@ void printSensors() {
   if (therm_avail && mySettings.useMLX) {
     char qualityMessage[16];
     mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);
-    float tmpOF = therm.object();
+    mlx_port->setClock(I2C_REGULAR);
+    float tmpOF = therm.object()+mlxOffset;
     float tmpAF = therm.ambient();
     sprintf_P(tmpStr,PSTR("MLX Object:%+5.1f[C] MLX Ambient:%+5.1f[C]\r\n"), tmpOF, tmpAF); printSerialTelnet(tmpStr);
     float tmpEF = therm.readEmissivity();
@@ -2261,6 +1939,7 @@ void printSensors() {
   if (max_avail && mySettings.useMAX30) {
     char qualityMessage[16];
     // max_port->begin(max_i2c[0], max_i2c[1]);
+    // max_port->setClock(I2C_FAST);
     sprintf_P(tmpStr,PSTR("MAX interval: %d Port: %d SDA %d SCL %d \r\n"), intervalMAX, uint32_t(max_port), max_i2c[0], max_i2c[1]); printSerialTelnet(tmpStr);
   } else {
     printSerialTelnet(F("MAX: not available\r\n"));
@@ -2413,4 +2092,35 @@ void printState() {
     printSerialTelnet(F("\r\n"));
   
   } // wifi avail
+}
+
+void printProfile() {
+  printSerialTelnet(FPSTR(doubleSeparator)); //---------------------------------------------------------------------------------------------------//        
+  sprintf_P(tmpStr, PSTR("Average loop time %d[us]  Min/Max/Alltime: %d/%d/%d[ms] Current: %d[ms]\r\n"), int(myLoopAvg*1000), myLoopMin, myLoopMax, myLoopMaxAllTime, myLoop); printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Free Heap Size: %dbytes Heap Fragmentation: %d%% Max Block Size: %dbytes\r\n"), ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize()); printSerialTelnet(tmpStr);
+  printSerialTelnet(FPSTR(doubleSeparator)); //---------------------------------------------------------------------------------------------------//
+  // This displays the amount of time it took complete the update routines.
+  // The currentMax/alltimeMax is displayed. Alltime max is reset when network services are started up in their update routines.
+  sprintf_P(tmpStr, PSTR("Update Time&Date: %4u %4u mDNS:   %4u %4u HTTPupd: %4u %4u HTTP:    %4u %4u\r\nUpdate MQTT:      %4u %4u WS:     %4u %4u NTP:     %4u %4u OTA:     %4u %4u\r\nUpdate Wifi:      %4u %4u \r\n"), 
+                   maxUpdateTime, AllmaxUpdateTime, maxUpdatemDNS, AllmaxUpdatemDNS, maxUpdateHTTPUPDATER, AllmaxUpdateHTTPUPDATER, maxUpdateHTTP, AllmaxUpdateHTTP, maxUpdateMQTT, AllmaxUpdateMQTT, 
+                   maxUpdateWS, AllmaxUpdateWS, maxUpdateNTP, AllmaxUpdateNTP, maxUpdateOTA, AllmaxUpdateOTA, maxUpdateWifi, AllmaxUpdateWifi);         
+  printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Update SCD30:     %4u %4u SGP30:  %4u %4u CCS811:  %4u %4u SPS30:   %4u %4u\r\nUpdate BME280:    %4u %4u BME680: %4u %4u MLX:     %4u %4u MAX:     %4u %4u\r\n"), maxUpdateSCD30, AllmaxUpdateSCD30, 
+                   maxUpdateSGP30, AllmaxUpdateSGP30, maxUpdateCCS811, AllmaxUpdateCCS811, maxUpdateSPS30, AllmaxUpdateSPS30, maxUpdateBME280, AllmaxUpdateBME280, maxUpdateBME680, AllmaxUpdateBME680, maxUpdateMLX, AllmaxUpdateMLX, maxUpdateMAX, AllmaxUpdateMAX);
+  printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Update MQTTmsg:   %4u %4u WSmsg:  %4u %4u LCD:     %4u %4u Input:   %4u %4u\r\nUpdate RunTime:   %4u %4u EEPROM: %4u %4u\r\n"), maxUpdateMQTTMESSAGE, AllmaxUpdateMQTTMESSAGE, maxUpdateWSMESSAGE, AllmaxUpdateWSMESSAGE, 
+                   maxUpdateLCD, AllmaxUpdateLCD, maxUpdateINPUT, AllmaxUpdateINPUT, maxUpdateRT, AllmaxUpdateRT, maxUpdateEEPROM, AllmaxUpdateEEPROM);
+                   //maxUpdateJS, AllmaxUpdateJS
+  printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Update Baseline:  %4u %4u Blink:  %4u %4u Reboot:  %4u %4u AllGood: %4u %4u\r\n"), 
+                   maxUpdateBASE, AllmaxUpdateBASE, AllmaxUpdateBLINK, maxUpdateBLINK, AllmaxUpdateREBOOT, maxUpdateREBOOT, AllmaxUpdateALLGOOD, maxUpdateALLGOOD);
+  printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Update this display: %u\r\n"), 
+                   maxUpdateSYS);
+  printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Yield Time:          %u %u %u\r\n"), 
+                   yieldTimeMin, yieldTimeMax, yieldTimeMaxAllTime); 
+  printSerialTelnet(tmpStr);
+  printSerialTelnet(F("All values in [ms]\r\n"));
+  printSerialTelnet(FPSTR(singleSeparator)); //---------------------------------------------------------------------------------------------------//
 }

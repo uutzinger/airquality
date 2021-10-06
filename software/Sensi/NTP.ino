@@ -24,9 +24,7 @@ void updateNTP() {
     
     case START_UP : { //---------------------
 
-      #if defined(DEBUG) 
-      printSerialTelnet("DBG:STARTUP: NTP\r\n");
-      #endif
+      D_printSerialTelnet("DBG:STARTUP: NTP\r\n");
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("NTP: connecting to %s\r\n"), mySettings.ntpServer); printSerialTelnet(tmpStr); }
 
       NTP.onNTPSyncEvent ([] (NTPEvent_t event) {

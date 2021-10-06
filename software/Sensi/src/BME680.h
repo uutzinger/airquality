@@ -3,11 +3,12 @@
 /******************************************************************************************************/
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BME680.h"
+// Gas Sensor
 // Continous 1Hz             1s   12000uA
 // Low Power 0.33 Hz         3s     900uA
 // Ultra Low Power 0.0033 Hz 300s    90uA
 //
-#define intervalBME680Fast             5000                // 5sec, mimimum 1s 
+#define intervalBME680Fast             4000                // 4sec, mimimum 1s 
 #define intervalBME680Slow            60000                // 60sec
 // The (*) marked settings are from example programs,
 // highest accuracy is when oversampling is largest and IIR filter longest
@@ -31,7 +32,7 @@ bool bme680NewDataWS = false;                              // do we have new dat
 TwoWire *bme680_port =0;                                   // pointer to the i2c port
 uint8_t bme680_i2c[2];                                     // the pins for the i2c port, set during initialization
 float          bme680_ah = 0.;                             // absolute humidity [gr/m^3]
-unsigned long  intervalBME680 = 0;                         // filled automatically during setup
+unsigned long  intervalBME680;                             // adjusted if sensor reports longer measurement time
 unsigned long  lastBME680;                                 // last time we interacted with sensor
 unsigned long  endTimeBME680;                              // when data will be available
 float bme680_pressure24hrs = 0.0;                          // average pressure last 24hrs
@@ -40,4 +41,5 @@ volatile SensorStates stateBME680 = IS_IDLE;               // sensor state
 bool initializeBME680(void);
 bool updateBME680(void);
 void bme680JSON(char *payload);                            // convert readings to serialized JSON
+uint8_t bme680_error_cnt = 0;                                 // give a few retiries if error data length occurs while reading sensor values
 Adafruit_BME680 bme680;                                    // the pressure airquality sensor

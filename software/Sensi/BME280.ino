@@ -14,8 +14,9 @@
 #endif
 
 bool initializeBME280() {
-  bool success = true;
+
   bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
+  bme280_port->setClock(I2C_FAST);
   bme280.settings.commInterface = I2C_MODE;
   bme280.settings.I2CAddress = 0x76;
   
@@ -50,10 +51,9 @@ bool initializeBME280() {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: initialized\r\n")); }
   } else {
     BMEhum_avail = false;
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BMx280: sensor not detected, please check wiring\r\n")); }    
+    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BMx280: sensor chip ID neither matches BMP280 nor BME280\r\n")); }    
     stateBME280 = HAS_ERROR;
-    bme280_avail = false;
-    success = false;
+    return(false);
   }
 
   // Calculate the time it takes to complete a measurement cycle
@@ -101,7 +101,7 @@ bool initializeBME280() {
   float   f_s = 1.0 / (intervalBME280 / 1000.0);                      // = sampling frenecy [1/s] 
           w_c = w_c / f_s;                                            // = normalize cut off frequency [radians]
   float     y = 1 - cos(w_c);                                         // compute alpha for 3dB attenuation at cut off frequency
-  alphaBME280 = -y + sqrt( y*y + 2 * y);                              // 
+  alphaBME280 = -y + sqrt( y*y + 2*y );                               // will be quite small e.g. 1e-6 if we measure every second
 
   if ((chipID == 0x58) || (chipID == 0x60))  {                        //
     if (bme280.settings.runMode == MODE_NORMAL) {                     // for normal mode we obtain readings periodically
@@ -120,7 +120,7 @@ bool initializeBME280() {
   
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: initialized\r\n")); }
   delay(50);
-  return success;
+  return(true);
 
 } // end bme280
 
@@ -129,12 +129,13 @@ bool initializeBME280() {
 // Update BME280
 /******************************************************************************************************/
 bool updateBME280() {
-  bool success = true;
+  bool success = true; // when ERROR recovery fails, success becomes false
   switch(stateBME280) { 
 
     case IS_SLEEPING: { // ------------------ Slow and Energy Saving Mode: Wait until time to start measurement
       if ((currentTime - lastBME280) >= intervalBME280) {
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
+        bme280_port->setClock(I2C_FAST);
         bme280.setMode(MODE_FORCED); // Start reading
         lastBME280 = currentTime;
         stateBME280 = IS_BUSY;
@@ -145,14 +146,15 @@ bool updateBME280() {
     case IS_BUSY: {  // ---------------------- Slow and Energy Saving Mode: Wait until measurement complete
       if ((currentTime - lastBME280) >= bme280_measuretime) { // wait until measurement completed
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
+        bme280_port->setClock(I2C_FAST);
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
           if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
             if (mySettings.debuglevel == 9) { printSerialTelnet(F("BM[E/P]280: failed to complete reading\r\n")); }
             stateBME280 = HAS_ERROR;
-            success = false;  
         }  else { 
           stateBME280 = DATA_AVAILABLE; 
+          sps_error_cnt = 0;
         } // yes its completed
       }
       break;
@@ -167,6 +169,7 @@ bool updateBME280() {
 
     case DATA_AVAILABLE : { //--------------- Data is available either from slow or fast mode
       bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
+      bme280_port->setClock(I2C_FAST);
       bme280_temp     = bme280.readTempC();
       bme280_pressure = bme280.readFloatPressure();
       if (BMEhum_avail) { 
@@ -189,12 +192,15 @@ bool updateBME280() {
 
       if (fastMode) { stateBME280 = IS_MEASURING; }
       else {          stateBME280 = IS_SLEEPING; }
+      
       break;
     }
 
     case HAS_ERROR : {
-      // What are we going to do about that?
+      if (bme280_error_cnt++ > 3) { success = false; bme280_avail = false; } // give up after 3 tries
+
       bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
+      bme280_port->setClock(I2C_FAST);
       bme280.reset();
       bme280.settings.commInterface = I2C_MODE;
       bme280.settings.I2CAddress = 0x76;

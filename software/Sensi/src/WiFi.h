@@ -12,7 +12,7 @@
 #define connectTimeOut    5000                             // WiFi Connection attempt time out
 
 //
-#define SHORTHOSTNAME                                     // airquality or eps8266-chipid
+#define SHORTHOSTNAME                                      // mqtt main topic, or eps8266-chipid
 //#undef  SHORTHOSTNAME 
 
 char hostName[16] = {0};

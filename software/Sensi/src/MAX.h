@@ -3,8 +3,8 @@
 /******************************************************************************************************/
 // Not implemented yet
 //#include ...
-#define intervalMAX 100 // fix this once code is available
-const long intervalMAX30 = 10;                             // readout intervall in ms
+#define intervalMAX 1000 // fix this once code is available
+const long intervalMAX30 = 1000;                           // readout intervall in ms
 bool max_avail    = false;                                 // do we have sensor?
 bool maxNewData   = false;                                 // do we have new data?
 bool maxNewDataWS = false;                                 // do we have new data for websocket

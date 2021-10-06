@@ -33,7 +33,7 @@ void ICACHE_RAM_ATTR handleCCS811Interrupt() {             // interrupt service 
 // INITIALIZE CCS811
 /******************************************************************************************************/
 bool initializeCCS811(){
-  bool success = true;
+
   CCS811Core::CCS811_Status_e css811Ret;
   
   if (fastMode == true) {
@@ -64,29 +64,30 @@ bool initializeCCS811(){
   delay(1); // wakeup takes 50 microseconds
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: sensor waking up\r\n")); }
   
-  ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
+  ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+  ccs811_port->setClock(I2C_FAST);
   
   css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error opening port - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
-    ccs811_avail = false;
-    success = false;
+    stateCCS811 = HAS_ERROR;
+    return(false);
   }
   
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, "CCS811: begin - %s\r\n", ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
   css811Ret = ccs811.setDriveMode(ccs811Mode);
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error setting drive mode - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
-    ccs811_avail = false;
-    success = false;
+    stateCCS811 = HAS_ERROR;
+    return(false);
   }
   
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: mode request set - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
   css811Ret = ccs811.enableInterrupts(); // Configure and enable the interrupt line, then print error status
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error enable interrupts - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
-    ccs811_avail = false;
-    success = false;
+    stateCCS811 = HAS_ERROR;
+    return(false);
   }
   
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: interrupt configuation - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
@@ -96,14 +97,14 @@ bool initializeCCS811(){
       if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: baseline programmed\r\n")); }
     } else {
       if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error writing baseline - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
-      ccs811_avail = false;
-      success = false;
+      stateCCS811 = HAS_ERROR;
+      return(false);
     }
   }
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: initialized\r\n")); }
   stateCCS811 = IS_IDLE;
   delay(50);
-  return success;
+  return(true);
 }
 
 /******************************************************************************************************/
@@ -123,7 +124,7 @@ bool updateCCS811() {
   //  Status is sleeping
   //    Waiting until data interrupt occurs
 
-  bool success = true;
+  bool success = true;  // when ERROR recovery fails, success becomes false
   CCS811Core::CCS811_Status_e css811Ret;
   
   switch(stateCCS811) {
@@ -139,10 +140,10 @@ bool updateCCS811() {
     case DATA_AVAILABLE : { // executed after sleeping or ideling
       tmpTime = millis();
       ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
+      ccs811_port->setClock(I2C_FAST);
       css811Ret = ccs811.readAlgorithmResults(); 
       if ( css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { // Calling this function updates the global tVOC and CO2 variables
         stateCCS811 = HAS_ERROR;
-        success = false;
       } else {
         if (mySettings.debuglevel == 10) { sprintf_P(tmpStr, PSTR("CCS811: readAlgorithmResults completed in %ldms\r\n"), (millis()-tmpTime)); printSerialTelnet(tmpStr); }
         ccs811NewData=true;
@@ -195,6 +196,7 @@ bool updateCCS811() {
       if ( (currentTime - lastCCS811) > 2*intervalCCS811 ) { 
         if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: interrupt timeout occured\r\n")); }
         ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
+        ccs811_port->setClock(I2C_FAST);
         if ( ccs811.dataAvailable() ) {
           if (fastMode == true) { 
             stateCCS811 = DATA_AVAILABLE;                        // update the sensor state
@@ -205,7 +207,6 @@ bool updateCCS811() {
           }
         } else {
           stateCCS811 = HAS_ERROR;
-          success = false;
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: could not recover from interrupt timeout\r\n")); }
           break;
         }
@@ -238,6 +239,7 @@ bool updateCCS811() {
       digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
       delay(1); // wakeup takes 50 microseconds      
       ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
+      ccs811_port->setClock(I2C_FAST);
       css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
       if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
         ccs811_avail = false; 

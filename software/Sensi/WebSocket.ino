@@ -36,9 +36,7 @@ void updateWebSocket() {
     case START_UP : { //---------------------
       if ((currentTime - lastWebSocket) >= intervalWiFi) {        
         lastWebSocket = currentTime;
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:STARTUP: WS\r\n"));
-        #endif
+        D_printSerialTelnet(F("DBG:STARTUP: WS\r\n"));
         webSocket.begin();                              // Start server
         webSocket.onEvent(webSocketEvent);
         // webSocket.setReconnectInterval(5000);;

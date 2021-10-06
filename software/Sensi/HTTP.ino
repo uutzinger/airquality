@@ -40,9 +40,7 @@ void updateHTTP() {
     case START_UP : { //---------------------
       if ((currentTime - lastHTTP) >= intervalWiFi) {        
         lastHTTP = currentTime;
-        #if defined(DEBUG) 
-        printSerialTelnet(F("DBG:STARTUP: HTTP\r\n"));
-        #endif
+        D_printSerialTelnet(F("DBG:STARTUP: HTTP\r\n"));
         httpServer.on("/",         handleRoot);          //Which routine to handle at root location. This is display page
         httpServer.on("/bme280",   handleBME280);
         httpServer.on("/bme680",   handleBME680);

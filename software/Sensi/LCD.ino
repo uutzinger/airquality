@@ -11,6 +11,7 @@ bool initializeLCD() {
   bool success = true; // unfortuntely the LCD driver functions have no error checking
   
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+  lcd_port->setClock(I2C_REGULAR);
 
 #if defined(ADALCD)
   lcd.begin(20, 4, LCD_5x8DOTS, *lcd_port);
@@ -43,7 +44,7 @@ bool updateSinglePageLCDwTime() {
   /**************************************************************************************/
   // Update Single Page LCD
   /**************************************************************************************/
-  bool success = true;
+  bool success = true;  // when ERROR recovery fails, success becomes false, no Error recovery with LCD
   
   float myTemp = -9999.;
   float myHum  = -9999.;
@@ -70,9 +71,7 @@ bool updateSinglePageLCDwTime() {
     
   // Collect Data
   //////////////////////////////////////////////////////////////////////////////////////////////////
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:LCD Collect Data\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:LCD Collect Data\r\n"));
 
   if (scd30_avail && mySettings.useSCD30 && (scd30_ppm != 0)) { // =CO2 Hum =========================
     myTemp = scd30_temp;
@@ -105,8 +104,13 @@ bool updateSinglePageLCDwTime() {
   }
 
   if (sps30_avail && mySettings.useSPS30) { // =Particles ===========================================
-    myPM25 = valSPS30.MassPM2;
-    myPM10 = valSPS30.MassPM10;
+    if (stateSPS30 == HAS_ERROR) {
+      myPM25 = -9999.;
+      myPM10 = -9999.;
+    } else {
+      myPM25 = valSPS30.MassPM2;
+      myPM10 = valSPS30.MassPM10;
+    }
   }
 
   // my warnings // =================================================================================
@@ -119,7 +123,7 @@ bool updateSinglePageLCDwTime() {
   if (myHum >= 0.) { checkHumidity(myHum, qualityMessage, 1); }               else { strncpy(qualityMessage, myNaN, 1); }
   strncpy(myHum_warning, qualityMessage, 1);
   
-  checkdP(mydP, qualityMessage, 1);
+  if (mydP > -9999.0) {checkdP(mydP, qualityMessage, 1);}                     else { strncpy(qualityMessage, myNaN, 1); }
   strncpy(mydP_warning, qualityMessage, 1);
     
   if (myPM25 >= 0.) { checkPM2(myPM25, qualityMessage, 1); }                  else { strncpy(qualityMessage, myNaN, 1); }
@@ -134,9 +138,7 @@ bool updateSinglePageLCDwTime() {
   // build display
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:LCD populate fields\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:LCD populate fields\r\n"));
 
   // clear display buffer
   strncpy(&lcdDisplay[0][0], clearLine , 20);
@@ -234,8 +236,8 @@ bool updateSinglePageLCDwTime() {
   if (time_avail && mySettings.useNTP ) {
     // Data and Time
     sprintf_P(lcdbuf,PSTR("%d%d.%d%d.%d"), 
-            localTime->tm_mon/10, 
-            localTime->tm_mon%10, 
+            (localTime->tm_mon+1)/10, 
+            (localTime->tm_mon+1)%10, 
             localTime->tm_mday/10, 
             localTime->tm_mday%10, 
             (localTime->tm_year+1900));  
@@ -251,11 +253,10 @@ bool updateSinglePageLCDwTime() {
     strncpy(&lcdDisplay[3][12], lcdbuf, 8);
   }
   
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:LCD update screen\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:LCD update screen\r\n"));
 
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+  lcd_port->setClock(I2C_REGULAR);
   // lcd.clear();
   lcd.setCursor(0, 0); 
   
@@ -271,9 +272,7 @@ bool updateSinglePageLCDwTime() {
     strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
   }
 
-  #if defined(DEBUG)
-  printSerialTelnet(F("DBG:LCD done\r\n"));
-  #endif
+  D_printSerialTelnet(F("DBG:LCD done\r\n"));
 
   return success;
 
@@ -431,6 +430,7 @@ bool updateSinglePageLCD() {
   }
 
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+  lcd_port->setClock(I2C_REGULAR);
   // lcd.clear();
   lcd.setCursor(0, 0); 
   
@@ -563,6 +563,7 @@ bool updateTwoPageLCD() {
   } // end alt display
 
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+  lcd_port->setClock(I2C_REGULAR);
   //lcd.clear();
   lcd.setCursor(0, 0); 
   
@@ -728,6 +729,7 @@ bool updateLCD() {
   altDisplay = !altDisplay;
   
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
+  lcd_port->setClock(I2C_REGULAR);
   //lcd.clear();
   lcd.setCursor(0, 0); 
   

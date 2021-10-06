@@ -10,7 +10,6 @@
 //  init >1000ms delay
 //  backlight no delay
 //
-// #define LCDResetTime 43200000                              // 12 hrs, in case we want to reset and attempt cleaning corrupted display, no longer used
 #define intervalLCDFast  5000                              // 5sec
 #define intervalLCDSlow 60000                              // 1min
 unsigned long intervalLCD = 0;                             // LCD refresh rate, is set depending on fastmode during setup

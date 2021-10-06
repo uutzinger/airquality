@@ -39,9 +39,7 @@ void updateMQTT() {
     case START_UP : { //---------------------
       if ((currentTime - lastMQTT) >= intervalWiFi) {
         lastMQTT = currentTime;
-        #if defined(DEBUG)
-        printSerialTelnet("DBG:STARTUP: MQTT\r\n");
-        #endif
+        D_printSerialTelnet("DBG:STARTUP: MQTT\r\n");
         mqttClient.setCallback(mqttCallback);                             // start listener
         mqttClient.setServer(mySettings.mqtt_server, MQTT_PORT);          // start connection to server
         if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("Connecting to MQTT: %s\r\n"), mySettings.mqtt_server); printSerialTelnet(tmpStr); }

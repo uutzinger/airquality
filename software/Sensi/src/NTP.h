@@ -3,7 +3,7 @@
 /******************************************************************************************************/
 
 #define NTP_TIMEOUT 5000                                   // default 5000 milliseconds
-#define NTP_INTERVAL 600                                   // default 1800 seconds
+#define NTP_INTERVAL 1800                                  // default 1800 seconds
 #define NTP_SHORTINTERVAL 15                               // default 15
 #define NTP_MIN_SYNC_ACCURACY_US 5000                      // default 5000
 #define TIME_SYNC_THRESHOLD  2500                          // default 2500

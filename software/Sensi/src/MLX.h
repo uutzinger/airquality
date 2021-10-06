@@ -7,9 +7,9 @@
 #define timeToStableMLX 250                                // time until stable internal readings in ms
 #define fhDelta 0.5                                        // difference from forehead to oral temperature: https://www.mottchildren.org/health-library/tw9223
 #define emissivity 0.98                                    // emissivity of skin
-unsigned long intervalMLX = 5000;                          // readout intervall in ms, 250ms minimum
+unsigned long intervalMLX = 1000;                          // readout intervall in ms, 250ms minimum
 float mlxOffset = 1.4;                                     // offset to adjust for sensor inaccuracy,
-// reading a black surface should give the same value as room temperature from other sensors
+// reading a black surface should give the same value as room temperature measuresd with other sensors
 // measuring wall or ceiling differs from room temp
 bool therm_avail = false;                                  // do we hav e the sensor?
 bool mlxNewData = false;                                   // do we have new data

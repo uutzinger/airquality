@@ -42,17 +42,16 @@ const char *SGP30errorString(SGP30ERR sgp30Return) {
 }
 
 bool initializeSGP30() {
-  bool success = true;
   
   if (fastMode) { intervalSGP30 = intervalSGP30Fast;}
   else          { intervalSGP30 = intervalSGP30Slow;}
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: Interval: %lu\r\n"), intervalSGP30); printSerialTelnet(tmpStr); }
   sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
+  sps30_port->setClock(I2C_FAST);
   if (sgp30.begin(*sgp30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: No SGP30 Detected. Check connections\r\n")); }
-    sgp30_avail = false;
     stateSGP30 = HAS_ERROR;
-    success = false;
+    return(false);
   }
   
   //Initializes sensor for air quality readings
@@ -69,7 +68,7 @@ bool initializeSGP30() {
   
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: initialized\r\n")); }
   delay(50);
-  return success;
+  return(true);
 }
 
 /******************************************************************************************************/
@@ -90,7 +89,7 @@ bool updateSGP30() {
   //   Wait until measurement interval exceeded
   //
 
-  bool success = true;
+  bool success = true;  // when ERROR recovery fails, success becomes false
   SGP30ERR sgp30Error;
   
   switch(stateSGP30) {
@@ -98,7 +97,8 @@ bool updateSGP30() {
     case IS_MEASURING : { //---------------------
       if ((currentTime - lastSGP30Humidity) > intervalSGP30Humidity) {
         if (bme680_avail && mySettings.useBME680) {
-          sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
+          sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
+          sps30_port->setClock(I2C_FAST);
           // Humidity correction, 8.8 bit number
           // 0x0F80 = 15.5 g/m^3
           // 0x0001 = 1/256 g/m^3
@@ -111,11 +111,11 @@ bool updateSGP30() {
 
       if ((currentTime - lastSGP30Baseline) > intervalSGP30Baseline) {
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
+        sps30_port->setClock(I2C_FAST);
         sgp30Error = sgp30.getBaseline(); // this has 10ms delay
         if (sgp30Error != SGP30_SUCCESS) {
            if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error obtaining baseline: %s\r\n"), SGP30errorString(sgp30Error)); printSerialTelnet(tmpStr); }
            stateSGP30 = HAS_ERROR;
-           success = false;
            break;
         } else {
           if (mySettings.debuglevel == 6) { printSerialTelnet(F("SGP30: obtaining internal baseline\r\n")); }
@@ -125,11 +125,11 @@ bool updateSGP30() {
 
       if ((currentTime - lastSGP30) > intervalSGP30) {
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
+        sps30_port->setClock(I2C_FAST);
         sgp30Error = sgp30.measureAirQuality();
         if (sgp30Error != SGP30_SUCCESS) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error measuring eCO2 & tVOC: %s\r\n"), SGP30errorString(sgp30Error)); printSerialTelnet(tmpStr); }
           stateSGP30 = HAS_ERROR;
-          success = false;
           break;
         } else {
           if (mySettings.debuglevel == 6) { printSerialTelnet(F("SGP30: eCO2 & tVOC measured\r\n"));  }
@@ -138,13 +138,13 @@ bool updateSGP30() {
         }
         lastSGP30 = currentTime;
       }
-
       break;
     }
         
     case HAS_ERROR : { //------------------
       // trying to recover sensor
       sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
+      sps30_port->setClock(I2C_FAST);
       if (sgp30.begin(*sgp30_port) == false) {
         sgp30_avail = false;
         stateSGP30 = HAS_ERROR;
@@ -168,7 +168,7 @@ bool updateSGP30() {
     
   } // switch state
 
-  return success;
+  return(success);
 }
 
 void sgp30JSON(char *payload){

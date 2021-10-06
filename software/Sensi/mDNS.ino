@@ -24,22 +24,16 @@ void updateMDNS() {
     case START_UP : { //---------------------
       if ((currentTime - lastMDNS) >= intervalWiFi) {
         lastMDNS = currentTime;
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:STARTUP: MDNS\r\n"));
-        #endif                          
+        D_printSerialTelnet(F("DBG:STARTUP: MDNS\r\n"));
         // mDNS responder setup
         // by default OTA service is starting mDNS, if OTA is enabled we need to skip begin and update
         bool mDNSsuccess = true;
         if (!mySettings.useOTA) {
-          #if defined(DEBUG)   
-          printSerialTelnet(F("DBG:STARTUP: MDNS HOSTNAME\r\n"));
-          #endif
+          D_printSerialTelnet(F("DBG:STARTUP: MDNS HOSTNAME\r\n"));
           mDNSsuccess = MDNS.begin(hostName);
           if (mDNSsuccess == false) { if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("MDNS: error setting up MDNS responder\r\n")); printSerialTelnet(tmpStr); } }
         } else {
-          #if defined(DEBUG)
-          printSerialTelnet(F("DBG:STARTUP: MDNS IS RUNNING\r\n"));
-          #endif
+          D_printSerialTelnet(F("DBG:STARTUP: MDNS IS RUNNING\r\n"));
           if (MDNS.isRunning()) { // need to wait until OTA startedup mDNS otherwise addService crashes
             mDNSsuccess = true;
           } else {
@@ -53,9 +47,7 @@ void updateMDNS() {
         
           // mDNS announce service for website
           if (bool(mySettings.useHTTP)) {
-            #if defined(DEBUG)
-            printSerialTelnet(F("DBG:STARTUP: MDNS HTTP&WS ANNOUNCE\r\n"));
-            #endif
+            D_printSerialTelnet(F("DBG:STARTUP: MDNS HTTP&WS ANNOUNCE\r\n"));
             if (!MDNS.addService("http", "tcp", 80)) {
               if (mySettings.debuglevel > 0) { printSerialTelnet(F("MDNS: could not add service for tcp 80\r\n")); }
             }
@@ -83,15 +75,13 @@ void updateMDNS() {
           } // end found mDNS announcements
           */
         } // end mDNS
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:STARTUP: MDNS END\r\n"));
-        #endif  
+        D_printSerialTelnet(F("DBG:STARTUP: MDNS END\r\n"));
       } // end time interval
       break;
     } // end startup
 
     case CHECK_CONNECTION : { //---------------------
-      if (mySettings.useOTA == false) { MDNS.update(); }       // Update MDNS but only if OTA is not enabled, OTA uses mDNS by default
+      if (mySettings.useOTA == false) { MDNS.update(); }       // Update MDNS but only if OTA is not enabled, OTA update also updates mDNS by default
       break;          
     }
 

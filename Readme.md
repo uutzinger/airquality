@@ -22,44 +22,40 @@ the ESP8266 microcontroller.
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
 ## Air Quality Sensor 
-There are many sensors for indoor **air quality**. 
+There are many sensors for indoor air quality: [**Air Quality Sensors List**](Air_Quality_Sensors_List.md)
 
-If individual gas concentration needs to be meausred, usualy a metal oxid sensor needs to be heated for a brief time. Power consmpution will be high and the system should be run using an AC adapter. For humidity, tempterauter and pressure, the system can run from a battery.
-
-A selection of sensors if listed in [**Air Quality Sensors List**](Air_Quality_Sensors_List.md)
-
-At this time the software **supports the following devices**:
+At this time this software **supports the following devices**:
 - LCD 20x4  (requires 5V signal and power)
 - SCD30 Senserion CO2  
-- BME680 Bosch Temp, Humidity, Pressure, VOC  
+- BME680 Bosch Temp, Humidity, Pressure, tVOC  
 - BM[E/P]280 Bosch Temp, [Humidity], Pressure  
 - SGP30 Senserione VOC, eCO2  
 - CCS811 Airquality eCO2 tVOC  
-- SPS30 Senserion particle, requires 5V power, compatible with 3.3V logic signals
+- SPS30 Senserion particle sensor (requires 5V power, compatible with 3.3V logic signals)
 - MLX90614 Melex temp contactless  
 - MAX30105 Maxim pulseox (in progress)
 
-Using a logit level shifter from 3.3V to 5V voltage allows support for older devices. The software scan all pins for potential device connections and self configures if multiple i2c buses are used.
-
-It should be straight forward to use the frame work to expand but also to remove unwanted modules.
-
 The electrical and softare specifications of the selected sensors are listed in [**Sensor Specs**](Sensor_Specs.md).
+
+It should be straight forward to use this frame work to expand but also to remove unwanted modules.
+
+Many gas sensors are not suitable for low power operation as a metal oxid sensor needs to be heated for a brief time. For humidity, tempterauter and pressure mesaurements, the system can run from a battery.
 
 ## Build Insrtuctions
 To build the system one will need to consider the [**ESP8266 pinout and configuratin**](ESP8266_i2c.md) as well as the [**Wiring of the Board**](Wiring_of_board.md)
 As can be seen in the images below, I use a standard PCB and add JST connectors and socker for ESP.
-The front and back panel I cut on laser cutter. I use M2.5 stand offs. Sorry no circuit diagram with pullup and wire connections has been made to include in the docs at this time.
+The front and back panel I cut on laser cutter. I use M2.5 stand offs. 
+
+Sorry no circuit diagram with pullup and wire connections has been made to include in the docs at this time.
 
 ## Programming Instructions
-The software folder in this destribution should become the main sketch folder. When opening Sensi main program, all other files are loaded. 
+The software folder in this destribution is the main sketch folder. When opening Sensi main program, all other files are loaded. 
 
-The drivers and programs will compile with ESP8266 2.x Arduino Libary but NOT 3.x.
+The drivers and programs will compile with ESP8266 2.x Arduino Libary but not with latest 3.x. Third party drivers fail to build on 3.x.
 
-All hard coded settings are stored in .h files in the src folder.
+All hard coded settings are stored in .h files in the ```src``` folder.
 
-If you want to edit the software using Visual Studio Code, you can enable the definition in the VSC.h file. That instructs the editor to load the appropriate include files.
-
-For the first time progamming you will need to upload via USB cable. Then you can use OTA.
+For first time progamming of a new ESP, you will need to upload via USB cable. Afterwards you can use OTA or http uploader.
 
 ## Features
 
@@ -67,7 +63,7 @@ Data is displayed on an **LCD** and can be sent to **MQTT server** or viewed thr
 
 When wireless connection is lost, the wifi driver scans for available networks and reestablishes the connection. Up to 3 netids can be setup.
 
-The software currenlty works with **multiple separate i2c buses**. The software **scans** all availabel pins for i2c devices and **identifies the pin configuration for SCL and SDA** for the supported sensors. The motivation to provide multiple ports was that some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame. SPS30 does not properly reset after program upload. MLX sensor sometimes reports excessive or negative temperature. ESP8266 Arduino frame work does not provide independent i2c interfaces and all share one single layer. Its not possible to run multiple i2c ports at different clock speeds and with different clock stretching simultanously. However before each communication one can switch to differnt SCL and SDA pins.
+The software currenlty works with **multiple separate i2c buses**. The software **scans** all availabel pins for i2c devices and **identifies the pin configuration for SCL and SDA** for the supported sensors. The motivation to provide multiple ports was that some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame. SPS30 does not properly reset after program upload. MLX sensor sometimes reports excessive or negative temperature. ESP8266 Arduino frame work does not provide independent i2c interfaces and all share one single layer. Its not possible to run multiple i2c ports at different clock speeds and with different clock stretching simultanously. However before each communication one can switch to differnt SCL and SDA pins and set the clock speed.
 
 Most **settings** are stored in EEPROM and can be changed at runtime. Over the air programming **OTA**, **JSON** encoding, **HTTP firmware updater** (http://host:8890/firmware), **telnet** interface, **HTTP** server are provided and can be enabled/disabled.
 
@@ -75,12 +71,11 @@ Runtime settings are listed in [**Runtime Settings**](Runtime_Settings.md)
 
 Passwords are set but since SSL is not available, the system is not particulary secure.
 
-Debugging of code was enabled with three approaches:
+Debugging of code was enabled with two approaches:
 1) Setting debugging levels (0 = no ouptut to serial or telnet). Setting debug level to 99 will printout sensor values and system status continously. 
-2) Enable ```#define DBG``` creates DBG output at all essential function calls, so that a software crash can be pin pointed. 
-3) Enable ```#define PROFILE``` will measure execution times of essential function calls. 
-
-DBG and PROFILE should not be enabled in final software.
+2) Enable ```#define DBG``` creates DBG output at all essential function calls, so that a software crash can be pin pointed. This will create a lot of output and is not
+   suited for regular operation of the system.
+3) sending "." will provide execution times of the major function calls.
 
 ## Air Quality Assessments
 
@@ -152,7 +147,7 @@ https://www.maximintegrated.com/en/products/interface/sensor-interface/MAX30105.
 - https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
 - https://esp8266life.wordpress.com/2019/01/13/memory-memory-always-memory/
 
-### Arduino Software Libraries
+### Software
 
 - SPS30 Senserion particle,                     Paul Vah library,
 - SCD30 Senserion CO2,                          Sparkfun library, using interrupt from data ready pin
@@ -175,16 +170,16 @@ Network related libraries:
 Other Libraries:
 ArduJSON                                         https://github.com/bblanchon/ArduinoJson.git
 
-### Wifi
+Wifi
 - https://arduino-esp8266.readthedocs.io/en/latest/esp8266wifi/
 
-### Displaying Data through Web Site
+Displaying Data through Web Site
 - https://www.mischianti.org/2020/05/24/rest-server-on-esp8266-and-esp32-get-and-json-formatter-part-2/
 - https://tttapa.github.io/ESP8266/Chap16%20-%20Data%20Logging.html
 - https://gist.github.com/maditnerd/c08c50c8eb2bb841bfd993f4f2beee7b
 - https://github.com/Links2004/arduinoWebSockets
 
-### Working with JSON:
+Working with JSON:
 - https://en.wikipedia.org/wiki/JSON
 - https://circuits4you.com/2019/01/11/nodemcu-esp8266-arduino-json-parsing-example/
 
@@ -194,19 +189,19 @@ ArduJSON                                         https://github.com/bblanchon/Ar
 - JSON & tabulated data https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
 - Simple autorefresh https://circuits4you.com/2018/02/04/esp8266-ajax-update-part-of-web-page-without-refreshing/
 
-### WebSocket
+WebSocket
 - https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
 - https://www.mischianti.org/2020/12/21/websocket-on-arduino-esp8266-and-esp32-temperature-and-humidity-realtime-update-3/
 - http://www.martyncurrey.com/esp8266-and-the-arduino-ide-part-10a-iot-website-temperature-and-humidity-monitor/
 
-### HTTP Update Server for Firmware Update
+HTTP Update Server for Firmware Update
 - https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
 
-### NTP
+NTP
 - https://tttapa.github.io/ESP8266/Chap15%20-%20NTP.html
 
-### Air Quality
+Air Quality
 - Indoor: https://www.dhs.wisconsin.gov/chemical/carbondioxide.htm
 
-### Weather Data (not included yet)
+Weather Data (not included yet)
 - http://api.openweathermap.org/data/2.5/weather?q=Tucson,US&APPID=e05a9231d55d12a90f7e9d7903218b3c

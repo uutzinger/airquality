@@ -31,8 +31,7 @@ void ICACHE_RAM_ATTR handleSCD30Interrupt() {              // Interrupt service 
 // Initialize SCD30
 /******************************************************************************************************/
 bool initializeSCD30() {
-  bool success = true;
-  
+    
   if (fastMode) { intervalSCD30 = intervalSCD30Fast; }      // set fast or slow mode
   else          { intervalSCD30 = intervalSCD30Slow; }
   if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("SCD30: Interval: %lu\r\n"), intervalSCD30); printSerialTelnet(tmpStr); }
@@ -41,6 +40,7 @@ bool initializeSCD30() {
   pinMode(SCD30interruptPin , INPUT);                      // interrupt scd30
   attachInterrupt(digitalPinToInterrupt(SCD30interruptPin),  handleSCD30Interrupt,  RISING);
   scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
+  scd30_port->setClock(I2C_SLOW);
   if (scd30.begin(*scd30_port, true)) {                    // start with autocalibration
     scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
     scd30.setAutoSelfCalibration(true); 
@@ -49,13 +49,12 @@ bool initializeSCD30() {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SCD30: current temp offset: %fC\r\n"),mySettings.tempOffset_SCD30); printSerialTelnet(tmpStr); }
     stateSCD30 = IS_BUSY;
   } else {
-    scd30_avail = false;
     stateSCD30 = HAS_ERROR;
-    success = false;
+    return(false);
   }
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: initialized\r\n")); }
   delay(50);
-  return success;
+  return(true);
 }
 
 /******************************************************************************************************/
@@ -76,13 +75,14 @@ bool updateSCD30 () {
   //    Update barometric pressure every once in a while if third party sensor is avaialble
   //    Wait until next ISR
 
-  bool success = true;
+  bool success = true;  // when ERROR recovery fails, success becomes false
   
   switch(stateSCD30) {
     
     case IS_MEASURING : { // used when RDY pin interrupt is not enabled
       if ((currentTime - lastSCD30) >= intervalSCD30) {
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+        scd30_port->setClock(I2C_SLOW);
         if (scd30.dataAvailable()) {
           scd30_ppm  = scd30.getCO2(); 
           scd30_temp = scd30.getTemperature();
@@ -101,6 +101,7 @@ bool updateSCD30 () {
     case IS_BUSY: { // used to bootup sensor when RDY pin interrupt is enabled
       if ((currentTime - lastSCD30Busy) > intervalSCD30Busy) {
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+        scd30_port->setClock(I2C_SLOW);
         if (scd30.dataAvailable()) {scd30.readMeasurement();} // without reading data, RDY pin will remain high and no interrupt will occur
         lastSCD30Busy = currentTime;
         if (mySettings.debuglevel == 4) { printSerialTelnet(F("SCD30: is busy\r\n")); }
@@ -110,6 +111,7 @@ bool updateSCD30 () {
     
     case DATA_AVAILABLE : { // used to obtain data when RDY pin interrupt is used
       scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+      scd30_port->setClock(I2C_SLOW);
       scd30_ppm  = scd30.getCO2();
       scd30_temp = scd30.getTemperature();
       scd30_hum  = scd30.getHumidity();
@@ -128,11 +130,11 @@ bool updateSCD30 () {
       if ( (currentTime - lastSCD30) > (2*intervalSCD30) ) {
         if (mySettings.debuglevel == 4) { printSerialTelnet(F("SCD30: interrupt timeout occured\r\n")); }
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+        scd30_port->setClock(I2C_SLOW);
         if (scd30.dataAvailable()) { 
           stateSCD30 = DATA_AVAILABLE; 
         } else {
           stateSCD30 = HAS_ERROR;
-          success= false;
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: could not recover from interrupt timeout\r\n")); }
           break;
         }
@@ -142,13 +144,15 @@ bool updateSCD30 () {
       if (bme680_avail && mySettings.useBME680) { // update pressure settings
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
           scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+          scd30_port->setClock(I2C_SLOW);
           scd30.setAmbientPressure(uint16_t(bme680.pressure/100.0));  // update with value from pressure sensor, needs to be mbar
           lastPressureSCD30 = currentTime;
           if (mySettings.debuglevel == 4) { sprintf_P(tmpStr, PSTR("SCD30: pressure updated to %fmbar\r\n"), bme680.pressure/100.0); printSerialTelnet(tmpStr); }
-        }
+       }
       } else if ((bme280_avail && mySettings.useBME280)) {
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
           scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
+          scd30_port->setClock(I2C_SLOW);
           scd30.setAmbientPressure(uint16_t(bme280_pressure/100.0));  // pressure is in Pa and scd30 needs mBar
           lastPressureSCD30 = currentTime;
           if (mySettings.debuglevel == 4) { sprintf_P(tmpStr, PSTR("SCD30: pressure updated to %fmbar\r\n"), bme280_pressure/100.0); printSerialTelnet(tmpStr); }
@@ -160,6 +164,7 @@ bool updateSCD30 () {
     case HAS_ERROR : {
       // trying to recover sensor
       scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
+      scd30_port->setClock(I2C_SLOW);
       if (scd30.begin(*scd30_port, true)) { 
         scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
         scd30.setAutoSelfCalibration(true); 

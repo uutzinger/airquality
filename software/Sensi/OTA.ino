@@ -58,9 +58,7 @@ void updateOTA() {
     case START_UP : { //---------------------
       if ((currentTime - lastOTA) >= intervalWiFi) {
         lastOTA = currentTime;
-        #if defined(DEBUG)
-        printSerialTelnet(F("DBG:STARTUP: OTA\r\n"));
-        #endif
+        D_printSerialTelnet(F("DBG:STARTUP: OTA\r\n"));
         ArduinoOTA.setPort(8266);                        // OTA port
         ArduinoOTA.setHostname(hostName);                // hostname
         ArduinoOTA.setPassword("w1ldc8ts");              // That should be set by programmer and not user 

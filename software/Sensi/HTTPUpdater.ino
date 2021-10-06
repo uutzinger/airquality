@@ -25,11 +25,12 @@ void updateHTTPUpdater() {
     case START_UP : { //---------------------
       if ((currentTime - lastHTTPUpdater) >= intervalWiFi) {        
         lastHTTPUpdater = currentTime;
-        #if defined(DEBUG) 
-        printSerialTelnet(F("DBG:STARTUP: HTTP UPDATER"));
-        #endif
+        D_printSerialTelnet(F("DBG:STARTUP: HTTP UPDATER"));
         httpUpdater.setup(&httpUpdateServer, update_path, update_username, update_password);
         httpUpdateServer.begin();                              // Start server
+        if (!MDNS.addService("http", "tcp", 8090)) {
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MDNS: could not add service for tcp 8090\r\n")); }
+        }
         if (mySettings.debuglevel  > 0) { printSerialTelnet(F("HTTP Update Server: initialized\r\n")); }
         stateHTTPUpdater = CHECK_CONNECTION;
         maxUpdateHTTPUPDATER = 0;
@@ -40,7 +41,7 @@ void updateHTTPUpdater() {
     case CHECK_CONNECTION : { //---------------------
       //if ((currentTime - lastHTTPUpdater) >= intervalHTTPUpdater) {
       //  lastHTTPUpdater = currentTime;
-        httpUpdateServer.handleClient();
+      httpUpdateServer.handleClient();
       //}
       break;          
     }

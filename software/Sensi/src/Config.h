@@ -56,7 +56,7 @@ struct Settings {
   float         avgP;                                      // averagePressure
   bool          useBacklight;                              // backlight on/off
   uint16_t      nightBegin;                                // minutes from midnight when to stop changing backlight because of low airquality
-  uint16_t		nightEnd;                                  // minutes from midnight when to start changing backight because of low airquality
+  uint16_t		  nightEnd;                                  // minutes from midnight when to start changing backight because of low airquality
   int16_t       rebootMinute;                              // when should we attempt rebooting in minutes after midnight
   bool          useHTTP;                                   // provide webserver
   bool          useNTP;                                    // want network time

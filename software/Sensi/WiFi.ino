@@ -30,9 +30,9 @@ void initializeWiFi() {
     if (WiFi.status() == WL_CONNECTED) { WiFi.disconnect(); } // make sure we are not connected
     if (mySettings.useWiFi == true) {
       #if defined(SHORTHOSTNAME)
-      sprintf(hostName, "airquality");
+      sprintf(hostName, mySettings.mqtt_mainTopic); // use the mqtt main topic as hostname
       #else
-      sprintf(hostName, "esp8266-%06x", ESP.getChipId());
+      sprintf(hostName, "esp8266-%06x", ESP.getChipId()); // create unique host name
       #endif
       WiFi.hostname(hostName);
       WiFi.mode(WIFI_STA);

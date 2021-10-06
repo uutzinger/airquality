@@ -29,10 +29,11 @@ void onTelnetConnect(String ip) {
     Serial.print(ip);
     Serial.println(F(" connected"));
   }
+  telnetConnected = true;
   Telnet.print(F("\nWelcome "));
   Telnet.print(Telnet.getIP());
-  Telnet.print(F("\r\n(Use ^] + q  to disconnect.)\r\n"));
-  telnetConnected = true;
+  Telnet.print(F("\r\nUse ^] + q  to disconnect\r\n"));
+  helpMenu();
 }
 
 void onTelnetDisconnect(String ip) {

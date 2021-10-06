@@ -45,7 +45,7 @@ unsigned long intervalBaseline;                            // how often do we ob
 // Time Keeping
 /******************************************************************************************************/
 //
-#define intervalSYS 2000                                   // rate at which system information (CPU usage, Heap size) is displayed on serial port
+unsigned long intervalSYS;                                 // rate at which system information (CPU usage, Heap size) is displayed on serial port
 unsigned long currentTime;                                 // Populated at beginning of main loop
 unsigned long lastcurrentTime;                             // to update system unix type time
 unsigned long lastTime;                                    // last time we updated runtime
@@ -153,6 +153,11 @@ bool dateNewDataWS = false;                                // do we have new dat
 bool ntpFirstTime  = true;
 bool time_avail    = false;                                // do not display time until time is established
 
+// i2c speed
+#define I2C_FAST    100000                                 // Fast   400 000
+#define I2C_REGULAR 100000                                 // Normal 100 000
+#define I2C_SLOW     50000                                 // Slow    50 000
+
 // Serial & Telnet
 #define BAUDRATE 115200                                    // serial communicaiton speed, terminal settings need to match
 char serialInputBuff[64];
@@ -161,8 +166,8 @@ bool serialReceived = false;                               // keep track of seri
 char tmpStr[128];                                          // Buffer for formatting text that will be sent to USB serial or telnet
 
 //https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
-const char singleSeparator[] PROGMEM      = {"---------------------------------------------------------------------------------\r\n"};
-const char doubleSeparator[] PROGMEM      = {"=================================================================================\r\n"};
+const char singleSeparator[] PROGMEM      = {"--------------------------------------------------------------------------------\r\n"};
+const char doubleSeparator[] PROGMEM      = {"================================================================================\r\n"};
 const char mON[] PROGMEM                  = {"on"};
 const char mOFF[] PROGMEM                 = {"off"};
 const char clearHome[] PROGMEM            = {"\e[2J\e[H\r\n"};
