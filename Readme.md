@@ -41,7 +41,7 @@ It should be straight forward to use this frame work to expand but also to remov
 
 Many gas sensors are not suitable for low power operation as a metal oxid sensor needs to be heated for a brief time. For humidity, tempterauter and pressure mesaurements, the system can run from a battery.
 
-## Build Insrtuctions
+## Build Instructions
 To build the system one will need to consider the [**ESP8266 pinout and configuratin**](ESP8266_i2c.md) as well as the [**Wiring of the Board**](Wiring_of_Board.md)
 As can be seen in the images below, I use a standard PCB and add JST connectors and socker for ESP.
 The front and back panel I cut on laser cutter. I use M2.5 stand offs. 
@@ -49,13 +49,15 @@ The front and back panel I cut on laser cutter. I use M2.5 stand offs.
 Sorry no circuit diagram with pullup and wire connections has been made to include in the docs at this time.
 
 ## Programming Instructions
-The software folder in this destribution is the main sketch folder. When opening Sensi main program, all other files are loaded. 
+The software folder in this destribution is the main sketch folder. When opening Sensi main program, all other modules are loaded. 
 
 The drivers and programs will compile with ESP8266 2.x Arduino Libary but not with latest 3.x. Third party drivers fail to build on 3.x.
 
 All hard coded settings are stored in .h files in the ```src``` folder.
 
 For first time progamming of a new ESP, you will need to upload via USB cable. Afterwards you can use OTA or http uploader.
+
+You will also need to upload files to the LittleFS using the https://github.com/earlephilhower/arduino-esp8266littlefs-plugin in order to use the sensor from a web browser. After initial upload you can upload files to (http://host/upload).
 
 ## Features
 
