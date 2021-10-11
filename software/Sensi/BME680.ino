@@ -235,11 +235,11 @@ bool updateBME680() {
         if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms\r\n"), tmpInterval); printSerialTelnet(tmpStr); }
       }
 
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: re-initialized")); }
+      if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: re-initialized\r\n")); }
       break; 
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680 Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680 Error: invalid switch statement\r\n")); break;}}
    
   } // end cases
   

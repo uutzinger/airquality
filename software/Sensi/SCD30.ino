@@ -181,7 +181,7 @@ bool updateSCD30 () {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30 Error: invalid switch statementh")); break;}}
+    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30 Error: invalid switch statementh\r\n")); break;}}
     
   } // switch state
 

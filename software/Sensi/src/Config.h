@@ -3,10 +3,10 @@
 /******************************************************************************************************/
 #include <EEPROM.h>
 #include <FS.h>
-//#include <ArduinoJson.h>                                   // Encoding Decoding JSON text
-//#define JSONSIZE 4096                                      // crashes program if too small, use online tool to check recommended size
+#include <ArduinoJson.h>                                   // Encoding Decoding JSON text
+#define JSONSIZE 2048                                      // crashes program if too small, use online tool to check recommended size
 #define EEPROM_SIZE 2048                                   // make sure this value is larger than the space required by the settings below and lowwer than the max Settings of the microcontroller
-//#define intervalSettingsJSON 604800000                     // 7 days
+//#define intervalSettingsJSON 604800000                   // 7 days
 #define intervalSettings 43200000                          // 12 hrs, min write interval is 6,650,000 for 20 year liftime: 100,000/20yrs/365days = 13 writes per day
 int eepromAddress = 0;                                     // 
 unsigned long lastSaveSettings;                            // last time we updated EEPROM, should occur every couple days
@@ -72,5 +72,5 @@ struct Settings {
 
 Settings mySettings;                                       // the settings
 
-//void saveConfiguration(const Settings &config);
-//void loadConfiguration(Settings &config);
+void saveConfiguration(const Settings &config);
+void loadConfiguration(Settings &config);

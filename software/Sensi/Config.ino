@@ -13,7 +13,6 @@
 // JSON saving settings to LittelFS regularly results in system crashes.
 // The JSON conversion might complete but opening and writting the file does not.
 
-/**
 void saveConfiguration(const Settings &config) {
   if (ESP.getMaxFreeBlockSize() > JSONSIZE) {
     if (fsOK) { // file system is mounted
@@ -192,4 +191,3 @@ void loadConfiguration(Settings &config) {
     }
   }
 }
-**/

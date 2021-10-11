@@ -4,7 +4,7 @@ the ESP8266 microcontroller.
 
 - [Airquality Sensors with ESP8266](#airquality-sensors-with-esp8266)
   * [Air Quality Sensor](#air-quality-sensor)
-  * [Build Insrtuctions](#build-insrtuctions)
+  * [Build Instructions](#build-insrtuctions)
   * [Programming Instructions](#programming-instructions)
   * [Features](#features)
   * [Air Quality Assessments](#air-quality-assessments)
@@ -42,7 +42,7 @@ It should be straight forward to use this frame work to expand but also to remov
 Many gas sensors are not suitable for low power operation as a metal oxid sensor needs to be heated for a brief time. For humidity, tempterauter and pressure mesaurements, the system can run from a battery.
 
 ## Build Insrtuctions
-To build the system one will need to consider the [**ESP8266 pinout and configuratin**](ESP8266_i2c.md) as well as the [**Wiring of the Board**](Wiring_of_board.md)
+To build the system one will need to consider the [**ESP8266 pinout and configuratin**](ESP8266_i2c.md) as well as the [**Wiring of the Board**](Wiring_of_Board.md)
 As can be seen in the images below, I use a standard PCB and add JST connectors and socker for ESP.
 The front and back panel I cut on laser cutter. I use M2.5 stand offs. 
 

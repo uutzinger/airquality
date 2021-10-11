@@ -1162,8 +1162,8 @@ void helpMenu() {
   printSerialTelnet(F("..........................................MLX90614 Melex Temperature Contactless\r\n"));
   printSerialTelnet(F("==All Sensors===========================|=======================================\r\n"));
   printSerialTelnet(F("| z: print all sensor data              | n: this device Name, nSensi          |\r\n"));
-  printSerialTelnet(F("| p: print current settings             | s: save settings (EEPROM)            |\r\n"));
-  printSerialTelnet(F("| d: create default seetings            | r: read settings (EEPROM)            |\r\n"));
+  printSerialTelnet(F("| p: print current settings             | s: save settings (EEPROM) sj: JSON   |\r\n"));
+  printSerialTelnet(F("| d: create default seetings            | r: read settings (EEPROM) rj: JSON   |\r\n"));
   printSerialTelnet(F("| .: execution times                    | L: list content of filesystem        |\r\n"));
   printSerialTelnet(F("==Network===============================|==MQTT=================================\r\n"));
   printSerialTelnet(F("| P1: SSID 1, P1myssid                  | u: mqtt username, umqtt or empty     |\r\n"));
@@ -1442,28 +1442,39 @@ void inputHandle() {
     ///////////////////////////////////////////////////////////////////
     else if (command == "s") {                                            // save EEPROM
       tmpTime = millis();
-      D_printSerialTelnet(F("DBG:SAVE: EEPROM\r\n"));
-      EEPROM.put(0, mySettings);
-      if (EEPROM.commit()) { sprintf_P(tmpStr, PSTR("EEPROM saved in: %dms\r\n"), millis() - tmpTime); } 
-      else {sprintf_P(tmpStr, PSTR("EEPROM failed to commit\r\n"));} 
-      printSerialTelnet(tmpStr);
-      
-      /**
-      D_printSerialTelnet(F("DBG:SAVE: JSON/LittleFS\r\n"));
-      tmpTime = millis();
-      saveConfiguration(mySettings);
-      sprintf_P(tmpStr, PSTR("Settings saved to JSON file in: %dms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr);
-      **/
+      if (instruction.length() > 1) { // we have also a value
+        if (instruction.substring( 1, 2) == "j") {
+          D_printSerialTelnet(F("DBG:SAVE: JSON/LittleFS\r\n"));
+          tmpTime = millis();
+          saveConfiguration(mySettings);
+          sprintf_P(tmpStr, PSTR("Settings saved to JSON file in: %dms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr);
+        }
+      } else {
+        D_printSerialTelnet(F("DBG:SAVE: EEPROM\r\n"));
+        EEPROM.put(0, mySettings);
+        if (EEPROM.commit()) { sprintf_P(tmpStr, PSTR("EEPROM saved in: %dms\r\n"), millis() - tmpTime); } 
+        else {sprintf_P(tmpStr, PSTR("EEPROM failed to commit\r\n"));} 
+        printSerialTelnet(tmpStr);
+      }
     }
 
     else if (command == "r") {                                          // read EEPROM
       tmpTime = millis();
-      // loadConfiguration(mySettings);
-      printSerialTelnet(F("Loading config from JSON is disabled\r\n"));
-      EEPROM.begin(EEPROM_SIZE);
-      EEPROM.get(eepromAddress, mySettings);
-      sprintf_P(tmpStr, PSTR("Settings read from JSON/EEPROM file in: %dms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr);
-      printSettings();
+      if (instruction.length() > 1) { // we have also a value
+        if (instruction.substring( 1, 2) == "j") {
+          D_printSerialTelnet(F("DBG:SAVE: JSON/LittleFS\r\n"));
+          tmpTime = millis();
+          loadConfiguration(mySettings);
+          sprintf_P(tmpStr, PSTR("Settings loaded from JSON file in: %dms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr);
+        }
+      } else {
+        // loadConfiguration(mySettings);
+        printSerialTelnet(F("Loading config from JSON is disabled\r\n"));
+        EEPROM.begin(EEPROM_SIZE);
+        EEPROM.get(eepromAddress, mySettings);
+        sprintf_P(tmpStr, PSTR("Settings read from JSON/EEPROM file in: %dms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr);
+        printSettings();
+      }
     }
 
     else if (command == "p") {                                          // print display settings

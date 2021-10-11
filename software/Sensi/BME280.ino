@@ -237,7 +237,7 @@ bool updateBME280() {
       break; 
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280 Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280 Error: invalid switch statement\r\n")); break;}}
    
   } // end cases
   return success;

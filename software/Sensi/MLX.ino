@@ -102,6 +102,7 @@ bool updateMLX() {
       if (therm.begin(0x5A, *mlx_port) == true) { 
         therm.setUnit(TEMP_C); // Set the library's units to Centigrade
         therm.setEmissivity(emissivity); // hard coded from definitions file
+        mlx_error_cnt = 0;
         stateMLX = IS_MEASURING;      
       } else { // could not recover
         stateMLX = HAS_ERROR;

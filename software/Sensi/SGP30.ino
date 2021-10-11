@@ -164,7 +164,7 @@ bool updateSGP30() {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30 Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30 Error: invalid switch statement\r\n")); break;}}
     
   } // switch state
 
