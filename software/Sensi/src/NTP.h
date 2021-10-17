@@ -3,9 +3,9 @@
 /******************************************************************************************************/
 
 #define NTP_TIMEOUT 5000                                   // default 5000 milliseconds
-#define NTP_INTERVAL 1800                                  // default 1800 seconds
+#define NTP_INTERVAL 1800                                  // default 1800 seconds 64..1024s is NTPv4 specs
 #define NTP_SHORTINTERVAL 15                               // default 15
-#define NTP_MIN_SYNC_ACCURACY_US 5000                      // default 5000
+#define NTP_MIN_SYNC_ACCURACY_US 100000                    // default 5000, offset of upto 25ms is not uncommon
 #define TIME_SYNC_THRESHOLD  2500                          // default 2500
 #define NTP_MAX_RESYNC_RETRY 3                             // default 3
 #define NTP_NUM_OFFSET_AVE_ROUNDS 1                        // default 1

@@ -8,13 +8,43 @@
 #endif
 
 void printSerialTelnet(char* str) {
-    if ( mySettings.useSerial )                    { Serial.print(str); }
-    if ( mySettings.useTelnet && telnetConnected ) { Telnet.print(str); } 
+  char buf[19];
+  if ( mySettings.useSerial )                    { Serial.print(str); }
+  if ( mySettings.useTelnet && telnetConnected ) { Telnet.print(str); } 
+  if ( mySettings.useLog ) { 
+    if (time_avail==true){
+      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
+              (localTime->tm_mon+1), 
+              localTime->tm_mday,
+              (localTime->tm_year%100),
+              localTime->tm_hour, 
+              localTime->tm_min,    
+              localTime->tm_sec);
+      logFile.print(buf);
+    }
+    if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }
+    if (  logFile ) { logFile.print(str); }
+  }
 }
 
 void printSerialTelnet(String str) {
-    if ( mySettings.useSerial )                    { Serial.print(str); }
-    if ( mySettings.useTelnet && telnetConnected ) { Telnet.print(str); } 
+  char buf[19];
+  if ( mySettings.useSerial )                    { Serial.print(str); }
+  if ( mySettings.useTelnet && telnetConnected ) { Telnet.print(str); } 
+  if ( mySettings.useLog ) {
+    if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }  // we close log file regularly in main loop
+    if (time_avail==true){
+      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
+              (localTime->tm_mon+1), 
+              localTime->tm_mday, 
+              (localTime->tm_year%100),
+              localTime->tm_hour, 
+              localTime->tm_min,    
+              localTime->tm_sec);
+      logFile.print(buf);
+    }
+    if (  logFile ) { logFile.print(str); } 
+  } 
 }
 
 void onTelnetInputReceived(String str){

@@ -34,7 +34,7 @@ bool initializeSCD30() {
     
   if (fastMode) { intervalSCD30 = intervalSCD30Fast; }      // set fast or slow mode
   else          { intervalSCD30 = intervalSCD30Slow; }
-  if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("SCD30: Interval: %lu\r\n"), intervalSCD30); printSerialTelnet(tmpStr); }
+  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SCD30: Interval: %lu\r\n"), intervalSCD30); printSerialTelnet(tmpStr); }
 
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: configuring interrupt\r\n")); }
   pinMode(SCD30interruptPin , INPUT);                      // interrupt scd30
@@ -50,6 +50,7 @@ bool initializeSCD30() {
     stateSCD30 = IS_BUSY;
   } else {
     stateSCD30 = HAS_ERROR;
+    errorRecSCD30 = currentTime + 5000;
     return(false);
   }
   if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: initialized\r\n")); }
@@ -128,13 +129,15 @@ bool updateSCD30 () {
       // wait for intrrupt to occur, 
       // backup: if interrupt timed out, check the sensor
       if ( (currentTime - lastSCD30) > (2*intervalSCD30) ) {
-        if (mySettings.debuglevel == 4) { printSerialTelnet(F("SCD30: interrupt timeout occured\r\n")); }
+        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: interrupt timeout occured\r\n")); }
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
         scd30_port->setClock(I2C_SLOW);
         if (scd30.dataAvailable()) { 
           stateSCD30 = DATA_AVAILABLE; 
+          scd30_error_cnt = 0;
         } else {
           stateSCD30 = HAS_ERROR;
+          errorRecSCD30 = currentTime + 5000;
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: could not recover from interrupt timeout\r\n")); }
           break;
         }
@@ -162,22 +165,29 @@ bool updateSCD30 () {
     }
     
     case HAS_ERROR : {
-      // trying to recover sensor
-      scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
-      scd30_port->setClock(I2C_SLOW);
-      if (scd30.begin(*scd30_port, true)) { 
-        scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
-        scd30.setAutoSelfCalibration(true); 
-        mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
-        stateSCD30 = IS_BUSY;
-      } else {
-        scd30_avail = false;
-        stateSCD30 = HAS_ERROR;
-        success = false;
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: re-initialization failed\r\n")); }
-        break;
+      if (currentTime > errorRecSCD30) {      
+        if (scd30_error_cnt++ > 3) { 
+          success = false; 
+          scd30_avail = false; 
+          break;
+        } // give up after 3 tries
+        // trying to recover sensor
+        scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
+        scd30_port->setClock(I2C_SLOW);
+        if (scd30.begin(*scd30_port, true)) { 
+          scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
+          scd30.setAutoSelfCalibration(true); 
+          mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
+          stateSCD30 = IS_BUSY;
+        } else {
+          stateSCD30 = HAS_ERROR;
+          errorRecSCD30 = currentTime + 5000;
+          success = false;
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: re-initialization failed\r\n")); }
+          break;
+        }
+        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: re-initialized\r\n")); }
       }
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("SCD30: re-initialized\r\n")); }
       break;
     }
 

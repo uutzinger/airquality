@@ -30,6 +30,7 @@ unsigned long lastSPS30;                                   // last time we inter
 unsigned long wakeSPS30;                                   // time when wakeup was issued
 unsigned long wakeTimeSPS30;                               // time when sensor is supposed to be woken up
 unsigned long timeToStableSPS30;                           // how long it takes to get stable readings, automatically pupulated based on total particles
+unsigned long errorRecSPS30;
 char buf[64];                                              // messaging buffer
 uint8_t ret, st;                                           // return variables
 float totalParticles;                                      // we need to calculate time to stable readings depending on total particle concentration
@@ -42,6 +43,7 @@ uint8_t sps30_i2c[2];                                      // the pins for the i
 volatile SensorStates stateSPS30 = IS_BUSY;                // sensor state
 struct sps_values valSPS30;                                // will hold the readings from sensor
 uint8_t sps_error_cnt = 0;                                 // give a few retiries if error data length occurs while reading sensor values
+uint8_t sps30_error_cnt = 0;
 SPS30_version v;                                           // version structure of sensor
 bool initializeSPS30(void);
 bool updateSPS30(void);

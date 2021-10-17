@@ -52,6 +52,7 @@ float bme280_ah = 0;                                       // [gr/m^3]
 unsigned long  intervalBME280 = 0;                         // filled automatically during setup
 unsigned long  lastBME280;                                 // last time we interacted with sensor
 unsigned long  endTimeBME280;                              // when data will be available
+unsigned long  errorRecBME280;
 float bme280_pressure24hrs = 0.0;                          // average pressure last 24hrs
 float alphaBME280;                                         // poorman's low pass filter for f_cutoff = 1 day
 volatile SensorStates stateBME280 = IS_IDLE;               // sensor state

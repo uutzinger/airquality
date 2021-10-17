@@ -25,7 +25,7 @@ void onendOTA() {
 }
 
 void onprogressOTA(unsigned int progress, unsigned int total) {
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("OTA: progress: %u%%\r"),(progress / (total / 100))); printSerialTelnet(tmpStr); } 
+  if (mySettings.debuglevel > 1) { sprintf_P(tmpStr, PSTR("OTA: progress: %u%%\r"),(progress / (total / 100))); printSerialTelnet(tmpStr); } 
 }
 
 void onerrorOTA(ota_error_t error) {

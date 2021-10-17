@@ -36,7 +36,9 @@ unsigned long warmupCCS811;                                // sensor needs 20min
 unsigned long intervalCCS811Baseline;                      // get the baseline every few minutes
 unsigned long intervalCCS811Humidity;                      // update the humidity every few minutes
 unsigned long intervalCCS811;                              // to check if interrupt timed out
+unsigned long errorRecCCS811;
 uint8_t ccs811Mode;                                        // operation mode, see above 
+uint8_t ccs811_error_cnt =0;
 const byte CCS811interruptPin = CCS811_INT;                // CCS811 not Interrupt Pin
 volatile SensorStates stateCCS811 = IS_IDLE;               // sensor state
 bool initializeCCS811(void);                               // 

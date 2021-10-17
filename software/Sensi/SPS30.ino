@@ -38,7 +38,7 @@ bool initializeSPS30() {
   if (fastMode == true) { intervalSPS30 = intervalSPS30Fast; }
   else                  { intervalSPS30 = intervalSPS30Slow; }
 
-  if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("SPS: Interval: %lums\r\n"),intervalSPS30); printSerialTelnet(tmpStr); }
+  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: Interval: %lums\r\n"),intervalSPS30); printSerialTelnet(tmpStr); }
   sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
   sps30_port->setClock(I2C_SLOW);
   delay(1);
@@ -46,6 +46,7 @@ bool initializeSPS30() {
   if (sps30.begin(sps30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: Sensor not detected in I2C. Please check wiring\r\n")); }
     stateSPS30 = HAS_ERROR;
+    errorRecSPS30 = currentTime + 5000;
     return(false);
   }
 
@@ -59,6 +60,7 @@ bool initializeSPS30() {
         printSerialTelnet(F("SPS30: powercycle the system and reopen serial console\r\n"));  
       }
       stateSPS30 = HAS_ERROR;
+      errorRecSPS30 = currentTime + 5000;
       return(false);
     }
   } else { 
@@ -68,28 +70,27 @@ bool initializeSPS30() {
   if (sps30.reset() == false) { 
     if (mySettings.debuglevel > 0) {printSerialTelnet(F("SPS30: could not reset\r\n")); }
     stateSPS30 = HAS_ERROR;
+    errorRecSPS30 = currentTime + 5000;
     return(false);
   }  
 
   // read device info
 
   if (mySettings.debuglevel > 0) {
-    printSerialTelnet(F("SPS30: obtaining device information:\r\n"));
+    printSerialTelnet(F("SPS30: obtaining device information\r\n"));
     ret = sps30.GetSerialNumber(buf, 32);
     if (ret == ERR_OK) {
-      if (mySettings.debuglevel > 0) { 
-        printSerialTelnet("SPS30: serial number : ");
-        if(strlen(buf) > 0) { printSerialTelnet(buf); }
-        else { printSerialTelnet(F("not available\r\n")); }
-      }
+      printSerialTelnet("SPS30: serial number : ");
+      if(strlen(buf) > 0) { printSerialTelnet(buf); printSerialTelnet(F("\r\n")); }
+      else { printSerialTelnet(F("not available\r\n")); }
     }  else { printSerialTelnet(F("SPS30: could not obtain serial number\r\n")); }
 
     ret = sps30.GetProductName(buf, 32);
     if (ret == ERR_OK)  {
         printSerialTelnet(F("SPS30: product name : "));
-        if(strlen(buf) > 0)  { printSerialTelnet(buf); }
+        if(strlen(buf) > 0)  { printSerialTelnet(buf); printSerialTelnet(F("\r\n")); }
         else { printSerialTelnet("not available\r\n"); }
-    } else { if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not obtain product name\r\n")); } }
+    } else { printSerialTelnet(F("SPS30: could not obtain product name\r\n")); }
   }
   
   ret = sps30.GetVersion(&v);
@@ -119,6 +120,7 @@ bool initializeSPS30() {
   } else { 
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could NOT start measurement\r\n")); }
     stateSPS30 = HAS_ERROR;
+    errorRecSPS30 = currentTime + 5000;
     return(false);
   }
 
@@ -189,12 +191,17 @@ bool updateSPS30() {
           if (mySettings.debuglevel > 0.0) { 
             sprintf_P(tmpStr, PSTR("SPS30: error data length or zero reading, %u\r\n"), sps_error_cnt); printSerialTelnet(tmpStr); 
           }
-          if (sps_error_cnt++ > 3) { stateSPS30 = HAS_ERROR; } // give up after 3 tries
+          if (sps_error_cnt++ > 3) { 
+            stateSPS30 = HAS_ERROR; 
+            errorRecSPS30 = currentTime + 5000; 
+            sps_error_cnt = 0; 
+          } // give up after 3 tries
           lastSPS30 = currentTime; 
           break; // remains in same state and try again in about a second
         } else if (ret != ERR_OK) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: %hu\r\n"), ret); printSerialTelnet(tmpStr); }
           stateSPS30 = HAS_ERROR; // got to recovery
+          errorRecSPS30 = currentTime + 5000;
           break;
         }
         sps_error_cnt = 0;
@@ -229,19 +236,24 @@ bool updateSPS30() {
         ret = sps30.GetValues(&valSPS30);
         if (mySettings.debuglevel == 5) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms\r\n"), millis() - tmpTime); printSerialTelnet(tmpStr); }
         if (ret == ERR_DATALENGTH || valSPS30.MassPM1 == 0.0) { 
-          if (mySettings.debuglevel > 0) { 
-            sprintf_P(tmpStr, PSTR("SPS30: error data length while reading values or zero reading, %u\r\n"), sps_error_cnt); printSerialTelnet(tmpStr);          
-          }
-          // we will allow this to happen up to 3 times in a row until we throw error
-          if ( sps_error_cnt++ > 3 ) { stateSPS30 = HAS_ERROR; } // give up after 3 tries
+          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error data length while reading values or zero reading, %u\r\n"), sps_error_cnt); printSerialTelnet(tmpStr); }
+          // we will allow this to happen 3 times in a row until we throw an error
+          if ( sps_error_cnt++ > 3 ) { 
+            stateSPS30 = HAS_ERROR; 
+            errorRecSPS30 = currentTime + 5000; 
+            sps_error_cnt = 0;
+            break;
+          } // give up after 3 tries
           timeSPS30Stable = currentTime + 1000;  
           break; // remain in same state and try again in a second
         } else if (ret != ERR_OK) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: error x%hu\r\n"), ret); printSerialTelnet(tmpStr); }
           stateSPS30 = HAS_ERROR;
+          errorRecSPS30 = currentTime + 5000;
           break;
         }
         sps_error_cnt = 0; // we got values
+        sps30_error_cnt = 0;
         sps30NewData   = true;
         sps30NewDataWS = true;
 
@@ -293,6 +305,7 @@ bool updateSPS30() {
         if (ret != ERR_OK) { 
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: error, could not go to sleep\r\n")); }
           stateSPS30 = HAS_ERROR;
+          errorRecSPS30 = currentTime + 5000;
         } else {
           if (mySettings.debuglevel == 5) { printSerialTelnet(F("SPS30: going to sleep\r\n")); }
           stateSPS30 = IS_SLEEPING;
@@ -312,6 +325,7 @@ bool updateSPS30() {
         if (ret != ERR_OK) {
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: error could not wakeup\r\n")); }
           stateSPS30 = HAS_ERROR; 
+          errorRecSPS30 = currentTime + 5000;
         } else {
           wakeSPS30 = currentTime;
           stateSPS30 = IS_WAKINGUP;
@@ -330,6 +344,7 @@ bool updateSPS30() {
         if (ret != ERR_OK) { 
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: error, could not start SPS30 measurements\r\n")); }
           stateSPS30 = HAS_ERROR; 
+          errorRecSPS30 = currentTime + 5000;
         } else {
           if (mySettings.debuglevel == 5) { printSerialTelnet(F("SPS30: started\r\n")); }
           stateSPS30 = IS_BUSY;
@@ -340,49 +355,57 @@ bool updateSPS30() {
     }
 
     case HAS_ERROR : { //--------------------  trying to recover sensor
-      sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
-      sps30_port->setClock(I2C_SLOW);
-      delay(1); 
-      sps30.EnableDebugging(SPS30Debug);
-      if (sps30.begin(sps30_port) == false) {
-        stateSPS30 = HAS_ERROR;
-        sps30_avail = false;
-        success = false;
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize\r\n")); }
-        break;
-      }
-      if (sps30.probe() == false) { 
-        sps30.reset();
-        delay(500);
-        if (sps30.probe() == false) {
+      if (currentTime > errorRecSPS30) {
+        if (sps30_error_cnt++ > 3) { 
+          success = false; 
+          sps30_avail = false; 
+          break;
+        } // give up after 3 tries
+        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
+        sps30_port->setClock(I2C_SLOW);
+        delay(1); 
+        sps30.EnableDebugging(SPS30Debug);
+        if (sps30.begin(sps30_port) == false) {
           stateSPS30 = HAS_ERROR;
-          sps30_avail = false;
+          errorRecSPS30 = currentTime + 5000;
           success = false;
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: probe not successful, could not re-intialize\r\n")); }
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize\r\n")); }
           break;
         }
-      }
-      if (sps30.reset() == false) { 
-        stateSPS30 = HAS_ERROR;
-        sps30_avail = false;
-        success = false;
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize/reset\r\n")); }
-        break;
-      }
-      // read device info
-      ret = sps30.GetVersion(&v);
-      if (ret != ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
-        v.major = 1;  // is reasonable minimal version
-        v.minor = 0;  // is not reasonable
-      }
-      ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
-      if (sps30.start() == true) { 
-        stateSPS30 = IS_BUSY; 
-      } else { 
-        stateSPS30 = HAS_ERROR;
-        success = false;
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize\r\n")); }
-        break;
+        if (sps30.probe() == false) { 
+          sps30.reset();
+          delay(500);
+          if (sps30.probe() == false) {
+            stateSPS30 = HAS_ERROR;
+            errorRecSPS30 = currentTime + 5000;
+            success = false;
+            if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: probe not successful, could not re-intialize\r\n")); }
+            break;
+          }
+        }
+        if (sps30.reset() == false) { 
+          stateSPS30 = HAS_ERROR;
+          errorRecSPS30 = currentTime + 5000;
+          success = false;
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize/reset\r\n")); }
+          break;
+        }
+        // read device info
+        ret = sps30.GetVersion(&v);
+        if (ret != ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
+          v.major = 1;  // is reasonable minimal version
+          v.minor = 0;  // is not reasonable
+        }
+        ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
+        if (sps30.start() == true) { 
+          stateSPS30 = IS_BUSY; 
+        } else { 
+          stateSPS30 = HAS_ERROR;
+          errorRecSPS30 = currentTime + 5000;
+          success = false;
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SPS30: could not re-intialize\r\n")); }
+          break;
+        }
       }
       break;
     }

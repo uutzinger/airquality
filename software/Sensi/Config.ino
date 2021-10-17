@@ -82,6 +82,7 @@ void saveConfiguration(const Settings &config) {
       doc["useHTTPUpdater"]               = config.useHTTPUpdater;                           // use HTTP updating 
       doc["useTelnet"]                    = config.useTelnet;                                // use Telnet for Serial
       doc["useSerial"]                    = config.useSerial;                                // use USB for Serial
+      doc["useLog"]                       = config.useLog;                                   // keep copy of seriel and telnet prints in log file
     
       D_printSerialTelnet(F("DBG:JSON 5\r\n"));
       doc["useNTP"]                       = config.useNTP;                                   // want network time
@@ -180,6 +181,7 @@ void loadConfiguration(Settings &config) {
         config.useHTTPUpdater         = doc["useHTTPUpdater"]                       | false;
         config.useTelnet              = doc["useTelnet"]                            | false;
         config.useSerial              = doc["useSerial"]                            | true;
+        config.useLog                 = doc["useLog"]                               | false;
         
         config.useNTP                 = doc["useNTP"]                               | true;
         strlcpy(config.ntpServer,       doc["ntpServer"]                            | "us.pool.ntp.org", sizeof(config.ntpServer));

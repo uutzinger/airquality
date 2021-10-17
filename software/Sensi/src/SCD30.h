@@ -27,10 +27,12 @@ unsigned long intervalSCD30 = 0;                           // will bet set at in
 unsigned long lastSCD30;                                   // last time we interacted with sensor
 unsigned long lastPressureSCD30;                           // last time we updated pressure
 unsigned long lastSCD30Busy;                               // for the statemachine
+unsigned long errorRecSCD30;
 const int SCD30interruptPin = SCD30_RDY;                  // 
 volatile SensorStates stateSCD30 = IS_IDLE;                // keeping track of sensor state
 bool initializeSCD30(void);
 bool updateSCD30(void);
 void ICACHE_RAM_ATTR handleSCD30Interrupt(void);           // Interrupt service routine when data ready is signaled
 void scd30JSON(char *payload);                             // convert readings to serialized JSON
+uint8_t scd30_error_cnt = 0;
 SCD30 scd30;                                               // the sensor

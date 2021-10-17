@@ -53,7 +53,7 @@ bool initializeCCS811(){
   else if ( ccs811Mode == 2 ) { intervalCCS811 = 10000; } 
   else if ( ccs811Mode == 3 ) { intervalCCS811 = 60000; } 
   else                        { intervalCCS811 =   250; }
-  if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("CCS811: Interval: %lu\r\n"), intervalCCS811); printSerialTelnet(tmpStr); }
+  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: Interval: %lu\r\n"), intervalCCS811); printSerialTelnet(tmpStr); }
 
   pinMode(CCS811_WAKE, OUTPUT); // CCS811 not Wake Pin
   pinMode(CCS811interruptPin, INPUT_PULLUP); // CCS811 not Interrupt Pin
@@ -71,6 +71,7 @@ bool initializeCCS811(){
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error opening port - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
     stateCCS811 = HAS_ERROR;
+    errorRecCCS811 = currentTime + 5000;
     return(false);
   }
   
@@ -79,6 +80,7 @@ bool initializeCCS811(){
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error setting drive mode - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
     stateCCS811 = HAS_ERROR;
+    errorRecCCS811 = currentTime + 5000;
     return(false);
   }
   
@@ -87,6 +89,7 @@ bool initializeCCS811(){
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error enable interrupts - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
     stateCCS811 = HAS_ERROR;
+    errorRecCCS811 = currentTime + 5000;
     return(false);
   }
   
@@ -98,6 +101,7 @@ bool initializeCCS811(){
     } else {
       if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error writing baseline - %s\r\n"), ccs811.statusString(css811Ret)); printSerialTelnet(tmpStr); }
       stateCCS811 = HAS_ERROR;
+      errorRecCCS811 = currentTime + 5000;
       return(false);
     }
   }
@@ -144,6 +148,7 @@ bool updateCCS811() {
       css811Ret = ccs811.readAlgorithmResults(); 
       if ( css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { // Calling this function updates the global tVOC and CO2 variables
         stateCCS811 = HAS_ERROR;
+        errorRecCCS811 = currentTime + 5000;
       } else {
         if (mySettings.debuglevel == 10) { sprintf_P(tmpStr, PSTR("CCS811: readAlgorithmResults completed in %ldms\r\n"), (millis()-tmpTime)); printSerialTelnet(tmpStr); }
         ccs811NewData=true;
@@ -184,7 +189,7 @@ bool updateCCS811() {
         } else {
           stateCCS811 = IS_IDLE;
         }
-
+        ccs811_error_cnt = 0;
       }
       lastCCS811 = currentTime;
       break;
@@ -207,6 +212,7 @@ bool updateCCS811() {
           }
         } else {
           stateCCS811 = HAS_ERROR;
+          errorRecCCS811 = currentTime + 5000;
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: could not recover from interrupt timeout\r\n")); }
           break;
         }
@@ -235,43 +241,51 @@ bool updateCCS811() {
     }
 
     case HAS_ERROR : { //-----------------------
-      // trying to recover sensor, reinitialize it
-      digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
-      delay(1); // wakeup takes 50 microseconds      
-      ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
-      ccs811_port->setClock(I2C_FAST);
-      css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
-      if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-        ccs811_avail = false; 
-        success = false; 
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
-        break;
-      }
-      css811Ret = ccs811.setDriveMode(ccs811Mode);
-      if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-        ccs811_avail = false; 
-        success = false; 
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
-        break;
-      }
-      css811Ret = ccs811.enableInterrupts(); // Configure and enable the interrupt line, then print error status
-      if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-        ccs811_avail = false; 
-        success = false; 
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
-        break;
-      }
-      if (mySettings.baselineCCS811_valid == 0xF0) {
-        css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
-        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
+      if (currentTime > errorRecCCS811) {
+        if (ccs811_error_cnt++ > 3) { 
+          success = false; 
           ccs811_avail = false; 
+          break;
+        } // give up after 3 tries
+  
+        // trying to recover sensor, reinitialize it
+        digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
+        delay(1); // wakeup takes 50 microseconds      
+        ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
+        ccs811_port->setClock(I2C_FAST);
+        css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
+        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
+          errorRecCCS811 = currentTime + 5000;
           success = false; 
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
           break;
         }
+        css811Ret = ccs811.setDriveMode(ccs811Mode);
+        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
+          errorRecCCS811 = currentTime + 5000;
+          success = false; 
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
+          break;
+        }
+        css811Ret = ccs811.enableInterrupts(); // Configure and enable the interrupt line, then print error status
+        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
+          errorRecCCS811 = currentTime + 5000;
+          success = false; 
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
+          break;
+        }
+        if (mySettings.baselineCCS811_valid == 0xF0) {
+          css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
+          if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
+            errorRecCCS811 = currentTime + 5000;
+            success = false; 
+            if (mySettings.debuglevel > 0) { printSerialTelnet(F("CCS811: re-initialization failed\r\n")); }
+            break;
+          }
+        }
+        if (mySettings.debuglevel > 0) {  printSerialTelnet(F("CCS811: re-initialized\r\n")); }
+        stateCCS811 = IS_IDLE;
       }
-      if (mySettings.debuglevel > 0) {  printSerialTelnet(F("CCS811: re-initialized\r\n")); }
-      stateCCS811 = IS_IDLE;
       break;
     }
 

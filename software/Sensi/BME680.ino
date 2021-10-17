@@ -49,7 +49,7 @@ bool initializeBME680() {
 
     BMEhum_avail = true;
 
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: initialized")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: initialized\r\n")); }
 
     tmpTime = millis();
     endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
@@ -58,6 +58,7 @@ bool initializeBME680() {
     if (endTimeBME680 == 0) { // if measurement was not started
       if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
       stateBME680 = HAS_ERROR; 
+      errorRecBME680 = currentTime + 5000;
       return(false);
     } else {
       unsigned long tmpInterval = endTimeBME680 - tmpTime;
@@ -75,11 +76,12 @@ bool initializeBME680() {
       alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
     }
 
-    if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu\r\n"), intervalBME680); printSerialTelnet(tmpStr); }
+    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu\r\n"), intervalBME680); printSerialTelnet(tmpStr); }
 
   } else {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: sensor not detected, please check wiring\r\n")); }
     stateBME680 = HAS_ERROR;
+    errorRecBME680 = currentTime + 5000;
     return(false);
   }   
 
@@ -106,6 +108,7 @@ bool updateBME680() {
         if (endTimeBME680 == 0) { // if measurement was not started
           if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
           stateBME680 = HAS_ERROR; 
+          errorRecBME680 = currentTime + 5000;
         } else {
           stateBME680 = IS_BUSY; 
           // check if measurement time is longer than intervalBME680, if yes adjust interval and adjust lowpass filter
@@ -139,8 +142,9 @@ bool updateBME680() {
       bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
       bme680_port->setClock(I2C_FAST);
       if (bme680.endReading() ==  false) {
-        if (mySettings.debuglevel == 9) { printSerialTelnet(F("BME680: Failed to complete reading, timeout\r\n")); }
+        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: Failed to complete reading, timeout\r\n")); }
         stateBME680 = HAS_ERROR;
+        errorRecBME680 = currentTime + 5000;
       } else {
         // Absolute Humidity
         // https://www.eoas.ubc.ca/books/Practical_Meteorology/prmet102/Ch04-watervapor-v102b.pdf
@@ -179,63 +183,72 @@ bool updateBME680() {
         bme680NewDataWS = true;
 
         stateBME680 = IS_IDLE;
+        bme680_error_cnt = 0;
       }
       break;
     }
 
     case HAS_ERROR : {
-      if (bme680_error_cnt++ > 3) { success = false; bme680_avail = false; } // give up after 3 tries
-
-      bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);        
-      bme680_port->setClock(I2C_FAST);
-      if (bme680.begin(0x77, true, bme680_port) == true) { 
-        if (fastMode == true) { 
-          intervalBME680 = intervalBME680Fast; 
-          bme680.setTemperatureOversampling(bme680_TempOversampleFast);
-          bme680.setHumidityOversampling(bme680_HumOversampleFast); 
-          bme680.setPressureOversampling(bme680_PressureOversampleFast); 
-          bme680.setIIRFilterSize(bme680_FilterSizeFast); 
-        } else { 
-          intervalBME680 = intervalBME680Slow; 
-          bme680.setTemperatureOversampling(bme680_TempOversampleSlow);
-          bme680.setHumidityOversampling(bme680_HumOversampleSlow); 
-          bme680.setPressureOversampling(bme680_PressureOversampleSlow); 
-          bme680.setIIRFilterSize(bme680_FilterSizeSlow); 
+      if (currentTime > errorRecBME680) {
+        if (bme680_error_cnt++ > 3) { 
+          success = false; 
+          bme680_avail = false;
+          break; 
+        } // give up after 3 tries
+  
+        bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);        
+        bme680_port->setClock(I2C_FAST);
+        if (bme680.begin(0x77, true, bme680_port) == true) { 
+          if (fastMode == true) { 
+            intervalBME680 = intervalBME680Fast; 
+            bme680.setTemperatureOversampling(bme680_TempOversampleFast);
+            bme680.setHumidityOversampling(bme680_HumOversampleFast); 
+            bme680.setPressureOversampling(bme680_PressureOversampleFast); 
+            bme680.setIIRFilterSize(bme680_FilterSizeFast); 
+          } else { 
+            intervalBME680 = intervalBME680Slow; 
+            bme680.setTemperatureOversampling(bme680_TempOversampleSlow);
+            bme680.setHumidityOversampling(bme680_HumOversampleSlow); 
+            bme680.setPressureOversampling(bme680_PressureOversampleSlow); 
+            bme680.setIIRFilterSize(bme680_FilterSizeSlow); 
+          }
+          bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
+          BMEhum_avail = true;
+        } else {
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: sensor not detected, please check wiring\r\n")); }
+          stateBME680 = HAS_ERROR;
+          errorRecBME680 = currentTime + 5000;
+          break;
+        }   
+  
+        tmpTime = millis();
+        endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
+        lastBME680 = currentTime;
+  
+        if (endTimeBME680 == 0) { // if measurement was not started
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
+          stateBME680 = HAS_ERROR; 
+          errorRecBME680 = currentTime + 5000;
+        } else {
+          unsigned long tmpInterval = endTimeBME680 - tmpTime;
+          if (tmpInterval > intervalBME680) { 
+            intervalBME680 = tmpInterval;
+            // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
+            // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
+            // filter cut off frequency is 1/day
+            float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                       // = cut off frequency [radians / seconds]
+            float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
+                    w_c = w_c / f_s;                                           // = normalized cut off frequency [radians]
+            float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency
+            alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
+          }
+          stateBME680 = IS_BUSY; 
+  
+          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms\r\n"), tmpInterval); printSerialTelnet(tmpStr); }
         }
-        bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
-        BMEhum_avail = true;
-      } else {
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: sensor not detected, please check wiring\r\n")); }
-        stateBME680 = HAS_ERROR;
-        break;
-      }   
-
-      tmpTime = millis();
-      endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
-      lastBME680 = currentTime;
-
-      if (endTimeBME680 == 0) { // if measurement was not started
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
-        stateBME680 = HAS_ERROR; 
-      } else {
-        unsigned long tmpInterval = endTimeBME680 - tmpTime;
-        if (tmpInterval > intervalBME680) { 
-          intervalBME680 = tmpInterval;
-          // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
-          // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
-          // filter cut off frequency is 1/day
-          float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                       // = cut off frequency [radians / seconds]
-          float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
-                  w_c = w_c / f_s;                                           // = normalized cut off frequency [radians]
-          float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency
-          alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
-        }
-        stateBME680 = IS_BUSY; 
-
-        if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms\r\n"), tmpInterval); printSerialTelnet(tmpStr); }
+  
+        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: re-initialized\r\n")); }
       }
-
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: re-initialized\r\n")); }
       break; 
     }
 

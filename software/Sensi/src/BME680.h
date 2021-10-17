@@ -35,6 +35,7 @@ float          bme680_ah = 0.;                             // absolute humidity 
 unsigned long  intervalBME680;                             // adjusted if sensor reports longer measurement time
 unsigned long  lastBME680;                                 // last time we interacted with sensor
 unsigned long  endTimeBME680;                              // when data will be available
+unsigned long  errorRecBME680;
 float bme680_pressure24hrs = 0.0;                          // average pressure last 24hrs
 float alphaBME680;                                         // poorman's low pass filter for f_cutoff = 1 day
 volatile SensorStates stateBME680 = IS_IDLE;               // sensor state

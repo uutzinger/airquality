@@ -69,7 +69,7 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
           // got NTP time
           ntp_avail = true;
           timeSynced = true;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s\r\n"), NTP.ntpEvent2str(ntpEvent)); printSerialTelnet(tmpStr); }
+          if (mySettings.debuglevel  == 3) { sprintf_P(tmpStr, PSTR("NTP: %s\r\n"), NTP.ntpEvent2str(ntpEvent)); printSerialTelnet(tmpStr); }
           break;
         case partlySync:
           // partial sync

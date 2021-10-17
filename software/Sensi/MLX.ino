@@ -26,6 +26,7 @@ bool initializeMLX(){
   } else {
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: sensor not detected. Please check wiring\r\n")); }
     stateMLX = HAS_ERROR;
+    errorRecMLX = currentTime + 5000;
     return(false);
   }
   sleepTimeMLX = intervalMLX - timeToStableMLX - 50;
@@ -78,6 +79,8 @@ bool updateMLX() {
           }
           if (mlx_error_cnt++ > 3) { // allow 3 retires
             stateMLX = HAS_ERROR;
+            errorRecMLX = currentTime + 5000;
+            mlx_error_cnt = 0;
             break;
           }
         }
@@ -86,32 +89,14 @@ bool updateMLX() {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("MLX: data range error, %u\r\n"), mlx_error_cnt); printSerialTelnet(tmpStr); }
           if (mlx_error_cnt++ > 3) { // allow 3 retries
             stateMLX = HAS_ERROR;
+            errorRecMLX = currentTime + 5000;
+            mlx_error_cnt = 0;
           }
         } else { 
           mlx_error_cnt = 0; 
+          therm_error_cnt = 0;
         }
       }
-      break;
-    }
-
-    case HAS_ERROR : { // ----------------------
-      // trying to recover sensor
-      mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
-      mlx_port->setClock(I2C_REGULAR);
-      delay(1);
-      if (therm.begin(0x5A, *mlx_port) == true) { 
-        therm.setUnit(TEMP_C); // Set the library's units to Centigrade
-        therm.setEmissivity(emissivity); // hard coded from definitions file
-        mlx_error_cnt = 0;
-        stateMLX = IS_MEASURING;      
-      } else { // could not recover
-        stateMLX = HAS_ERROR;
-        therm_avail = false;
-        success = false;
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: re-initialization failed\r\n")); }
-        break;
-      }
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: re-initialized\r\n")); }
       break;
     }
 
@@ -122,6 +107,34 @@ bool updateMLX() {
         therm.wake(); // takes 250ms to wake up, sleepTime is shorter than intervalMLX to accomodate that
         if (mySettings.debuglevel == 8) { printSerialTelnet(F("MLX: initiated wake up\r\n")); }
         stateMLX = IS_MEASURING;
+      }
+      break;
+    }
+    
+    case HAS_ERROR : { // ----------------------
+      if (currentTime > errorRecMLX) {
+        if (therm_error_cnt++ > 3) { 
+          success = false; 
+          therm_avail = false;
+          break; 
+        } // give up after 3 tries
+        // trying to recover sensor
+        mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
+        mlx_port->setClock(I2C_REGULAR);
+        delay(1);
+        if (therm.begin(0x5A, *mlx_port) == true) { 
+          therm.setUnit(TEMP_C); // Set the library's units to Centigrade
+          therm.setEmissivity(emissivity); // hard coded from definitions file
+          therm_error_cnt = 0;
+          stateMLX = IS_MEASURING;
+        } else { // could not recover
+          stateMLX = HAS_ERROR;
+          errorRecMLX = currentTime + 5000;
+          success = false;
+          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: re-initialization failed\r\n")); }
+          break;
+        }
+        if (mySettings.debuglevel > 0) { printSerialTelnet(F("MLX: re-initialized\r\n")); }
       }
       break;
     }

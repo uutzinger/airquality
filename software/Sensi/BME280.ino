@@ -53,6 +53,7 @@ bool initializeBME280() {
     BMEhum_avail = false;
     if (mySettings.debuglevel > 0) { printSerialTelnet(F("BMx280: sensor chip ID neither matches BMP280 nor BME280\r\n")); }    
     stateBME280 = HAS_ERROR;
+    errorRecBME280 = currentTime + 5000;
     return(false);
   }
 
@@ -150,11 +151,11 @@ bool updateBME280() {
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
           if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
-            if (mySettings.debuglevel == 9) { printSerialTelnet(F("BM[E/P]280: failed to complete reading\r\n")); }
+            if (mySettings.debuglevel > 0) { printSerialTelnet(F("BM[E/P]280: failed to complete reading\r\n")); }
             stateBME280 = HAS_ERROR;
+            errorRecBME280 = currentTime + 5000;
         }  else { 
           stateBME280 = DATA_AVAILABLE; 
-          sps_error_cnt = 0;
         } // yes its completed
       }
       break;
@@ -192,48 +193,56 @@ bool updateBME280() {
 
       if (fastMode) { stateBME280 = IS_MEASURING; }
       else {          stateBME280 = IS_SLEEPING; }
-      
+ 
+      bme280_error_cnt = 0;
+
       break;
     }
 
     case HAS_ERROR : {
-      if (bme280_error_cnt++ > 3) { success = false; bme280_avail = false; } // give up after 3 tries
-
-      bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
-      bme280_port->setClock(I2C_FAST);
-      bme280.reset();
-      bme280.settings.commInterface = I2C_MODE;
-      bme280.settings.I2CAddress = 0x76;
-      if (fastMode == true) { 
-        intervalBME280                  = intervalBME280Fast;
-        bme280.settings.runMode         = bme280_ModeFast;
-        bme280.settings.tStandby        = bme280_StandbyTimeFast;
-        bme280.settings.filter          = bme280_FilterFast;
-        bme280.settings.tempOverSample  = bme280_TempOversampleFast; 
-        bme280.settings.pressOverSample = bme280_PressureOversampleFast;
-        bme280.settings.humidOverSample = bme280_HumOversampleFast;
-      } else { 
-        intervalBME280                  = intervalBME280Slow;
-        bme280.settings.runMode         = bme280_ModeSlow;
-        bme280.settings.tStandby        = bme280_StandbyTimeSlow;
-        bme280.settings.filter          = bme280_FilterSlow;
-        bme280.settings.tempOverSample  = bme280_TempOversampleSlow; 
-        bme280.settings.pressOverSample = bme280_PressureOversampleSlow;
-        bme280.settings.humidOverSample = bme280_HumOversampleSlow;
+      if (currentTime > errorRecBME280) {      
+        if (bme280_error_cnt++ > 3) { 
+          success = false; 
+          bme280_avail = false;
+          break; 
+        } // give up after 3 tries
+  
+        bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
+        bme280_port->setClock(I2C_FAST);
+        bme280.reset();
+        bme280.settings.commInterface = I2C_MODE;
+        bme280.settings.I2CAddress = 0x76;
+        if (fastMode == true) { 
+          intervalBME280                  = intervalBME280Fast;
+          bme280.settings.runMode         = bme280_ModeFast;
+          bme280.settings.tStandby        = bme280_StandbyTimeFast;
+          bme280.settings.filter          = bme280_FilterFast;
+          bme280.settings.tempOverSample  = bme280_TempOversampleFast; 
+          bme280.settings.pressOverSample = bme280_PressureOversampleFast;
+          bme280.settings.humidOverSample = bme280_HumOversampleFast;
+        } else { 
+          intervalBME280                  = intervalBME280Slow;
+          bme280.settings.runMode         = bme280_ModeSlow;
+          bme280.settings.tStandby        = bme280_StandbyTimeSlow;
+          bme280.settings.filter          = bme280_FilterSlow;
+          bme280.settings.tempOverSample  = bme280_TempOversampleSlow; 
+          bme280.settings.pressOverSample = bme280_PressureOversampleSlow;
+          bme280.settings.humidOverSample = bme280_HumOversampleSlow;
+        }
+  
+        if (bme280.settings.runMode == MODE_NORMAL) {                     // for normal mode we obtain readings periodically
+            bme280.setMode(MODE_NORMAL);                                  //
+            stateBME280 = IS_BUSY;                                        //
+        } else if (bme280.settings.runMode == MODE_FORCED) {              // for forced mode we initiate reading manually
+          bme280.setMode(MODE_SLEEP);                                     // sleep for now
+          stateBME280 = IS_SLEEPING;                                      //
+        } else if (bme280.settings.runMode == MODE_SLEEP){                //
+          bme280.setMode(MODE_SLEEP);                                     //
+          stateBME280 = IS_SLEEPING;                                      //
+        }
+        
+        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: reset\r\n")); }
       }
-
-      if (bme280.settings.runMode == MODE_NORMAL) {                     // for normal mode we obtain readings periodically
-          bme280.setMode(MODE_NORMAL);                                  //
-          stateBME280 = IS_BUSY;                                        //
-      } else if (bme280.settings.runMode == MODE_FORCED) {              // for forced mode we initiate reading manually
-        bme280.setMode(MODE_SLEEP);                                     // sleep for now
-        stateBME280 = IS_SLEEPING;                                      //
-      } else if (bme280.settings.runMode == MODE_SLEEP){                //
-        bme280.setMode(MODE_SLEEP);                                     //
-        stateBME280 = IS_SLEEPING;                                      //
-      }
-      
-      if (mySettings.debuglevel > 9) { printSerialTelnet(F("BME280: reset\r\n")); }
       break; 
     }
 

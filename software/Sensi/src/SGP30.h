@@ -26,9 +26,11 @@ unsigned long lastSGP30Humidity;                           // last time we upate
 unsigned long lastSGP30Baseline;                           // last time we obtained baseline
 unsigned long intervalSGP30 = 1000;                        // populated during setup
 unsigned long warmupSGP30;                                 // populated during setup
+unsigned long errorRecSGP30;
 volatile SensorStates stateSGP30 = IS_IDLE; 
 bool initializeSGP30(void);
 bool updateSGP30(void);
 void sgp30JSON(char *payload);                             // convert readings to serialized JSON
 const char *SGP30errorString(SGP30ERR sgp30Error);          // create error messages
+uint8_t sgp30_error_cnt = 0;
 SGP30 sgp30;

@@ -21,7 +21,7 @@
 	  Time <spawn id="Hour">--</spawn>:<spawn id="Minute">--</spawn> <br>
 	  Date <spawn id="Month">--</spawn>,<spawn id="Day">--</spawn>,<spawn id="Year">--</spawn> <br>
 
-	<h2>Wi Fi</h2>
+	<h2>Wi-Fi</h2>
 	  <spawn id="Hostname">-----</spawn> is at <spawn id="IP">---.---.---.---</spawn>
 
   <h2>Barometric Pressure</h2>
@@ -53,13 +53,13 @@
   BME680 Gas Resistance : <spawn id="BME680Resistance">3000Ohm</spawn><br>
   
   <h2>Particulate Matter</h2>
-  Particulate Matter 1.0 : <spawn id="PM1"> 1.0 µg/m3 </spawn>, <spawn id="NumPM1"> 0.0 #/cm3</spawn><br>
-  Particulate Matter 2.5 : <spawn id="PM2"> 1.0 µg/m3 </spawn>, <spawn id="NumPM2"> 0.0#/cm3 </spawn> <spawn id="PM2aq">normal</spawn><br>
-  Particulate Matter 4.0 : <spawn id="PM4"> 1.0 µg/m3 </spawn>, <spawn id="NumPM4"> 0.0#/cm3 </spawn><br>
-  Particulate Matter 10  : <spawn id="PM10"> 1.0 µg/m3 </spawn>, <spawn id="NumPM10P"> 0.0#/cm3 </spawn> <spawn id="PM10aq">normal</spawn><br>
-  Average Size           : <spawn id="PartSize"> 1.0µm </spawn><br>
+  Particulate Matter 1.0 : <spawn id="PM1"> 1.0 &micro;g/m3 </spawn>, <spawn id="NumPM1"> 0.0 #/cm3</spawn><br>
+  Particulate Matter 2.5 : <spawn id="PM2"> 1.0 &micro;g/m3 </spawn>, <spawn id="NumPM2"> 0.0#/cm3 </spawn> <spawn id="PM2aq">normal</spawn><br>
+  Particulate Matter 4.0 : <spawn id="PM4"> 1.0 &micro;g/m3 </spawn>, <spawn id="NumPM4"> 0.0#/cm3 </spawn><br>
+  Particulate Matter 10  : <spawn id="PM10"> 1.0 &micro;g/m3 </spawn>, <spawn id="NumPM10P"> 0.0#/cm3 </spawn> <spawn id="PM10aq">normal</spawn><br>
+  Average Size           : <spawn id="PartSize"> 1.0 &micro;m </spawn><br>
       
-  <br><br><a href="https://github.com/uutzinger/airquality">Urs Utzinger</a>
+  <br><a href="https://github.com/uutzinger/airquality">Urs Utzinger</a>
 
   <script>
 
@@ -272,7 +272,7 @@
         document.getElementById("NumPM2").innerHTML = obj.sps30.nPM2 + "#/cm";
         document.getElementById("NumPM4").innerHTML = obj.sps30.nPM4 + "#/cm";
         document.getElementById("NumPM10").innerHTML = obj.sps30.nPM10 + "#/cm";
-        document.getElementById("PartSize").innerHTML = obj.sps30.PartSize + "&microm";
+        document.getElementById("PartSize").innerHTML = obj.sps30.PartSize + "&micro;m";
         document.getElementById("PM2aq").innerHTML = obj.sps30.PM2_airquality;
         document.getElementById("PM10aq").innerHTML = obj.sps30.PM10_airquality;
       }

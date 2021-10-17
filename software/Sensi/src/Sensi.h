@@ -179,6 +179,10 @@ const char waitmsg[] PROGMEM              = {"Waiting 10 seconds, skip by hittin
 #include <LittleFS.h>
 LittleFSConfig fileSystemConfig = LittleFSConfig();
 bool fsOK = false;
+#define LOGFILESIZE 100000
+#define INTERVALLOGFILE 5000
+File logFile;
+unsigned long lastLogFile; // last time we checked logfile size or closes the logfile
 
 /******************************************************************************************************/
 // Support Functions

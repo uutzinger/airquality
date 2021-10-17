@@ -45,7 +45,7 @@
 //  MQTT server is contacted, if it can not be reached, a backup server is contected. username password is supported.
 //  Network Time is obtained using ESPNtpClient and unix system time is converted to local time using time zone settings.
 //  Over the Air programming can be enabled. 
-//  HTTPUpdater can be enabled at http://host:8890/firmware username admin password .... 
+//  HTTPUpdater can be enabled at http://host:8890/firmware username admin password ... 
 //  mDNS responder and client are implemented, OTA starts them automatically
 //  HTML webserver is implemented. Sensors can be read useing hostname/sensor. hostname/ provides self updating root page using websockets.
 //  Large html files are streamed from LittleFS.
@@ -92,9 +92,9 @@
 // Urs Utzinger
 // Sometime: MAX pulseox software (requires proximit detection and rewritting signal processing library)
 // Sometime: Configuration of system through website UI
-// Sometime: Logfile to record system issues
 // Sometime: Support for TFT display
-// Sometime: Website adjsuting to available sensors
+// Sometime: Website adjusting to available sensors
+// 2021 October: Logfile to record system issues
 // 2021 September: testing and release
 // 2021 July: telnet
 // 2021 June: webserver, NTP
@@ -287,7 +287,7 @@ void setup() {
       filefound = true;
     }
     if (!filefound) { printSerialTelnet(F("empty\r\n")); }
-  }  
+  }
 
   //Could also store settings on LittelFS
   //Issue is that LittleFS and JSON library together seem to need more memory than available
@@ -322,6 +322,7 @@ void setup() {
   if (mySettings.usemDNS           > 0) { mySettings.usemDNS           = true; } else { mySettings.usemDNS             = false; }
   if (mySettings.useTelnet         > 0) { mySettings.useTelnet         = true; } else { mySettings.useTelnet           = false; }
   if (mySettings.useSerial         > 0) { mySettings.useSerial         = true; } else { mySettings.useSerial           = false; }
+  if (mySettings.useLog            > 0) { mySettings.useLog            = true; } else { mySettings.useLog              = false; }
 
   /******************************************************************************************************/
   // Check which devices are attached to the I2C pins, this self configures our connections to the sensors
@@ -490,6 +491,7 @@ void setup() {
   lastWebSocket       = currentTime;
   lastWarning         = currentTime;
   yieldTimeBefore     = currentTime;
+  lastLogFile         = currentTime;
 
   // how often do we reset the cpu usage time counters for the subroutines?
   intervalSYS                                     = intervalWiFi;
@@ -879,7 +881,7 @@ void loop() {
       EEPROM.put(0, mySettings);
       if (EEPROM.commit()) {
         lastSaveSettings = currentTime;
-        if (mySettings.debuglevel >0) { printSerialTelnet(F("EEPROM updated")); }
+        if (mySettings.debuglevel > 1) { printSerialTelnet(F("EEPROM updated")); }
       }
       deltaUpdate = millis() - startUpdate;
       if (maxUpdateEEPROM    < deltaUpdate) { maxUpdateEEPROM = deltaUpdate; }
@@ -888,6 +890,7 @@ void loop() {
       yieldTimeBefore = millis(); 
       yield(); 
       yieldTime += (millis()-yieldTimeBefore); 
+
     }
     
     /** JSON savinge to LittelFS crashes ESP8266
@@ -896,7 +899,7 @@ void loop() {
       startUpdate = millis();
       saveConfiguration(mySettings);
       lastSaveSettingsJSON = currentTime;
-      if (mySettings.debuglevel >0) { printSerialTelnet(F("Sensi.json updated\r\n")); }
+      if (mySettings.debuglevel > 1) { printSerialTelnet(F("Sensi.json updated\r\n")); }
       deltaUpdate = millis() - startUpdate;
       if (maxUpdateJS    < deltaUpdate) { maxUpdateJS = deltaUpdate; }
       if (AllmaxUpdateJS < deltaUpdate) { AllmaxUpdateJS = deltaUpdate; }
@@ -906,6 +909,25 @@ void loop() {
       yieldTime += (millis()-yieldTimeBefore); 
     }
     **/
+
+    // regularly check logfile
+    // if open close it, we dont close the logfile after each write
+    // if size larger than threshold create back up
+    if ((currentTime - lastLogFile) >= INTERVALLOGFILE) {
+      lastLogFile = currentTime;
+      D_printSerialTelnet(F("DBG:UPDATE: Log File\r\n"));
+      // Check if logfile needs to be trimmed ----------------------------------
+      if (logFile) {
+        if (logFile.size() > LOGFILESIZE) {
+          logFile.close();
+          LittleFS.remove("/Sensi.bak");
+          LittleFS.rename("/Sensi.log", "/Sensi.bak");
+        } else {
+          logFile.close(); // just close logfile
+        }              
+      }
+    }
+
     // Obtain basline from sensors to create internal baseline -------------------
     if ((currentTime - lastBaseline) >= intervalBaseline) {
       D_printSerialTelnet(F("DBG:UPDATE: BASELINE\r\n"));
@@ -918,7 +940,7 @@ void loop() {
           ccs811_port->setClock(I2C_FAST);
           mySettings.baselineCCS811 = ccs811.getBaseline();
           mySettings.baselineCCS811_valid = 0xF0;
-          if (mySettings.debuglevel == 10) { printSerialTelnet(F("CCS811 baseline placed into settings")); }
+          if (mySettings.debuglevel > 1) { printSerialTelnet(F("CCS811 baseline placed into settings")); }
           // warmupCCS811 = warmupCCS811 + stablebaseCCS811;
         }
       }
@@ -928,7 +950,7 @@ void loop() {
           mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
           mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
           mySettings.baselineSGP30_valid = 0xF0;
-          if (mySettings.debuglevel == 6) { printSerialTelnet(F("SGP30 baseline setting updated")); }
+          if (mySettings.debuglevel > 1) { printSerialTelnet(F("SGP30 baseline placed into settings")); }
           // warmupSGP30 = warmupSGP30 + intervalSGP30Baseline;
         }
       }
@@ -944,6 +966,7 @@ void loop() {
       lastWarning = currentTime;
       allGood = sensorsWarning(); // <<<<<<<<<<<<<<<<<<
       deltaUpdate = millis() - startUpdate;
+      if (mySettings.debuglevel > 1) { printSerialTelnet(F("AQ Warnings updated")); }
       if (maxUpdateALLGOOD    < deltaUpdate) { maxUpdateALLGOOD = deltaUpdate; }
       if (AllmaxUpdateALLGOOD < deltaUpdate) { AllmaxUpdateALLGOOD = deltaUpdate; }
     }
@@ -978,7 +1001,7 @@ void loop() {
       
       // blink LCD background ----------------------------------------------------
       if (blinkLCD) {
-        // if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("Sensors out of normal range!")); }
+        // if (mySettings.debuglevel > 1) { sprintf_P(tmpStr, PSTR("Sensors out of normal range!")); }
         lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
         lcd_port->setClock(I2C_REGULAR);
         lastBlink = currentTime;
@@ -1016,12 +1039,13 @@ void loop() {
         if (timeSynced) {
           if (localTime->tm_hour*60+localTime->tm_min == mySettings.rebootMinute) {
             if (mySettings.debuglevel > 0) { printSerialTelnet(F("Rebooting...")); }
-            Serial.flush() ;
+            Serial.flush();
+            logFile.close();
             ESP.reset();
           }  
         } else {
           // we might not want to reboot whenever a sensor fails
-          if (mySettings.debuglevel > 0) {  printSerialTelnet(F("Rebooting when time is synced...")); }
+          if (mySettings.debuglevel > 1) {  printSerialTelnet(F("Rebooting when time is synced...")); }
         }
       }
       deltaUpdate = millis() - startUpdate;
@@ -1197,16 +1221,18 @@ void helpMenu() {
   printSerialTelnet(F("| x: 8 NTP on/off                       | x: 17 OTA on/off                     |\r\n"));
   printSerialTelnet(F("| x: 9 mDNS on/off                      | x: 18 Serial on/off                  |\r\n"));
   printSerialTelnet(F("| x: 10 MAX30 on/off                    | x: 19 Telnet on/off                  |\r\n"));
-  printSerialTelnet(F("| x: 99 reset microcontroller           | x: 20 HTTP Updater on/off            |\r\n"));
+  printSerialTelnet(F("|                                       | x: 20 HTTP Updater on/off            |\r\n"));
+  printSerialTelnet(F("| x: 99 reset microcontroller           | x: 21 Logfile on/off                 |\r\n"));
   printSerialTelnet(F("|---------------------------------------|--------------------------------------|\r\n"));
   printSerialTelnet(F("| You will need to x99 to initialize the sensor                                |\r\n"));
   printSerialTelnet(F("==Debug Level===========================|==Debug Level==========================\r\n"));
-  printSerialTelnet(F("| l: 0 ALL off                          | l: 99 continous                      |\r\n"));
-  printSerialTelnet(F("| l: 1 minimal                          | l: 6 SGP30 max level                 |\r\n"));
-  printSerialTelnet(F("| l: 2 LCD max level                    | l: 7 MAX30 max level                 |\r\n"));
-  printSerialTelnet(F("| l: 3 WiFi max level                   | l: 8 MLX max level                   |\r\n"));
-  printSerialTelnet(F("| l: 4 SCD30 max level                  | l: 9 BME680/280 max level            |\r\n"));
-  printSerialTelnet(F("| l: 5 SPS30 max level                  | l: 10 CCS811 max level               |\r\n"));
+  printSerialTelnet(F("| l: 0 ALL off                          | l: 6 SGP30 max level                 |\r\n"));
+  printSerialTelnet(F("| l: 1 Errors only                      | l: 7 MAX30 max level                 |\r\n"));
+  printSerialTelnet(F("| l: 2 Minimal                          | l: 8 MLX max level                   |\r\n"));
+  printSerialTelnet(F("| l: 3 WiFi max level                   | l: 9 BME680/280 max level            |\r\n"));
+  printSerialTelnet(F("| l: 4 SCD30 max level                  | l: 10 CCS811 max level               |\r\n"));
+  printSerialTelnet(F("| l: 5 SPS30 max level                  | l: 11 LCD max level                  |\r\n"));
+  printSerialTelnet(F("| l: 99 continous                       |                                      |\r\n"));
   printSerialTelnet(FPSTR(doubleSeparator)); //===============================================================//
   printSerialTelnet(F("|  Dont forget to save settings                                                |\r\n"));
   printSerialTelnet(FPSTR(doubleSeparator)); //================================================================//
@@ -1301,7 +1327,7 @@ void inputHandle() {
     }
 
     else if (command == "L") {                                            // list content of Little File System
-      printSerialTelnet(F("LittleFS Contents:\r\n"));
+      printSerialTelnet(F(" Contents:\r\n"));
       if (fsOK) {
         Dir mydir = LittleFS.openDir("/");
         while (mydir.next()) {                      // List the file system contents
@@ -1643,11 +1669,16 @@ void inputHandle() {
             break;
           case 20:
             mySettings.useHTTPUpdater = !bool(mySettings.useHTTPUpdater);
-            if (mySettings.useHTTPUpdater==true) {  printSerialTelnet(F("HTTPUpdater is on\r\n")); } else { printSerialTelnet(F("HTTPUpdater is off\r\n")); }
+            if (mySettings.useHTTPUpdater==true) { printSerialTelnet(F("HTTPUpdater is on\r\n")); } else { printSerialTelnet(F("HTTPUpdater is off\r\n")); }
+            break;
+          case 21:
+            mySettings.useLog = !bool(mySettings.useLog);
+            if (mySettings.useLog==true) {  printSerialTelnet(F("Log file is on\r\n")); }      else { printSerialTelnet(F("Log file is off\r\n")); }
             break;
           case 99:
             printSerialTelnet(F("ESP is going to restart. Bye\r\n"));
             Serial.flush();
+            logFile.close();
             ESP.restart();
             break;
           default:
@@ -1710,6 +1741,7 @@ void printSettings() {
   sprintf_P(tmpStr, PSTR("Simpler Display: .............. %s\r\n"),  (mySettings.consumerLCD) ? FPSTR(mON) : FPSTR(mOFF));  printSerialTelnet(tmpStr);
   sprintf_P(tmpStr, PSTR("Serial terminal: .............. %s\r\n"),  (mySettings.useSerial) ? FPSTR(mON) : FPSTR(mOFF));  printSerialTelnet(tmpStr);
   sprintf_P(tmpStr, PSTR("Telnet terminal: .............. %s\r\n"),  (mySettings.useTelnet) ? FPSTR(mON) : FPSTR(mOFF));  printSerialTelnet(tmpStr);
+  sprintf_P(tmpStr, PSTR("Log file:....... .............. %s\r\n"),  (mySettings.useLog) ? FPSTR(mON) : FPSTR(mOFF));  printSerialTelnet(tmpStr);
   printSerialTelnet(FPSTR(doubleSeparator)); //================================================================//
   printSerialTelnet(F("-Network----------------------------\r\n"));
   sprintf_P(tmpStr, PSTR("HTTP: ......................... %s\r\n"),  (mySettings.useHTTP) ? FPSTR(mON) : FPSTR(mOFF)); printSerialTelnet(tmpStr);
@@ -1816,6 +1848,7 @@ void defaultSettings() {
   mySettings.useHTTPUpdater                = false; 
   mySettings.useTelnet                     = false; 
   mySettings.useSerial                     = true; 
+  mySettings.useLog                        = false; 
   strcpy_P(mySettings.ntpServer,           PSTR("time.nist.gov")); 
   strcpy_P(mySettings.timeZone,            PSTR("MST7")); // https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv
 }

@@ -68,6 +68,7 @@ struct Settings {
   bool          useHTTPUpdater;                            // upload firmware with HTTP interface
   bool          useTelnet;                                 // porivide telnet
   bool          useSerial;                                 // porivide Serial interface on USB
+  bool          useLog;                                    // keep track of serial prints in logfile
 };
 
 Settings mySettings;                                       // the settings

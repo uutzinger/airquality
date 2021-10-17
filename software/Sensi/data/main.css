@@ -6,8 +6,9 @@ html {
 body {
     font-family: 'Roboto', sans-serif;
     color: #444;
-    background-color: #ddd;
+    background-color: #fff;
     margin: 0;
+	text-align: left;
 }
 
 center {
@@ -28,11 +29,13 @@ header {
 h1 {
     margin: 0px;
     font-size: 32;
+	text-align: left;
 }
 
 h2 {
     margin: 0px;
     font-size: 26;
+	text-align: left;
 }
 
 center>div {
