@@ -10,33 +10,33 @@
 // Over the air program, standard functions from many web tutorials
 void onstartOTA() {
   if (mySettings.debuglevel > 0) { 
-    if (ArduinoOTA.getCommand() == U_FLASH) { printSerialTelnet(F("OTA: starting sketch\r\n")); }
-    else { printSerialTelnet(F("OTA: starting filesystem\r\n")); }  // U_SPIFFS, LittleFS
+    if (ArduinoOTA.getCommand() == U_FLASH) { R_printSerialTelnetLogln(F("OTA: starting sketch")); }
+    else { R_printSerialTelnetLogln(F("OTA: starting filesystem")); }  // U_SPIFFS, LittleFS
  }
  LittleFS.end();
  otaInProgress = true;
 }
 
 void onendOTA() {
-  if (mySettings.debuglevel > 0) { printSerialTelnet(F("\r\nOTA: End\r\n")); } 
+  if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("\r\nOTA: End")); } 
   otaInProgress = false;
   Serial.flush();
   ESP.restart();  
 }
 
 void onprogressOTA(unsigned int progress, unsigned int total) {
-  if (mySettings.debuglevel > 1) { sprintf_P(tmpStr, PSTR("OTA: progress: %u%%\r"),(progress / (total / 100))); printSerialTelnet(tmpStr); } 
+  if (mySettings.debuglevel > 1) { sprintf_P(tmpStr, PSTR("OTA: progress: %u%%\r"),(progress / (total / 100))); printSerialTelnetLog(tmpStr); } 
 }
 
 void onerrorOTA(ota_error_t error) {
   if (mySettings.debuglevel > 0) {
     sprintf_P(tmpStr, PSTR("OTA: error[%u]: "), error); 
-    printSerialTelnet(tmpStr);
-    if      (error == OTA_AUTH_ERROR)    { printSerialTelnet(F("Auth Failed\r\n")); }
-    else if (error == OTA_BEGIN_ERROR)   { printSerialTelnet(F("Begin Failed\r\n")); }
-    else if (error == OTA_CONNECT_ERROR) { printSerialTelnet(F("Connect Failed\r\n")); }
-    else if (error == OTA_RECEIVE_ERROR) { printSerialTelnet(F("Receive Failed\r\n")); }
-    else if (error == OTA_END_ERROR)     { printSerialTelnet(F("End Failed\r\n")); }
+    R_printSerialTelnetLog(tmpStr);
+    if      (error == OTA_AUTH_ERROR)    { printSerialTelnetLogln(F("Auth Failed")); }
+    else if (error == OTA_BEGIN_ERROR)   { printSerialTelnetLogln(F("Begin Failed")); }
+    else if (error == OTA_CONNECT_ERROR) { printSerialTelnetLogln(F("Connect Failed")); }
+    else if (error == OTA_RECEIVE_ERROR) { printSerialTelnetLogln(F("Receive Failed")); }
+    else if (error == OTA_END_ERROR)     { printSerialTelnetLogln(F("End Failed")); }
   }
   otaInProgress = false;  // get out of exclusive update loop
   LittleFS.begin();       // get FS back online
@@ -49,7 +49,8 @@ void updateOTA() {
     case IS_WAITING : { //---------------------
       // just wait...
       if ((currentTime - lastOTA) >= intervalWiFi) {
-        if ((mySettings.debuglevel == 3) && mySettings.useOTA) { printSerialTelnet(F("OTA: waiting for network to come up\r\n")); }
+        D_printSerialTelnet(F("D:U:OTA:IW.."));
+        if ((mySettings.debuglevel == 3) && mySettings.useOTA) { R_printSerialTelnetLogln(F("OTA: waiting for network to come up")); }
         lastOTA = currentTime;
       }
       break;
@@ -57,8 +58,8 @@ void updateOTA() {
 
     case START_UP : { //---------------------
       if ((currentTime - lastOTA) >= intervalWiFi) {
+        D_printSerialTelnet(F("D:U:OTA:S.."));
         lastOTA = currentTime;
-        D_printSerialTelnet(F("DBG:STARTUP: OTA\r\n"));
         ArduinoOTA.setPort(8266);                        // OTA port
         ArduinoOTA.setHostname(hostName);                // hostname
         ArduinoOTA.setPassword("w1ldc8ts");              // That should be set by programmer and not user 
@@ -69,7 +70,7 @@ void updateOTA() {
         ArduinoOTA.onError( onerrorOTA );
         // get it going
         ArduinoOTA.begin(true);                            //start and use mDNS
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("OTA: ready\r\n")); }
+        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("OTA: ready")); }
         stateOTA = CHECK_CONNECTION;
         AllmaxUpdateOTA = 0;
       } // currentTime
@@ -77,11 +78,12 @@ void updateOTA() {
     } // startup
 
     case CHECK_CONNECTION : { //---------------------
+      D_printSerialTelnet(F("D:U:OTA:CC.."));
       ArduinoOTA.handle();
       break;          
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("OTA Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("OTA Error: invalid switch statement")); break;}}
 
   } // end switch
 } // end update OTA

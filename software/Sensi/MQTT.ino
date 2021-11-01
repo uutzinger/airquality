@@ -30,7 +30,8 @@ void updateMQTT() {
     case IS_WAITING : { //---------------------
       // just wait...
       if ((currentTime - lastMQTT) >= intervalWiFi) {
-        if (mySettings.debuglevel == 3) { printSerialTelnet(F("MQTT: is waiting for network to come up\r\n")); }          
+        D_printSerialTelnet(F("D:U:MQTT:IW.."));
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MQTT: is waiting for network to come up")); }          
         lastMQTT = currentTime;
       }
       break;
@@ -38,18 +39,18 @@ void updateMQTT() {
     
     case START_UP : { //---------------------
       if ((currentTime - lastMQTT) >= intervalWiFi) {
+        D_printSerialTelnet(F("D:U:MQTT:S.."));
         lastMQTT = currentTime;
-        D_printSerialTelnet("DBG:STARTUP: MQTT\r\n");
         mqttClient.setCallback(mqttCallback);                             // start listener
         mqttClient.setServer(mySettings.mqtt_server, MQTT_PORT);          // start connection to server
-        if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("Connecting to MQTT: %s\r\n"), mySettings.mqtt_server); printSerialTelnet(tmpStr); }
+        if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("Connecting to MQTT: %s"), mySettings.mqtt_server); R_printSerialTelnetLogln(tmpStr); }
         mqtt_connected = false;
         // connect to server with or without username password
         if (strlen(mySettings.mqtt_username) > 0)   { mqtt_connected = mqttClient.connect("SensiEPS8266Client", mySettings.mqtt_username, mySettings.mqtt_password); }
         else                                        { mqtt_connected = mqttClient.connect("SensiEPS8266Client"); }
         if (mqtt_connected == false) { // try fall back server
           mqttClient.setServer(mySettings.mqtt_fallback, MQTT_PORT);
-          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, "Connecting to MQTT: %s\r\n", mySettings.mqtt_fallback); printSerialTelnet(tmpStr); }
+          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, "Connecting to MQTT: %s", mySettings.mqtt_fallback); R_printSerialTelnetLogln(tmpStr); }
           if (strlen(mySettings.mqtt_username) > 0) { mqtt_connected = mqttClient.connect("SensiEPS8266Client", mySettings.mqtt_username, mySettings.mqtt_password); }
           else                                      { mqtt_connected = mqttClient.connect("SensiEPS8266Client"); }
         }
@@ -58,11 +59,11 @@ void updateMQTT() {
           char MQTTtopicStr[64];                                     // String allocated for MQTT topic 
           sprintf_P(MQTTtopicStr,PSTR("%s/status"),mySettings.mqtt_mainTopic);
           mqttClient.publish(MQTTtopicStr, "Sensi up");
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MQTT: connected successfully\r\n")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT: connected successfully")); }
           stateMQTT = CHECK_CONNECTION;  // advance to connection monitoring and publishing
           AllmaxUpdateMQTT = 0;
         } else {  // connection failed
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("MQTT: conenction failed\r\n")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT: conenction failed")); }
         } // failed connectig, repeat starting up
       } //interval time
       break;
@@ -70,17 +71,18 @@ void updateMQTT() {
     
     case CHECK_CONNECTION : { //---------------------
       if ((currentTime - lastMQTT) >= intervalMQTT) {
+        D_printSerialTelnet(F("D:U:MQTT:CC.."));
         lastMQTT = currentTime;
         if (mqttClient.loop() != true) {
           mqtt_connected = false;
           stateMQTT = START_UP;
-          if (mySettings.debuglevel == 3) { printSerialTelnet(F("MQTT: is disconnected. Reconnecting to server\r\n")); }
+          if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MQTT: is disconnected. Reconnecting to server")); }
         }
       }
       break;          
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("MQTT Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT Error: invalid switch statement")); break;}}
           
   } // end switch state
 }
@@ -100,7 +102,7 @@ void updateMQTTMessage() {
       scd30JSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       scd30NewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("SCD30 MQTT updated\r\n")); }
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SCD30 MQTT updated")); }
       mqtt_sent = true;
       delay(1);
     }
@@ -110,7 +112,7 @@ void updateMQTTMessage() {
       sgp30JSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       sgp30NewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("SGP30 MQTT updated\r\n")); }      
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SGP30 MQTT updated")); }      
       mqtt_sent = true;
       delay(1);
     }
@@ -120,7 +122,7 @@ void updateMQTTMessage() {
       sps30JSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       sps30NewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("SPS30 MQTT updated\r\n")); }      
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SPS30 MQTT updated")); }      
       mqtt_sent = true;
       delay(1);
     }
@@ -130,7 +132,7 @@ void updateMQTTMessage() {
       ccs811JSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       ccs811NewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("CCS811 MQTT updated\r\n")); }      
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("CCS811 MQTT updated")); }      
       mqtt_sent = true;
       delay(1);
     }
@@ -140,7 +142,7 @@ void updateMQTTMessage() {
       bme680JSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       bme680NewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("BME680 MQTT updated\r\n")); }
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME680 MQTT updated")); }
       mqtt_sent = true;
       delay(1);
     }
@@ -150,7 +152,7 @@ void updateMQTTMessage() {
       bme280JSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       bme280NewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("BME280 MQTT updated\r\n")); }
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME280 MQTT updated")); }
       mqtt_sent = true;
       delay(1);
     }
@@ -161,7 +163,7 @@ void updateMQTTMessage() {
       mlxJSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       mlxNewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("MLX MQTT updated\r\n")); }
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MLX MQTT updated")); }
       mqtt_sent = true;
       delay(1);
     }
@@ -171,7 +173,7 @@ void updateMQTTMessage() {
       timeJSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       mlxNewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("Time MQTT updated\r\n")); }
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Time MQTT updated")); }
       mqtt_sent = true;
       delay(1);
     }
@@ -181,7 +183,7 @@ void updateMQTTMessage() {
       dateJSON(MQTTpayloadStr);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       mlxNewData = false;
-      if (mySettings.debuglevel == 3) { printSerialTelnet(F("Data MQTT updated\r\n")); }
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Data MQTT updated")); }
       mqtt_sent = true;
       delay(1);
     }
@@ -213,7 +215,7 @@ void updateMQTTMessage() {
       char MQTTpayloadStr[1024];                            // String allocated for MQTT message
       updateMQTTpayload(MQTTpayloadStr);                    // creating payload String
       sprintf_P(MQTTtopicStr, PSTR("%s/data/all"),mySettings.mqtt_mainTopic);
-      if (mySettings.debuglevel == 3) { printSerialTelnet(MQTTpayloadStr);}      
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(MQTTpayloadStr);}      
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       lastMQTTPublish = currentTime;
       mqtt_sent = true;
@@ -222,7 +224,7 @@ void updateMQTTMessage() {
   
   // --------------- dubg status ---------------------------------------------------------
   if (mqtt_sent == true) {
-    if (mySettings.debuglevel == 3) { printSerialTelnet(F("MQTT: published data\r\n")); }
+    if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MQTT: published data")); }
   }
 }
 
@@ -287,9 +289,9 @@ void updateMQTTpayload(char *payload) {
 void mqttCallback(char* topic, byte* payload, unsigned int len) {
   char payloadC[64];
   if (mySettings.debuglevel > 0) { 
-    sprintf_P(tmpStr, PSTR("MQTT: Message received\r\nMQTT: topic: %s\r\nMQTT: payload: \r\n"), topic); printSerialTelnet(tmpStr);
+    sprintf_P(tmpStr, PSTR("MQTT: Message received\r\nMQTT: topic: %s\r\nMQTT: payload: "), topic); R_printSerialTelnetLogln(tmpStr);
     memcpy( (void *)( payloadC ), (void *) payload, (len < 64) ? len : 63 );
     payloadC[len]='\0';
-    printSerialTelnet(payloadC);
+    printSerialTelnetLogln(payloadC);
   }
 }

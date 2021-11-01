@@ -20,7 +20,7 @@ bool initializeLCD() {
   lcd.begin(20, 4, *lcd_port);
   if (mySettings.useBacklight == true) {lcd.setBacklight(255); } else {lcd.setBacklight(0);}
 #endif
-  if (mySettings.debuglevel > 0) { printSerialTelnet(F("LCD initialized\r\n")); }
+  if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("LCD initialized")); }
   delay(50);
 
   return success;
@@ -71,7 +71,7 @@ bool updateSinglePageLCDwTime() {
     
   // Collect Data
   //////////////////////////////////////////////////////////////////////////////////////////////////
-  D_printSerialTelnet(F("DBG:LCD Collect Data\r\n"));
+  D_printSerialTelnet(F("D:LCD:CD.."));
 
   if (scd30_avail && mySettings.useSCD30 && (scd30_ppm != 0)) { // =CO2 Hum =========================
     myTemp = scd30_temp;
@@ -138,7 +138,7 @@ bool updateSinglePageLCDwTime() {
   // build display
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
-  D_printSerialTelnet(F("DBG:LCD populate fields\r\n"));
+  D_printSerialTelnet(F("D:LCD:PF.."));
 
   // clear display buffer
   strncpy(&lcdDisplay[0][0], clearLine , 20);
@@ -253,7 +253,7 @@ bool updateSinglePageLCDwTime() {
     strncpy(&lcdDisplay[3][12], lcdbuf, 8);
   }
   
-  D_printSerialTelnet(F("DBG:LCD update screen\r\n"));
+  D_printSerialTelnet(F("D:LCD:US.."));
 
   lcd_port->begin(lcd_i2c[0], lcd_i2c[1]);
   lcd_port->setClock(I2C_REGULAR);
@@ -266,13 +266,13 @@ bool updateSinglePageLCDwTime() {
   strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; lcd.print(lcdbuf); 
 
   if (mySettings.debuglevel == 11) { // if dbg, display the lines also on serial port
-    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
   }
 
-  D_printSerialTelnet(F("DBG:LCD done\r\n"));
+  D_printSerialTelnet(F("D:LCD:D.."));
 
   return success;
 
@@ -440,10 +440,10 @@ bool updateSinglePageLCD() {
   strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; lcd.print(lcdbuf); 
 
   if (mySettings.debuglevel == 11) { // if dbg, display the lines also on serial port
-    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
   }
 
   return success;
@@ -583,16 +583,16 @@ bool updateTwoPageLCD() {
 
   if (mySettings.debuglevel == 11) { // if dbg, display the lines also on serial port
     if (altDisplay) {
-      strncpy(lcdbuf, &lcdDisplayAlt[0][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-      strncpy(lcdbuf, &lcdDisplayAlt[1][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-      strncpy(lcdbuf, &lcdDisplayAlt[2][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-      strncpy(lcdbuf, &lcdDisplayAlt[3][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
+      strncpy(lcdbuf, &lcdDisplayAlt[0][0], 20); lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+      strncpy(lcdbuf, &lcdDisplayAlt[1][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+      strncpy(lcdbuf, &lcdDisplayAlt[2][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+      strncpy(lcdbuf, &lcdDisplayAlt[3][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
       
     } else {
-      strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-      strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-      strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-      strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
+      strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+      strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+      strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+      strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     }
   }
   
@@ -626,7 +626,7 @@ bool updateLCD() {
     strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6);
 
     checkCO2(float(scd30_ppm), qualityMessage, 1);  
-    if (mySettings.debuglevel == 11) { printSerialTelnet("SCD30 CO2: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { R_printSerialTelnetLog("SCD30 CO2: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[CO2_WARNING_Y][CO2_WARNING_X], qualityMessage, 1);
 
   }  // end if avail scd30
@@ -643,7 +643,7 @@ bool updateLCD() {
     strncpy(&lcdDisplay[HUM3_Y][HUM3_X], lcdbuf, 5);
 
     checkHumidity(bme680.humidity, qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnet("BME680Hum: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("BME680Hum: "); printSerialTelnetLog(qualityMessage); }
     // Where does it go on the display?
       
     sprintf_P(lcdbuf, PSTR("%+5.1fC"),bme680.temperature);
@@ -653,7 +653,7 @@ bool updateLCD() {
     strncpy(&lcdDisplay[IAQ_Y][IAQ_X], lcdbuf, 5);
   
     checkGasResistance(bme680.gas_resistance, qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnet("BME680 GasRes: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("BME680 GasRes: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[IAQ_WARNING_Y][IAQ_WARNING_X], qualityMessage, 1);
     
   } // end if avail bme680
@@ -666,11 +666,11 @@ bool updateLCD() {
     strncpy(&lcdDisplay[TVOC_Y][TVOC_X], lcdbuf, 4);
 
     checkCO2(float(sgp30.CO2), qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnet("SGP30 CO2: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("SGP30 CO2: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[eCO2_WARNING_Y][eCO2_WARNING_X], qualityMessage, 1);
 
     checkTVOC(sgp30.TVOC, qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnet("SGP30 tVOC: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("SGP30 tVOC: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[TVOC_WARNING_Y][TVOC_WARNING_X], qualityMessage, 1);
   } // end if avail sgp30
 
@@ -683,7 +683,7 @@ bool updateLCD() {
     strncpy(&lcdDisplay[TTVOC_Y][TTVOC_X], lcdbuf, 4);
 
     checkCO2(float(ccs811.getCO2()), qualityMessage,1 );
-    if (mySettings.debuglevel == 11) { printSerialTelnet("CCS811 CO2: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("CCS811 CO2: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[eeCO2_WARNING_Y][eeCO2_WARNING_X], qualityMessage, 1);
 
     checkTVOC(ccs811.getTVOC(), qualityMessage, 1);
@@ -704,11 +704,11 @@ bool updateLCD() {
     strncpy(&lcdDisplay[PM10_Y][PM10_X], lcdbuf, 3);
 
     checkPM2(valSPS30.MassPM2, qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnet("SPS30 PM2: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("SPS30 PM2: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[PM2_WARNING_Y][PM2_WARNING_X], qualityMessage, 1);
 
     checkPM10(valSPS30.MassPM10, qualityMessage,1 );
-    if (mySettings.debuglevel == 11) { printSerialTelnet("SPS30 PM10: "); printSerialTelnet(qualityMessage); }
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("SPS30 PM10: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[PM10_WARNING_Y][PM10_WARNING_X], qualityMessage, 1);
   }// end if avail SPS30
 
@@ -721,7 +721,7 @@ bool updateLCD() {
       strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6);
 
       checkFever((therm.object() + fhDelta + mlxOffset), qualityMessage, 1);
-      if (mySettings.debuglevel == 11) { printSerialTelnet("MAX Temp: "); printSerialTelnet(qualityMessage); }
+      if (mySettings.debuglevel == 11) { printSerialTelnetLog("MAX Temp: "); printSerialTelnetLog(qualityMessage); }
       strncpy(&lcdDisplay[MLX_WARNING_Y][MLX_WARNING_X], qualityMessage, 1);
     }
   }// end if avail  MLX
@@ -741,10 +741,10 @@ bool updateLCD() {
   strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';  lcd.print(lcdbuf); 
 
   if (mySettings.debuglevel == 11) {              // if dbg, display the lines also on serial port
-    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
-    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0'; printSerialTelnet(lcdbuf); printSerialTelnet("|\r\n");
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
   }
 
   return success;

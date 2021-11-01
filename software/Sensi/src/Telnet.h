@@ -14,6 +14,3 @@ unsigned long lastTelnet;                                     // last time we ch
 volatile WiFiStates stateTelnet = IS_WAITING;                 // keeping track of network time state
 
 void updateTelnet(void);
-void printSerialTelnet(char* str);
-void printSerialTelnet(byte* str);
-void printSerialTelnet(String str);

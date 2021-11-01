@@ -20,7 +20,7 @@ bool initializeBME280() {
   bme280.settings.commInterface = I2C_MODE;
   bme280.settings.I2CAddress = 0x76;
   
-  if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: setting oversampling for sensors\r\n")); }
+  if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: setting oversampling for sensors")); }
 
   if (fastMode == true) { 
     intervalBME280                  = intervalBME280Fast;
@@ -40,18 +40,18 @@ bool initializeBME280() {
     bme280.settings.humidOverSample = bme280_HumOversampleSlow;
   }
   
-  if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("BM[E/P]280: interval: %lu\r\n"), intervalBME280); printSerialTelnet(tmpStr); }
+  if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("BM[E/P]280: interval: %lu"), intervalBME280); printSerialTelnetLogln(tmpStr); }
   
   uint8_t chipID=bme280.beginI2C(*bme280_port);
   if (chipID == 0x58) {
     BMEhum_avail = false;
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BMP280: initialized\r\n")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BMP280: initialized")); }
   } else if(chipID == 0x60) {
     BMEhum_avail = true;
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: initialized\r\n")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME280: initialized")); }
   } else {
     BMEhum_avail = false;
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BMx280: sensor chip ID neither matches BMP280 nor BME280\r\n")); }    
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BMx280: sensor chip ID neither matches BMP280 nor BME280")); }    
     stateBME280 = HAS_ERROR;
     errorRecBME280 = currentTime + 5000;
     return(false);
@@ -119,7 +119,7 @@ bool initializeBME280() {
 
   if ((mySettings.avgP > 30000.0) && (mySettings.avgP <= 200000.0)) { bme280_pressure24hrs = mySettings.avgP; }
   
-  if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: initialized\r\n")); }
+  if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME280: initialized")); }
   delay(50);
   return(true);
 
@@ -135,6 +135,7 @@ bool updateBME280() {
 
     case IS_SLEEPING: { // ------------------ Slow and Energy Saving Mode: Wait until time to start measurement
       if ((currentTime - lastBME280) >= intervalBME280) {
+        D_printSerialTelnet(F("D:U:BME280:IS.."));
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
         bme280_port->setClock(I2C_FAST);
         bme280.setMode(MODE_FORCED); // Start reading
@@ -146,12 +147,13 @@ bool updateBME280() {
 
     case IS_BUSY: {  // ---------------------- Slow and Energy Saving Mode: Wait until measurement complete
       if ((currentTime - lastBME280) >= bme280_measuretime) { // wait until measurement completed
+        D_printSerialTelnet(F("D:U:BME280:IB.."));
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
         bme280_port->setClock(I2C_FAST);
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
           if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
-            if (mySettings.debuglevel > 0) { printSerialTelnet(F("BM[E/P]280: failed to complete reading\r\n")); }
+            if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BM[E/P]280: failed to complete reading")); }
             stateBME280 = HAS_ERROR;
             errorRecBME280 = currentTime + 5000;
         }  else { 
@@ -163,12 +165,14 @@ bool updateBME280() {
     
     case IS_MEASURING: { // ------------------ Fast and Accurate Mode: Wait until mesaurement complete
       if ((currentTime - lastBME280) >= intervalBME280) {
+        D_printSerialTelnet(F("D:U:BME280:IM.."));
         stateBME280 = DATA_AVAILABLE;
       }
       break;
     }
 
     case DATA_AVAILABLE : { //--------------- Data is available either from slow or fast mode
+      D_printSerialTelnet(F("D:U:BME280:DA.."));
       bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
       bme280_port->setClock(I2C_FAST);
       bme280_temp     = bme280.readTempC();
@@ -181,7 +185,7 @@ bool updateBME280() {
         bme280_hum = -1.0;
         bme280_ah =-1.0;
       }
-      if (mySettings.debuglevel == 9) { printSerialTelnet(F("BM[E/P]280: readout completed\r\n")); }
+      if (mySettings.debuglevel == 9) { R_printSerialTelnetLogln(F("BM[E/P]280: readout completed")); }
       bme280NewData = true;
       bme280NewDataWS = true;
       lastBME280 = currentTime;
@@ -201,6 +205,7 @@ bool updateBME280() {
 
     case HAS_ERROR : {
       if (currentTime > errorRecBME280) {      
+        D_printSerialTelnet(F("D:U:BME280:E.."));
         if (bme280_error_cnt++ > 3) { 
           success = false; 
           bme280_avail = false;
@@ -241,12 +246,12 @@ bool updateBME280() {
           stateBME280 = IS_SLEEPING;                                      //
         }
         
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280: reset\r\n")); }
+        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reset")); }
       }
       break; 
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME280 Error: invalid switch statement\r\n")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280 Error: invalid switch statement")); break;}}
    
   } // end cases
   return success;

@@ -166,8 +166,8 @@ bool serialReceived = false;                               // keep track of seri
 char tmpStr[128];                                          // Buffer for formatting text that will be sent to USB serial or telnet
 
 //https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
-const char singleSeparator[] PROGMEM      = {"--------------------------------------------------------------------------------\r\n"};
-const char doubleSeparator[] PROGMEM      = {"================================================================================\r\n"};
+const char singleSeparator[] PROGMEM      = {"--------------------------------------------------------------------------------"};
+const char doubleSeparator[] PROGMEM      = {"================================================================================"};
 const char mON[] PROGMEM                  = {"on"};
 const char mOFF[] PROGMEM                 = {"off"};
 const char clearHome[] PROGMEM            = {"\e[2J\e[H\r\n"};
@@ -187,13 +187,15 @@ unsigned long lastLogFile; // last time we checked logfile size or closes the lo
 /******************************************************************************************************/
 // Support Functions
 /******************************************************************************************************/
-bool checkI2C(byte address, TwoWire *myWire);
+#include <Wire.h>
+bool checkI2C(byte address, TwoWire *myWire);                   // is device attached at this address?
 void serialTrigger(const char* mess, int timeout);              // delays until user input
 void inputHandle(void);                                         // hanldes user input
 void helpMenu(void);                                            // lists user functions
 void printSettings(void);                                       // lists program settings
 void defaultSettings(void);                                     // converts settings back to default. need to save to EEPROM to retain
 void printSensors(void);                                        // lists current sensor values
-void printState(void);                                        // lists system states
-void timeJSON(char *payload);    
-void dateJSON(char *payload);
+void printState(void);                                          // lists states of system devices and sensors
+void timeJSON(char *payload);                                   // provide time
+void dateJSON(char *payload);                                   // provide date
+

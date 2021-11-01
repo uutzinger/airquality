@@ -15,6 +15,7 @@
 #endif
 
 void initializeWiFi() {    
+  
   if (WiFi.status() == WL_NO_SHIELD) {
     wifi_avail = false;
     stateWiFi = IS_WAITING;
@@ -22,11 +23,15 @@ void initializeWiFi() {
     stateMDNS = IS_WAITING;
     stateOTA  = IS_WAITING;
     stateNTP  = IS_WAITING;
-    if (mySettings.debuglevel > 0) { Serial.println(F("WiFi: is not available")); }
+    if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("WiFi: is not available")); }
   } else {
     wifi_avail = true;
-    if (mySettings.debuglevel > 0) { Serial.println(F("WiFi: is available")); }
-    if (mySettings.debuglevel > 0) { Serial.print(F("Wifi: MAC: ")); Serial.println(WiFi.macAddress()); }
+    if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("WiFi: is available"));
+      byte mac[6]; 
+      WiFi.macAddress(mac);
+      sprintf_P(tmpStr, PSTR("WiFi MAC: %02X:%02X:%02X:%02X:%02X:%02X"), mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]); 
+      R_printSerialTelnetLogln(tmpStr); 
+    }
     if (WiFi.status() == WL_CONNECTED) { WiFi.disconnect(); } // make sure we are not connected
     if (mySettings.useWiFi == true) {
       #if defined(SHORTHOSTNAME)
@@ -41,12 +46,12 @@ void initializeWiFi() {
       stateMDNS = IS_WAITING;
       stateOTA  = IS_WAITING;
       stateNTP  = IS_WAITING;
-      if (mySettings.debuglevel > 0) { Serial.println(F("WiFi: mode set to client")); }
+      if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("WiFi: mode set to client")); }
     } else {
       wifi_avail = false;
       stateWiFi = IS_WAITING;
       WiFi.mode(WIFI_OFF);
-      if (mySettings.debuglevel > 0) { Serial.println(F("WiFi: turned off")); }
+      if (mySettings.debuglevel > 0) {R_printSerialTelnetLogln(F("WiFi: turned off")); }
     }
     stateMQTT = IS_WAITING;
     stateMDNS = IS_WAITING;
@@ -68,7 +73,8 @@ void updateWiFi() {
     }
 
     case START_UP : { //---------------------
-      if (mySettings.debuglevel == 3) { Serial.println(F("WiFi: setting up known APs")); }
+      D_printSerialTelnet(F("D:U:WiFi:SU.."));
+      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("WiFi: setting up known APs")); }
       if (strlen(mySettings.pw1) > 0) { wifiMulti.addAP(mySettings.ssid1, mySettings.pw1); } else { wifiMulti.addAP(mySettings.ssid1); }
       if (strlen(mySettings.pw2) > 0) { wifiMulti.addAP(mySettings.ssid2, mySettings.pw2); } else { wifiMulti.addAP(mySettings.ssid2); }
       if (strlen(mySettings.pw3) > 0) { wifiMulti.addAP(mySettings.ssid3, mySettings.pw3); } else { wifiMulti.addAP(mySettings.ssid3); }
@@ -86,9 +92,14 @@ void updateWiFi() {
     
     case IS_CONNECTING : { //---------------------
       if ((currentTime - lastWiFi) >= intervalWiFi) {
+        D_printSerialTelnet(F("D:U:WiFi:IC.."));
         if (wifiMulti.run() == WL_CONNECTED) {
-          if (mySettings.debuglevel == 3) { Serial.print(F("WiFi: connected to: ")); Serial.print(WiFi.SSID()); }
-          if (mySettings.debuglevel == 3) { Serial.print(F(" at IP address: "));     Serial.println(WiFi.localIP()); }
+          if (mySettings.debuglevel == 3) { 
+            R_printSerialTelnetLog(F("WiFi: connected to: ")); R_printSerialTelnetLogln(WiFi.SSID());
+            IPAddress lip = WiFi.localIP();
+            sprintf_P(tmpStr, PSTR("Local IP: %d.%d.%d.%d"), lip[0], lip[1], lip[2], lip[3]); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           wifi_connected = true;
           stateWiFi        = CHECK_CONNECTION;
           stateMQTT        = START_UP;
@@ -102,7 +113,7 @@ void updateWiFi() {
           randomSeed(micros()); // init random generator (time until connect is random)
           AllmaxUpdateWifi = 0;
         } else {
-          if (mySettings.debuglevel == 3) { Serial.println(F("WiFi: is searching for known AP")); }
+          if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("WiFi: is searching for known APs")); }
           wifi_connected = false;
         }
         lastWiFi = currentTime;
@@ -113,17 +124,18 @@ void updateWiFi() {
     
     case CHECK_CONNECTION : { //---------------------
       if ((currentTime - lastWiFi) >= intervalWiFi) {
+        D_printSerialTelnet(F("D:U:WiFi:CC.."));
         if (wifiMulti.run(connectTimeOut) != WL_CONNECTED) { // if connected returns status, does not seem to need frequent calls
-          if (mySettings.debuglevel  > 0) { Serial.println(F("WiFi: is searching for known AP")); }
+          if (mySettings.debuglevel  > 0) { R_printSerialTelnetLogln(F("WiFi: is searching for known AP")); }
           wifi_connected = false;
           AllmaxUpdateWifi = 0;
         } else {
           if (mySettings.debuglevel  == 3) { 
             IPAddress ip = WiFi.localIP(); // uint8_t first_octet, uint8_t second_octet, uint8_t third_octet, uint8_t fourth_octet
-            printSerialTelnet(F("WiFi: remains connected to: ")); 
-            printSerialTelnet(WiFi.SSID());
+            R_printSerialTelnetLog(F("WiFi: remains connected to: ")); 
+            printSerialTelnetLog(WiFi.SSID());
             sprintf_P(tmpStr, PSTR(" with IP address %hu.%hu.%hu.%hu\r\n"), ip[0], ip[1], ip[2], ip[3]); 
-            printSerialTelnet(tmpStr); 
+            printSerialTelnetLogln(tmpStr); 
           }
           wifi_connected = true;
         }
@@ -132,7 +144,7 @@ void updateWiFi() {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("WiFi Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("WiFi Error: invalid switch statement")); break;}}
   
   } // end switch case
 } // update wifi

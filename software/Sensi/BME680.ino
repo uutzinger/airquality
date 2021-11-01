@@ -23,7 +23,7 @@ bool initializeBME680() {
   bme680_port->setClock(I2C_FAST);
   
   if (bme680.begin(0x77, true, bme680_port) == true) { 
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: setting oversampling for sensors\r\n")); }
+    if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: setting oversampling for sensors")); }
     if (fastMode == true) { 
       intervalBME680 = intervalBME680Fast; 
       bme680.setHumidityOversampling(bme680_HumOversampleFast); 
@@ -32,7 +32,7 @@ bool initializeBME680() {
       bme680.setIIRFilterSize(bme680_FilterSizeFast);
       // should setODR (output data rate)
       // dont know how to set low power and ultra low power mode
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: IIR filter set for fast measurements\r\n")); }
+      if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: IIR filter set for fast measurements")); }
     } else { 
       intervalBME680 = intervalBME680Slow; 
       bme680.setHumidityOversampling(bme680_HumOversampleSlow); 
@@ -41,22 +41,22 @@ bool initializeBME680() {
       bme680.setIIRFilterSize(bme680_FilterSizeSlow); 
       // should setODR (output data rate)
       // dont know how to set low power and ultra low power mode
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: IIR filter set for slow measurements\r\n")); }
+      if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: IIR filter set for slow measurements")); }
     }
 
     bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: gas measurement set to 320\xC2\xB0\x43 for 150ms\r\n")); }
+    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: gas measurement set to 320\xC2\xB0\x43 for 150ms")); }
 
     BMEhum_avail = true;
 
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: initialized\r\n")); }
+    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: initialized")); }
 
     tmpTime = millis();
     endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
     lastBME680 = currentTime;
 
     if (endTimeBME680 == 0) { // if measurement was not started
-      if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
+      if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: failed to begin reading")); }
       stateBME680 = HAS_ERROR; 
       errorRecBME680 = currentTime + 5000;
       return(false);
@@ -64,7 +64,7 @@ bool initializeBME680() {
       unsigned long tmpInterval = endTimeBME680 - tmpTime;
       if (tmpInterval > intervalBME680) {intervalBME680 = tmpInterval;}
       stateBME680 = IS_BUSY; 
-      if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms\r\n"), tmpInterval); printSerialTelnet(tmpStr); }
+      if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval);printSerialTelnetLogln(tmpStr); }
 
       // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
       // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
@@ -76,10 +76,10 @@ bool initializeBME680() {
       alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
     }
 
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu\r\n"), intervalBME680); printSerialTelnet(tmpStr); }
+    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu"), intervalBME680);printSerialTelnetLog(tmpStr); }
 
   } else {
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: sensor not detected, please check wiring\r\n")); }
+    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: sensor not detected, please check wiring")); }
     stateBME680 = HAS_ERROR;
     errorRecBME680 = currentTime + 5000;
     return(false);
@@ -100,13 +100,14 @@ bool updateBME680() {
     
     case IS_IDLE : { //---------------------
       if ((currentTime - lastBME680) >= intervalBME680) {
+        D_printSerialTelnet(F("D:U:BME680:II.."));
         bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
         bme680_port->setClock(I2C_FAST);
         tmpTime = millis();
         endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
         lastBME680 = currentTime;
         if (endTimeBME680 == 0) { // if measurement was not started
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: failed to begin reading")); }
           stateBME680 = HAS_ERROR; 
           errorRecBME680 = currentTime + 5000;
         } else {
@@ -125,7 +126,7 @@ bool updateBME680() {
             alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
           }
           stateBME680 = IS_BUSY; 
-          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms\r\n"), tmpInterval); printSerialTelnet(tmpStr); }
+          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
         }
       }
       break;
@@ -133,16 +134,18 @@ bool updateBME680() {
     
     case IS_BUSY : { //---------------------
       if (currentTime > endTimeBME680) {
+        D_printSerialTelnet(F("D:U:BME680:IB.."));
         stateBME680 = DATA_AVAILABLE;
       }
       break;
     }
 
     case DATA_AVAILABLE : { //---------------------
+      D_printSerialTelnet(F("D:U:BME680:DA.."));
       bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
       bme680_port->setClock(I2C_FAST);
       if (bme680.endReading() ==  false) {
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: Failed to complete reading, timeout\r\n")); }
+        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: Failed to complete reading, timeout")); }
         stateBME680 = HAS_ERROR;
         errorRecBME680 = currentTime + 5000;
       } else {
@@ -178,7 +181,7 @@ bool updateBME680() {
         else {bme680_pressure24hrs = (1.0-alphaBME680) * bme680_pressure24hrs + alphaBME680* bme680.pressure; }
         mySettings.avgP = bme680_pressure24hrs;
 
-        if (mySettings.debuglevel == 9) { printSerialTelnet(F("BME680: readout completed\r\n")); }
+        if (mySettings.debuglevel == 9) { R_printSerialTelnetLogln(F("BME680: readout completed")); }
         bme680NewData = true;
         bme680NewDataWS = true;
 
@@ -190,6 +193,7 @@ bool updateBME680() {
 
     case HAS_ERROR : {
       if (currentTime > errorRecBME680) {
+        D_printSerialTelnet(F("D:U:BME680:E.."));
         if (bme680_error_cnt++ > 3) { 
           success = false; 
           bme680_avail = false;
@@ -215,7 +219,7 @@ bool updateBME680() {
           bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
           BMEhum_avail = true;
         } else {
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: sensor not detected, please check wiring\r\n")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: sensor not detected, please check wiring")); }
           stateBME680 = HAS_ERROR;
           errorRecBME680 = currentTime + 5000;
           break;
@@ -226,7 +230,7 @@ bool updateBME680() {
         lastBME680 = currentTime;
   
         if (endTimeBME680 == 0) { // if measurement was not started
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: failed to begin reading\r\n")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: failed to begin reading")); }
           stateBME680 = HAS_ERROR; 
           errorRecBME680 = currentTime + 5000;
         } else {
@@ -244,15 +248,15 @@ bool updateBME680() {
           }
           stateBME680 = IS_BUSY; 
   
-          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms\r\n"), tmpInterval); printSerialTelnet(tmpStr); }
+          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); R_printSerialTelnetLogln(tmpStr); }
         }
   
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680: re-initialized\r\n")); }
+        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: re-initialized")); }
       }
       break; 
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("BME680 Error: invalid switch statement\r\n")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680 Error: invalid switch statement")); break;}}
    
   } // end cases
   

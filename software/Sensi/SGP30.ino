@@ -45,11 +45,11 @@ bool initializeSGP30() {
   
   if (fastMode) { intervalSGP30 = intervalSGP30Fast;}
   else          { intervalSGP30 = intervalSGP30Slow;}
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: Interval: %lu\r\n"), intervalSGP30); printSerialTelnet(tmpStr); }
+  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: Interval: %lu"), intervalSGP30); R_printSerialTelnetLogln(tmpStr); }
   sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
   sps30_port->setClock(I2C_FAST);
   if (sgp30.begin(*sgp30_port) == false) {
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: No SGP30 Detected. Check connections\r\n")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: No SGP30 Detected. Check connections")); }
     stateSGP30 = HAS_ERROR;
     errorRecSGP30 = currentTime + 5000;
     return(false);
@@ -57,17 +57,17 @@ bool initializeSGP30() {
   
   //Initializes sensor for air quality readings
   sgp30.initAirQuality();
-  if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: measurements initialized\r\n")); }
+  if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: measurements initialized")); }
   stateSGP30 = IS_MEASURING;
   if (mySettings.baselineSGP30_valid == 0xF0) {
     sgp30.setBaseline((uint16_t)mySettings.baselineeCO2_SGP30, (uint16_t)mySettings.baselinetVOC_SGP30);
-    if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: found valid baseline\r\n")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: found valid baseline")); }
     warmupSGP30 = millis() + warmupSGP30_withbaseline;
   } else {
     warmupSGP30 = millis() + warmupSGP30_withoutbaseline;
   }
   
-  if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: initialized\r\n")); }
+  if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: initialized")); }
   delay(50);
   return(true);
 }
@@ -97,6 +97,7 @@ bool updateSGP30() {
     
     case IS_MEASURING : { //---------------------
       if ((currentTime - lastSGP30Humidity) > intervalSGP30Humidity) {
+        D_printSerialTelnet(F("D:U:SGP:H.."));
         if (bme680_avail && mySettings.useBME680) {
           sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
           sps30_port->setClock(I2C_FAST);
@@ -105,37 +106,39 @@ bool updateSGP30() {
           // 0x0001 = 1/256 g/m^3
           // 0xFFFF = 256 +256/256 g/m^3
           if (bme680_ah > 0.) { sgp30.setHumidity(uint16_t(bme680_ah * 256.0 + 0.5)); }
-          if (mySettings.debuglevel == 6) { printSerialTelnet(F("SGP30: humidity updated for eCO2\r\n")); }
+          if (mySettings.debuglevel == 6) { R_printSerialTelnetLogln(F("SGP30: humidity updated for eCO2")); }
         }
         lastSGP30Humidity = currentTime;        
       } // end humidity update 
 
       if ((currentTime - lastSGP30Baseline) > intervalSGP30Baseline) {
+        D_printSerialTelnet(F("D:U:SGP:B.."));
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
         sps30_port->setClock(I2C_FAST);
         sgp30Error = sgp30.getBaseline(); // this has 10ms delay
         if (sgp30Error != SGP30_SUCCESS) {
-           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error obtaining baseline: %s\r\n"), SGP30errorString(sgp30Error)); printSerialTelnet(tmpStr); }
+           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error obtaining baseline: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
            stateSGP30 = HAS_ERROR;
            errorRecSGP30 = currentTime + 5000;
            break;
         } else {
-          if (mySettings.debuglevel == 6) { printSerialTelnet(F("SGP30: obtaining internal baseline\r\n")); }
+          if (mySettings.debuglevel == 6) { R_printSerialTelnetLogln(F("SGP30: obtaining internal baseline")); }
           lastSGP30Baseline= millis();
         }
       }
 
       if ((currentTime - lastSGP30) > intervalSGP30) {
+        D_printSerialTelnet(F("D:U:SGP:IM.."));
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
         sps30_port->setClock(I2C_FAST);
         sgp30Error = sgp30.measureAirQuality();
         if (sgp30Error != SGP30_SUCCESS) {
-          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error measuring eCO2 & tVOC: %s\r\n"), SGP30errorString(sgp30Error)); printSerialTelnet(tmpStr); }
+          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error measuring eCO2 & tVOC: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
           stateSGP30 = HAS_ERROR;
           errorRecSGP30 = currentTime + 5000;
           break;
         } else {
-          if (mySettings.debuglevel == 6) { printSerialTelnet(F("SGP30: eCO2 & tVOC measured\r\n"));  }
+          if (mySettings.debuglevel == 6) { R_printSerialTelnetLogln(F("SGP30: eCO2 & tVOC measured"));  }
           sgp30NewData = true;
           sgp30NewDataWS = true;
           sgp30_error_cnt = 0;
@@ -147,6 +150,7 @@ bool updateSGP30() {
         
     case HAS_ERROR : { //------------------
       if (currentTime > errorRecSGP30) {      
+        D_printSerialTelnet(F("D:U:SGP:E.."));
         if (sgp30_error_cnt++ > 3) { 
           success = false; 
           sgp30_avail = false;
@@ -159,11 +163,11 @@ bool updateSGP30() {
           stateSGP30 = HAS_ERROR;
           errorRecSGP30 = currentTime + 5000;
           success = false;
-          if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: re-initialization failed\r\n")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: re-initialization failed")); }
           break;
         }
         sgp30.initAirQuality();
-        if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30: re-initialized\r\n")); }
+        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: re-initialized")); }
         if (mySettings.baselineSGP30_valid == 0xF0) {
           sgp30.setBaseline((uint16_t)mySettings.baselineeCO2_SGP30, (uint16_t)mySettings.baselinetVOC_SGP30);
           warmupSGP30 = millis() + warmupSGP30_withbaseline;
@@ -175,7 +179,7 @@ bool updateSGP30() {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("SGP30 Error: invalid switch statement\r\n")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30 Error: invalid switch statement")); break;}}
     
   } // switch state
 

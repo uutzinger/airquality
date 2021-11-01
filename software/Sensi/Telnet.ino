@@ -5,47 +5,8 @@
 #ifdef EDITVSC
 #include "src/Config.h"
 #include "src/Sensi.h"
+#include "src/Telnet.h"
 #endif
-
-void printSerialTelnet(char* str) {
-  char buf[19];
-  if ( mySettings.useSerial )                    { Serial.print(str); }
-  if ( mySettings.useTelnet && telnetConnected ) { Telnet.print(str); } 
-  if ( mySettings.useLog ) { 
-    if (time_avail==true){
-      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
-              (localTime->tm_mon+1), 
-              localTime->tm_mday,
-              (localTime->tm_year%100),
-              localTime->tm_hour, 
-              localTime->tm_min,    
-              localTime->tm_sec);
-      logFile.print(buf);
-    }
-    if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }
-    if (  logFile ) { logFile.print(str); }
-  }
-}
-
-void printSerialTelnet(String str) {
-  char buf[19];
-  if ( mySettings.useSerial )                    { Serial.print(str); }
-  if ( mySettings.useTelnet && telnetConnected ) { Telnet.print(str); } 
-  if ( mySettings.useLog ) {
-    if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }  // we close log file regularly in main loop
-    if (time_avail==true){
-      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
-              (localTime->tm_mon+1), 
-              localTime->tm_mday, 
-              (localTime->tm_year%100),
-              localTime->tm_hour, 
-              localTime->tm_min,    
-              localTime->tm_sec);
-      logFile.print(buf);
-    }
-    if (  logFile ) { logFile.print(str); } 
-  } 
-}
 
 void onTelnetInputReceived(String str){
   telnetInputBuff = str;
@@ -55,9 +16,9 @@ void onTelnetInputReceived(String str){
 // (optional) callback functions for telnet events
 void onTelnetConnect(String ip) { 
   if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) {
-    Serial.print(F("Telnet: "));
-    Serial.print(ip);
-    Serial.println(F(" connected"));
+    R_printSerialTelnetLog(F("Telnet: "));
+      printSerialTelnetLog(ip);
+      printSerialTelnetLogln(F(" connected"));
   }
   telnetConnected = true;
   Telnet.print(F("\nWelcome "));
@@ -68,27 +29,27 @@ void onTelnetConnect(String ip) {
 
 void onTelnetDisconnect(String ip) {
   if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) {
-    Serial.print(F("Telnet: "));
-    Serial.print(ip);
-    Serial.print(F(" disconnected\r\n"));
+    R_printSerialTelnetLog(F("Telnet: "));
+      printSerialTelnetLog(ip);
+      printSerialTelnetLogln(F(" disconnected"));
   }
   telnetConnected = false;
 }
 
 void onTelnetReconnect(String ip) {
   if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) {
-    Serial.print(F("Telnet: "));
-    Serial.print(ip);
-    Serial.print(F(" reconnected\r\n"));
+    R_printSerialTelnetLog(F("Telnet: "));
+      printSerialTelnetLog(ip);
+      printSerialTelnetLogln(F(" reconnected"));
   }
   telnetConnected = true;
 }
 
 void onTelnetConnectionAttempt(String ip) {
   if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) {
-    Serial.print(F("- Telnet: "));
-    Serial.print(ip);
-    Serial.print(F(" tried to connect\r\n"));
+    R_printSerialTelnetLog(F("- Telnet: "));
+      printSerialTelnetLog(ip);
+      printSerialTelnetLogln(F(" tried to connect"));
   }
   telnetConnected = false;
 }
@@ -100,7 +61,8 @@ void updateTelnet() {
     case IS_WAITING : { //---------------------
       // just wait...
       if ((currentTime - lastTelnet) >= intervalWiFi) {
-        if ((mySettings.debuglevel == 3) && mySettings.useTelnet) { Serial.println(F("Telnet: waiting for network to come up")); }          
+        D_printSerialTelnet(F("D:U:Tel:IW.."));
+        if ((mySettings.debuglevel == 3) && mySettings.useTelnet) { printSerialTelnetLogln(F("Telnet: waiting for network to come up")); }          
         lastTelnet = currentTime;
       }
       break;
@@ -108,11 +70,8 @@ void updateTelnet() {
 
     case START_UP : { //---------------------
       if ((currentTime - lastTelnet) >= intervalWiFi) {
+        D_printSerialTelnet(F("D:U:Tel:S.."));
         lastTelnet = currentTime;
-
-        #if defined(DEBUG)
-        Serial.println(F("DBG:STARTUP: Telnet"));
-        #endif
                           
         // Telnetsetup
         Telnet.onConnect(onTelnetConnect);
@@ -122,15 +81,13 @@ void updateTelnet() {
         Telnet.onInputReceived(onTelnetInputReceived);
                   
         if (Telnet.begin()) {
-          if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) { Serial.println(F("Telnet: running")); }
+          if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) { R_printSerialTelnetLogln(F("Telnet: running")); }
           stateTelnet = CHECK_CONNECTION;
         } else {
-          if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) { Serial.println(F("Telnet: error")); }
+          if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) { R_printSerialTelnetLogln(F("Telnet: error")); }
         }
           
-        #if defined(DEBUG) 
-        Serial.println(F("DBG:STARTUP: Telnet END"));
-        #endif 
+        D_printSerialTelnet(F("D:U:Tel:SE.."));
         
       } // end time interval
       break;
@@ -138,14 +95,14 @@ void updateTelnet() {
 
     case CHECK_CONNECTION : { //---------------------
       //if ((currentTime - lastTelnet) >= intervalWiFi) {
+      D_printSerialTelnet(F("D:U:Tel:CC.."));
       Telnet.loop();
       //  lastTelnet = currentTime;
       //}
       break;          
     }
 
-    default: {if (mySettings.debuglevel > 0) { printSerialTelnet(F("Telnet Error: invalid switch statement")); break;}}
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("Telnet Error: invalid switch statement")); break;}}
 
-    
   } // switch
 } // update Telnet
