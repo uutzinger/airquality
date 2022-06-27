@@ -62,8 +62,7 @@ void updateNTP() {
     default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("NTP Error: invalid switch statement")); break;}}
 
   } // end switch state
-} // ntp
-
+} // end ntp
 
 void processSyncEvent (NTPEvent_t ntpEvent) {
     switch (ntpEvent.event) {

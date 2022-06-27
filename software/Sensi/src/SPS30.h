@@ -33,7 +33,7 @@ unsigned long timeToStableSPS30;                           // how long it takes 
 unsigned long errorRecSPS30;
 char buf[64];                                              // messaging buffer
 uint8_t ret, st;                                           // return variables
-float totalParticles;                                      // we need to calculate time to stable readings depending on total particle concentration
+float totalParticles = -1.;                                      // we need to calculate time to stable readings depending on total particle concentration
 uint32_t autoCleanIntervalSPS30;                           // current cleaning interval setting in sensor
 bool sps30_avail = false;                                  // do we have this sensor?
 bool sps30NewData = false;                                 // do we have new data?
@@ -43,7 +43,7 @@ uint8_t sps30_i2c[2];                                      // the pins for the i
 volatile SensorStates stateSPS30 = IS_BUSY;                // sensor state
 struct sps_values valSPS30;                                // will hold the readings from sensor
 uint8_t sps_error_cnt = 0;                                 // give a few retiries if error data length occurs while reading sensor values
-uint8_t sps30_error_cnt = 0;
+uint8_t sps30_error_cnt = 0;                               // give a few retries with rebooting
 SPS30_version v;                                           // version structure of sensor
 bool initializeSPS30(void);
 bool updateSPS30(void);

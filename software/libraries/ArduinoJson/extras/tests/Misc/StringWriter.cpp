@@ -1,5 +1,5 @@
 // ArduinoJson - https://arduinojson.org
-// Copyright Benoit Blanchon 2014-2021
+// Copyright © 2014-2022, Benoit BLANCHON
 // MIT License
 
 #define ARDUINOJSON_ENABLE_ARDUINO_STRING 1
@@ -13,6 +13,11 @@ using namespace ARDUINOJSON_NAMESPACE;
 template <typename StringWriter>
 static size_t print(StringWriter& writer, const char* s) {
   return writer.write(reinterpret_cast<const uint8_t*>(s), strlen(s));
+}
+
+template <typename StringWriter>
+static size_t print(StringWriter& writer, char c) {
+  return writer.write(static_cast<uint8_t>(c));
 }
 
 template <typename StringWriter, typename String>
@@ -47,6 +52,7 @@ TEST_CASE("StaticStringWriter") {
   SECTION("OverCapacity") {
     REQUIRE(20 == print(writer, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
     REQUIRE(0 == print(writer, "ABC"));
+    REQUIRE(0 == print(writer, 'D'));
     REQUIRE("ABCDEFGHIJKLMNOPQRST" == std::string(output, 20));
   }
 }
@@ -127,20 +133,6 @@ TEST_CASE("Writer<custom_string>") {
 
   REQUIRE(4 == print(writer, "ABCD"));
   REQUIRE("ABCD" == output);
-}
-
-TEST_CASE("IsWriteableString") {
-  SECTION("std::string") {
-    REQUIRE(IsWriteableString<std::string>::value == true);
-  }
-
-  SECTION("custom_string") {
-    REQUIRE(IsWriteableString<custom_string>::value == true);
-  }
-
-  SECTION("basic_string<wchar_t>") {
-    REQUIRE(IsWriteableString<std::basic_string<wchar_t> >::value == false);
-  }
 }
 
 TEST_CASE("serializeJson(doc, String)") {

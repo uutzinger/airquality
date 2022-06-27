@@ -24,6 +24,11 @@ void handleDate(void);
 void handleTime(void);
 void handleAnimation(void);
 void handleNotFound(void);
+void handleSystem(void);
+void handleEdit(void);
+void handleConfig(void);
+void handleFileUpload(void);
 
 String getContentType(String filename); // convert the file extension to the MIME type
+bool handleFileRead(String filePath); 
 bool streamFile(String path);           // send the right file to the client (if it exists)

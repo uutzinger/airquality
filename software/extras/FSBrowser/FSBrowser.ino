@@ -23,6 +23,11 @@
 
 ////////////////////////////////
 
+#ifndef STASSID
+#define STASSID "********"
+#define STAPSK  "********"
+#endif
+
 // Select the FileSystem by uncommenting one of the lines below
 
 //#define USE_SPIFFS
@@ -72,11 +77,6 @@ SDFSConfig fileSystemConfig = SDFSConfig();
 
 
 #define DBG_OUTPUT_PORT Serial
-
-#ifndef STASSID
-#define STASSID "Jarvis"
-#define STAPSK  "wedonthaveone"
-#endif
 
 const char* ssid = STASSID;
 const char* password = STAPSK;

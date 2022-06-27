@@ -136,52 +136,52 @@ void printLogln() {
 }
 
 void printSerialTelnet(char* str) {
-  printSerial(str);
   printTelnet(str);
+  printSerial(str);
 }
 
 void printSerialTelnet(String str) {
-  printSerial(str);
   printTelnet(str);
+  printSerial(str);
 }
 
 void printSerialTelnetln(char* str) {
-  printSerialln(str);
   printTelnetln(str);
+  printSerialln(str);
 }
 
 void printSerialTelnetln(String str) {
-  printSerialln(str);
   printTelnetln(str);
+  printSerialln(str);
 }
 
 
 void printSerialTelnetLog(char* str) {
-  printSerial(str);
   printTelnet(str);
   printLog(str);
+  printSerial(str);
 }
 
 void printSerialTelnetLog(String str) {
-  printSerial(str);
   printTelnet(str);
   printLog(str);
+  printSerial(str);
 }
 
 void printSerialTelnetLogln(char* str) {
-  printSerialln(str);
   printTelnetln(str);
   printLogln(str);
+  printSerialln(str);
 }
 
 void printSerialTelnetLogln(String str) {
-  printSerialln(str);
   printTelnetln(str);
   printLogln(str);
+  printSerialln(str);
 }
 
 void printSerialTelnetLogln() {
-  printSerialln();
   printTelnetln();
   printLogln();
+  printSerialln();
 }

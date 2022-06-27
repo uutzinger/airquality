@@ -38,9 +38,10 @@
 #define bme280_StandbyTimeSlow        0                    // is not relevant
 #define intervalBME280Slow            60000                // 1 minute
 //////// ===================================================
-float bme280_pressure;                                     // pressure from sensor
-float bme280_temp;                                         // temperature from sensor
-float bme280_hum;                                          // humidity from sensor
+float bme280_pressure = -1.;                               // pressure from sensor
+float bme280_temp = -999.;                                 // temperature from sensor
+float bme280_hum =-1.;                                     // humidity from sensor
+float bme280_ah = -1.;                                     // [gr/m^3]
 bool bme280_avail = false;                                 // do we hace the sensor?
 bool bme280NewData = false;                                // is there new data
 bool bme280NewDataWS = false;                              // is there new data for websocket
@@ -48,7 +49,6 @@ long bme280_measuretime = 0;                               // computed time it t
 bool BMEhum_avail = false;                                 // no humidity sensor if we have BMP instead of BME
 TwoWire *bme280_port =0;                                   // pointer to the i2c port, might be useful for other microcontrollers
 uint8_t bme280_i2c[2];                                     // the pins for the i2c port, set during initialization
-float bme280_ah = 0;                                       // [gr/m^3]
 unsigned long  intervalBME280 = 0;                         // filled automatically during setup
 unsigned long  lastBME280;                                 // last time we interacted with sensor
 unsigned long  endTimeBME280;                              // when data will be available

@@ -9,8 +9,8 @@
 #include <ESP8266HTTPUpdateServer.h>
 
 #ifndef STASSID
-#define STASSID "Jarvis"
-#define STAPSK  "wedonthaveone"
+#define STASSID "********"
+#define STAPSK  "********"
 #endif
 
 const char* host = "esp8266-webupdate";

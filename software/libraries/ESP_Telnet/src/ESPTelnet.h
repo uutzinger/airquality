@@ -9,11 +9,12 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
   #include <WiFi.h>
-  #include <WebServer.h>
 #elif defined(ARDUINO_ARCH_ESP8266)
   #include <ESP8266WiFi.h>
   #include <ESP8266WebServer.h>
 #endif
+
+#include "DebugMacros.h"
 
 /* ------------------------------------------------- */
 
@@ -23,15 +24,18 @@ class ESPTelnet {
   public:
     ESPTelnet();
 
-    bool begin();
+    bool begin(uint16_t port = 23);
     void loop();
     void stop();
 
-    void print(String str);
-    void print(char c);
-    void println(String str);
-    void println(char c);
+    void print(const String &str);
+    void print(const char c);
+    void println(const String &str);
+    void println(const char c);
     void println();
+
+    bool isLineModeSet();
+    void setLineMode(bool value);
 
     String getIP() const;
     String getLastAttemptIP() const;
@@ -41,7 +45,9 @@ class ESPTelnet {
     void onReconnect(CallbackFunction f);
     void onDisconnect(CallbackFunction f);
     void onInputReceived(CallbackFunction f);
-    
+
+    void disconnectClient();
+
   protected:
     WiFiServer server = WiFiServer(23);
     WiFiClient client;
@@ -49,14 +55,21 @@ class ESPTelnet {
     String ip = "";
     String attemptIp;
     String input = "";
+    uint16_t server_port = 23;
+    bool _lineMode = true;
 
-    bool isClientConnected(WiFiClient client);
+    bool isClientConnected(WiFiClient &client);
+    void emptyClientStream();
 
     CallbackFunction on_connect = NULL;
     CallbackFunction on_reconnect  = NULL;
     CallbackFunction on_disconnect = NULL;
     CallbackFunction on_connection_attempt = NULL;
     CallbackFunction on_input  = NULL;
+
+  private:
+    // for ESP32 compability
+    bool _isIPSet(IPAddress ip);
 };
 
 /* ------------------------------------------------- */

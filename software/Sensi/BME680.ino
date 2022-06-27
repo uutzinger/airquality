@@ -21,6 +21,7 @@ bool initializeBME680() {
 
   bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
   bme680_port->setClock(I2C_FAST);
+  yieldI2C();
   
   if (bme680.begin(0x77, true, bme680_port) == true) { 
     if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: setting oversampling for sensors")); }
@@ -32,7 +33,7 @@ bool initializeBME680() {
       bme680.setIIRFilterSize(bme680_FilterSizeFast);
       // should setODR (output data rate)
       // dont know how to set low power and ultra low power mode
-      if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: IIR filter set for fast measurements")); }
+      if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: IIR filter set for fast measurements")); }
     } else { 
       intervalBME680 = intervalBME680Slow; 
       bme680.setHumidityOversampling(bme680_HumOversampleSlow); 
@@ -41,22 +42,22 @@ bool initializeBME680() {
       bme680.setIIRFilterSize(bme680_FilterSizeSlow); 
       // should setODR (output data rate)
       // dont know how to set low power and ultra low power mode
-      if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: IIR filter set for slow measurements")); }
+      if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: IIR filter set for slow measurements")); }
     }
 
     bme680.setGasHeater(bme680_HeaterTemp,bme680_HeaterDuration); 
-    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: gas measurement set to 320\xC2\xB0\x43 for 150ms")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: gas measurement set to 320\xC2\xB0\x43 for 150ms")); }
 
     BMEhum_avail = true;
 
-    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: initialized")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: initialized")); }
 
     tmpTime = millis();
     endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
     lastBME680 = currentTime;
 
     if (endTimeBME680 == 0) { // if measurement was not started
-      if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: failed to begin reading")); }
+      if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: failed to begin reading")); }
       stateBME680 = HAS_ERROR; 
       errorRecBME680 = currentTime + 5000;
       return(false);
@@ -64,7 +65,7 @@ bool initializeBME680() {
       unsigned long tmpInterval = endTimeBME680 - tmpTime;
       if (tmpInterval > intervalBME680) {intervalBME680 = tmpInterval;}
       stateBME680 = IS_BUSY; 
-      if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval);printSerialTelnetLogln(tmpStr); }
+      if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
 
       // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
       // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
@@ -76,17 +77,17 @@ bool initializeBME680() {
       alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
     }
 
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu"), intervalBME680);printSerialTelnetLog(tmpStr); }
+    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu"), intervalBME680); printSerialTelnetLog(tmpStr); }
 
   } else {
-    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("BME680: sensor not detected, please check wiring")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: sensor not detected, please check wiring")); }
     stateBME680 = HAS_ERROR;
     errorRecBME680 = currentTime + 5000;
     return(false);
   }   
 
   if ((mySettings.avgP > 30000.0) && (mySettings.avgP <= 200000.0)) { bme680_pressure24hrs = mySettings.avgP; }
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 }
 
@@ -103,6 +104,7 @@ bool updateBME680() {
         D_printSerialTelnet(F("D:U:BME680:II.."));
         bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
         bme680_port->setClock(I2C_FAST);
+        yieldI2C();
         tmpTime = millis();
         endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
         lastBME680 = currentTime;
@@ -144,6 +146,7 @@ bool updateBME680() {
       D_printSerialTelnet(F("D:U:BME680:DA.."));
       bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
       bme680_port->setClock(I2C_FAST);
+      yieldI2C();
       if (bme680.endReading() ==  false) {
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: Failed to complete reading, timeout")); }
         stateBME680 = HAS_ERROR;
@@ -197,11 +200,13 @@ bool updateBME680() {
         if (bme680_error_cnt++ > 3) { 
           success = false; 
           bme680_avail = false;
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: reinitialization attempts exceeded, BME680: no longer available.")); }
           break; 
         } // give up after 3 tries
   
         bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);        
         bme680_port->setClock(I2C_FAST);
+        yieldI2C();
         if (bme680.begin(0x77, true, bme680_port) == true) { 
           if (fastMode == true) { 
             intervalBME680 = intervalBME680Fast; 
@@ -269,18 +274,25 @@ void bme680JSON(char *payload){
   char qualityMessage2[16];
   char qualityMessage3[16];
   char qualityMessage4[16];
-  checkdP((bme680.pressure-bme680_pressure24hrs)/100.0, qualityMessage1, 15);
-  checkHumidity(bme680.humidity, qualityMessage2, 15);
-  checkGasResistance(bme680.gas_resistance, qualityMessage3, 15); 
-  checkAmbientTemperature(bme680.temperature, qualityMessage4, 15); 
-  sprintf_P(payload, PSTR("{\"bme680\":{\"avail\":%s,\"p\":%5.1f,\"pavg\":%5.1f,\"rH\":%4.1f,\"aH\":%4.1f,\"T\":%5.1f,\"resistance\":%d,\"dp_airquality\":\"%s\",\"rH_airquality\":\"%s\",\"resistance_airquality\":\"%s\",\"T_airquality\":\"%s\"}}"), 
+  if (bme680_avail) { 
+    checkdP((bme680.pressure-bme680_pressure24hrs)/100.0, qualityMessage1, 15);
+    checkHumidity(bme680.humidity, qualityMessage2, 15);
+    checkGasResistance(bme680.gas_resistance, qualityMessage3, 15); 
+    checkAmbientTemperature(bme680.temperature, qualityMessage4, 15); 
+  } else {
+    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage3, "none", sizeof(qualityMessage3));
+    strncpy(qualityMessage4, "none", sizeof(qualityMessage4));
+  }  
+  sprintf_P(payload, PSTR("{ \"bme680\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme680_avail ? "true" : "false", 
-                       bme680.pressure/100.0, 
-                       bme680_pressure24hrs/100.0, 
-                       bme680.humidity, 
-                       bme680_ah, 
-                       bme680.temperature, 
-                       bme680.gas_resistance,
+                       bme680_avail ? bme680.pressure/100.0 : -1., 
+                       bme680_avail ? bme680_pressure24hrs/100.0 : -1.0, 
+                       bme680_avail ? bme680.humidity : -1., 
+                       bme680_avail ? bme680_ah : -1.0, 
+                       bme680_avail ? bme680.temperature: -999., 
+                       bme680_avail ? bme680.gas_resistance : -1,
                        qualityMessage1, 
                        qualityMessage2,
                        qualityMessage3,

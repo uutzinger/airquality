@@ -14,7 +14,8 @@ bool fastMode = true;                                      // Frequent or in fre
 // Out of Range and Error Handling
 /******************************************************************************************************/
 bool allGood = true;                                       // a sensor is outside recommended limits
-bool lastBlinkInten = true;                                // dark or bright?
+bool lastLCDInten = true;                                  // dark or bright?
+bool blinkLCD = false;                                     // blink lcd background ?
 unsigned long lastBlink;                                   // last time we switched LCD intensity
 unsigned long intervalBlink = 1000;                        // auto populated during execution
 unsigned long lastWarning;                                 // last time we check the sensors to create a warning message
@@ -60,14 +61,17 @@ unsigned long myLoop;                                      // main loop executio
 unsigned long myLoopMin;                                   // main loop recent shortest execution time, automatically computed
 unsigned long myLoopMax;                                   // main loop recent maximumal execution time, automatically computed
 unsigned long myLoopMaxAllTime=0;                          // main loop all time maximum execution time, automatically computed
-float         myLoopAvg = 0;                               // average delay over the last couplle seconds
+float         myLoopAvg = 0;                               // average delay over the last couple seconds
+float         myLoopMaxAvg = 0;                            // average max loop delay over the last couple seconds
+unsigned long startYield = 0;                              // keep record of time for Yield interval
+unsigned long lastYield = 0;                               // keep record of time for Yield interval
 unsigned long yieldTime = 0;
-unsigned long yieldTimeBefore;
 unsigned long yieldTimeMin = 1000;
 unsigned long yieldTimeMax = 0;
 unsigned long yieldTimeMaxAllTime=0;
 
 bool          scheduleReboot = false;                      // is it time to reboot the ESP?
+bool          rebootNow = false;                           // immediate reboot was requested
 unsigned long startUpdate = 0;
 unsigned long deltaUpdate = 0;
 unsigned long maxUpdateTime = 0;
@@ -162,6 +166,10 @@ bool time_avail    = false;                                // do not display tim
 #define BAUDRATE 115200                                    // serial communicaiton speed, terminal settings need to match
 char serialInputBuff[64];
 bool serialReceived = false;                               // keep track of serial input
+unsigned long lastSerialInput = 0;                         // keep track of serial flood
+unsigned long lastTmp = 0;
+#define SERIALMAXRATE 500                                  // milli secs between serial command inputs
+
 //
 char tmpStr[128];                                          // Buffer for formatting text that will be sent to USB serial or telnet
 
@@ -190,7 +198,7 @@ unsigned long lastLogFile; // last time we checked logfile size or closes the lo
 #include <Wire.h>
 bool checkI2C(byte address, TwoWire *myWire);                   // is device attached at this address?
 void serialTrigger(const char* mess, int timeout);              // delays until user input
-void inputHandle(void);                                         // hanldes user input
+bool inputHandle(void);                                         // hanldes user input
 void helpMenu(void);                                            // lists user functions
 void printSettings(void);                                       // lists program settings
 void defaultSettings(void);                                     // converts settings back to default. need to save to EEPROM to retain
@@ -198,4 +206,5 @@ void printSensors(void);                                        // lists current
 void printState(void);                                          // lists states of system devices and sensors
 void timeJSON(char *payload);                                   // provide time
 void dateJSON(char *payload);                                   // provide date
-
+void systemJSON(char *payload);                                 // provide system stats
+void yieldOS(void);                                             // execute yield or delay

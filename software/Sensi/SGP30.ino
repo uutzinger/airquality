@@ -48,6 +48,7 @@ bool initializeSGP30() {
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: Interval: %lu"), intervalSGP30); R_printSerialTelnetLogln(tmpStr); }
   sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
   sps30_port->setClock(I2C_FAST);
+  yieldI2C();
   if (sgp30.begin(*sgp30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: No SGP30 Detected. Check connections")); }
     stateSGP30 = HAS_ERROR;
@@ -68,7 +69,7 @@ bool initializeSGP30() {
   }
   
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 }
 
@@ -101,6 +102,7 @@ bool updateSGP30() {
         if (bme680_avail && mySettings.useBME680) {
           sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
           sps30_port->setClock(I2C_FAST);
+          yieldI2C();
           // Humidity correction, 8.8 bit number
           // 0x0F80 = 15.5 g/m^3
           // 0x0001 = 1/256 g/m^3
@@ -115,6 +117,7 @@ bool updateSGP30() {
         D_printSerialTelnet(F("D:U:SGP:B.."));
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
         sps30_port->setClock(I2C_FAST);
+        yieldI2C();
         sgp30Error = sgp30.getBaseline(); // this has 10ms delay
         if (sgp30Error != SGP30_SUCCESS) {
            if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error obtaining baseline: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
@@ -131,6 +134,7 @@ bool updateSGP30() {
         D_printSerialTelnet(F("D:U:SGP:IM.."));
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
         sps30_port->setClock(I2C_FAST);
+        yieldI2C();
         sgp30Error = sgp30.measureAirQuality();
         if (sgp30Error != SGP30_SUCCESS) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error measuring eCO2 & tVOC: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
@@ -154,15 +158,17 @@ bool updateSGP30() {
         if (sgp30_error_cnt++ > 3) { 
           success = false; 
           sgp30_avail = false;
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: reinitialization attempts exceeded, SGP30: no longer available.")); }
           break; 
         } // give up after 3 tries
         // trying to recover sensor
         sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
         sps30_port->setClock(I2C_FAST);
+        yieldI2C();
         if (sgp30.begin(*sgp30_port) == false) {
           stateSGP30 = HAS_ERROR;
           errorRecSGP30 = currentTime + 5000;
-          success = false;
+          // success = false;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: re-initialization failed")); }
           break;
         }
@@ -189,12 +195,17 @@ bool updateSGP30() {
 void sgp30JSON(char *payload){
   char qualityMessage1[16];
   char qualityMessage2[16];
-  checkCO2(float(sgp30.CO2), qualityMessage1, 15); 
-  checkTVOC(float(sgp30.TVOC), qualityMessage2, 15);
-  sprintf(payload, PSTR("{\"sgp30\":{\"avail\":%s,\"eCO2\":%hu,\"tVOC\":%hu,\"eCO2_airquality\":\"%s\",\"tVOC_airquality\":\"%s\"}}"), 
+  if (sgp30_avail) { 
+    checkCO2(float(sgp30.CO2), qualityMessage1, 15); 
+    checkTVOC(float(sgp30.TVOC), qualityMessage2, 15);
+  } else {
+    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+  } 
+  sprintf(payload, PSTR("{ \"sgp30\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        sgp30_avail ? "true" : "false", 
-                       sgp30.CO2, 
-                       sgp30.TVOC,
+                       sgp30_avail ? sgp30.CO2 : 0, 
+                       sgp30_avail ? sgp30.TVOC : 0,
                        qualityMessage1, 
                        qualityMessage2);
 }

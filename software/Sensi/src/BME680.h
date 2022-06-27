@@ -31,7 +31,7 @@ bool bme680NewData = false;                                // do we have new dat
 bool bme680NewDataWS = false;                              // do we have new data for websocket
 TwoWire *bme680_port =0;                                   // pointer to the i2c port
 uint8_t bme680_i2c[2];                                     // the pins for the i2c port, set during initialization
-float          bme680_ah = 0.;                             // absolute humidity [gr/m^3]
+float          bme680_ah = -1.;                             // absolute humidity [gr/m^3]
 unsigned long  intervalBME680;                             // adjusted if sensor reports longer measurement time
 unsigned long  lastBME680;                                 // last time we interacted with sensor
 unsigned long  endTimeBME680;                              // when data will be available

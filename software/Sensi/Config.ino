@@ -20,7 +20,10 @@ void saveConfiguration(const Settings &config) {
       // Allocate a temporary JsonDocument
       // Use arduinojson.org/assistant to compute the capacity.
   
-      StaticJsonDocument<JSONSIZE> doc;
+      D_printSerialTelnet(F("D:JSON:1.."));
+
+      //StaticJsonDocument<JSONSIZE> doc;
+      DynamicJsonDocument doc(JSONSIZE);
     
       doc["runTime"]                      = config.runTime;                                  // keep track of total sensor run time
       doc["debuglevel"]                   = config.debuglevel;                               // amount of debug output on serial port
@@ -38,9 +41,9 @@ void saveConfiguration(const Settings &config) {
       doc["tempOffset_MLX"]               = config.tempOffset_MLX;                           // in C
       
       D_printSerialTelnet(F("D:JSON:2.."));
+      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     
       doc["useWiFi"]                      = config.useWiFi;                                  // use/not use WiFi and MQTT
-    
       doc["ssid1"]                        = config.ssid1;                                    // WiFi SSID 32 bytes max
       doc["pw1"]                          = config.pw1;                                      // WiFi passwrod 64 chars max
       doc["ssid2"]                        = config.ssid2;                                    // 2nd set of WiFi credentials
@@ -49,6 +52,7 @@ void saveConfiguration(const Settings &config) {
       doc["pw3"]                          = config.pw3;                                      //
   
       D_printSerialTelnet(F("D:JSON:3.."));
+      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     
       doc["useMQTT"]                      = config.useMQTT;                                  // provide MQTT data
       doc["mqtt_server"]                  = config.mqtt_server;                              // your mqtt server
@@ -61,10 +65,13 @@ void saveConfiguration(const Settings &config) {
       doc["useLCD"]                       = config.useLCD;                                   // use/not use LCD even if it is connected
       doc["consumerLCD"]                  = config.consumerLCD;                              // simplified display
       doc["useBacklight"]                 = config.useBacklight;                             // backlight on/off
+      doc["useBacklightNight"]            = config.useBacklightNight;                        // backlight at night on/off
+      doc["useBlinkNight"]                = config.useBlinkNight;                            // backlight blinking at night on/off
       doc["nightBegin"]                   = config.nightBegin;                               // minutes from midnight when to stop changing backlight because of low airquality
       doc["nightEnd"]                     = config.nightEnd;                                 // minutes from midnight when to start changing backight because of low airquality
   
       D_printSerialTelnet(F("D:JSON:4.."));
+      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     
       doc["useSCD30"]                     = config.useSCD30;                                 // ...
       doc["useSPS30"]                     = config.useSPS30;                                 // ...
@@ -85,6 +92,8 @@ void saveConfiguration(const Settings &config) {
       doc["useLog"]                       = config.useLog;                                   // keep copy of seriel and telnet prints in log file
     
       D_printSerialTelnet(F("D:JSON:5.."));
+      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+
       doc["useNTP"]                       = config.useNTP;                                   // want network time
       doc["ntpServer"]                    = config.ntpServer;                                // ntp server
       doc["timeZone"]                     = config.timeZone;                                 // time zone according second column in https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv
@@ -93,6 +102,8 @@ void saveConfiguration(const Settings &config) {
       //serializeJsonPretty(doc, Serial);  Serial.println();
       
       D_printSerialTelnet(F("D:JSON:O.."));
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+
       // Open file for writing
       #if defined(DEBUG)
       sprintf_P(tmpStr,PSTR("\r\nFilename is: %s"),"/Sensi.json"); printSerialTelnetln(tmpStr);
@@ -108,7 +119,7 @@ void saveConfiguration(const Settings &config) {
         // Close the file
         cfgFile.close();
       }
-      //printSerialTelnetLogln(F("DBG:JSON DONE"));
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
   }
 }
@@ -122,7 +133,7 @@ void loadConfiguration(Settings &config) {
       
         // Allocate a temporary JsonDocument
         // Use arduinojson.org/v6/assistant to compute the capacity.
-        StaticJsonDocument<JSONSIZE> doc;
+        DynamicJsonDocument doc(JSONSIZE);
       
         // Deserialize the JSON document
         DeserializationError error = deserializeJson(doc, cfgFile);
@@ -162,6 +173,8 @@ void loadConfiguration(Settings &config) {
         config.useLCD                 = doc["useLCD"]                               | true;
         config.consumerLCD            = doc["consumerLCD"]                          | true;
         config.useBacklight           = doc["useBacklight"]                         | true;
+        config.useBacklightNight      = doc["useBacklightNight"]                    | false;
+        config.useBlinkNight          = doc["useBlinkNight"]                        | false;
         config.nightBegin             = doc["nightBegin"]                           | 1320;
         config.nightEnd               = doc["nightEnd"]                             | 420;
       

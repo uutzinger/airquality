@@ -58,14 +58,15 @@ bool initializeCCS811(){
   pinMode(CCS811_WAKE, OUTPUT); // CCS811 not Wake Pin
   pinMode(CCS811interruptPin, INPUT_PULLUP); // CCS811 not Interrupt Pin
   attachInterrupt(digitalPinToInterrupt(CCS811interruptPin), handleCCS811Interrupt, FALLING);
-  if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("CCS811: interrupt configured")); }
+  if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("CCS811: interrupt configured")); }
 
   digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
-  delay(1); // wakeup takes 50 microseconds
-  if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("CCS811: sensor waking up")); }
+  delayMicroseconds(100); // wakeup takes 50 microseconds
+  if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("CCS811: sensor waking up")); }
   
   ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
   ccs811_port->setClock(I2C_FAST);
+  yieldI2C();
   
   css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
@@ -93,11 +94,11 @@ bool initializeCCS811(){
     return(false);
   }
   
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: interrupt configuation - %s"), ccs811.statusString(css811Ret));printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: interrupt configuation - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
   if (mySettings.baselineCCS811_valid == 0xF0) {
     css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
     if (css811Ret == CCS811Core::CCS811_Stat_SUCCESS) { 
-      if (mySettings.debuglevel > 0) {printSerialTelnetLog(F("CCS811: baseline programmed")); }
+      if (mySettings.debuglevel > 0) { printSerialTelnetLog(F("CCS811: baseline programmed")); }
     } else {
       if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error writing baseline - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
       stateCCS811 = HAS_ERROR;
@@ -105,9 +106,9 @@ bool initializeCCS811(){
       return(false);
     }
   }
-  if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("CCS811: initialized")); }
+  if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("CCS811: initialized")); }
   stateCCS811 = IS_IDLE;
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 }
 
@@ -147,6 +148,7 @@ bool updateCCS811() {
       tmpTime = millis();
       ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
       ccs811_port->setClock(I2C_FAST);
+      yieldI2C();
       css811Ret = ccs811.readAlgorithmResults(); 
       if ( css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { // Calling this function updates the global tVOC and CO2 variables
         stateCCS811 = HAS_ERROR;
@@ -208,9 +210,11 @@ bool updateCCS811() {
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: interrupt timeout occured")); }
         ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
         ccs811_port->setClock(I2C_FAST);
+        yieldI2C();
         if ( ccs811.dataAvailable() ) {
           if (fastMode == true) { 
             stateCCS811 = DATA_AVAILABLE;                        // update the sensor state
+            ccs811_error_cnt = 0;
           } else { 
             digitalWrite(CCS811_WAKE, LOW);                      // set CCS811 to wake up 
             stateCCS811 = IS_WAKINGUP;                           // update the sensor state
@@ -253,32 +257,34 @@ bool updateCCS811() {
         if (ccs811_error_cnt++ > 3) { 
           success = false; 
           ccs811_avail = false; 
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: reinitialization attempts exceeded, CCS811: no longer available.")); }
           break;
         } // give up after 3 tries
   
         // trying to recover sensor, reinitialize it
         digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
-        delay(1); // wakeup takes 50 microseconds      
+        delayMicroseconds(100); // wakeup takes 50 microseconds      
         ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
         ccs811_port->setClock(I2C_FAST);
+        yieldI2C();
         css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
         if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
           errorRecCCS811 = currentTime + 5000;
-          success = false; 
+          // success = false; 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
           break;
         }
         css811Ret = ccs811.setDriveMode(ccs811Mode);
         if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
           errorRecCCS811 = currentTime + 5000;
-          success = false; 
+          // success = false; 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
           break;
         }
         css811Ret = ccs811.enableInterrupts(); // Configure and enable the interrupt line, then print error status
         if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
           errorRecCCS811 = currentTime + 5000;
-          success = false; 
+          // success = false; 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
           break;
         }
@@ -286,7 +292,7 @@ bool updateCCS811() {
           css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
           if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
             errorRecCCS811 = currentTime + 5000;
-            success = false; 
+            // success = false; 
             if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
             break;
           }
@@ -305,14 +311,20 @@ bool updateCCS811() {
 }
 
 void ccs811JSON(char *payload){
+  //
   char qualityMessage1[16];
   char qualityMessage2[16];
-  checkCO2(float(ccs811.getCO2()), qualityMessage1, 15);
-  checkTVOC(float(ccs811.getTVOC()), qualityMessage2, 15);
-  sprintf_P(payload, PSTR("{\"ccs811\":{\"avail\":%s,\"eCO2\":%hu,\"tVOC\":%hu,\"eCO2_airquality\":\"%s\",\"tVOC_airquality\":\"%s\"}}"), 
+  if (ccs811_avail) { 
+    checkCO2(float(ccs811.getCO2()), qualityMessage1, 15); 
+    checkTVOC(float(ccs811.getTVOC()), qualityMessage2, 15);
+  } else {
+    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+  }
+  sprintf_P(payload, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        ccs811_avail ? "true" : "false", 
-                       ccs811.getCO2(), 
-                       ccs811.getTVOC(), 
+                       ccs811_avail ? ccs811.getCO2() : 0, 
+                       ccs811_avail ? ccs811.getTVOC() : 0, 
                        qualityMessage1, 
                        qualityMessage2);
 }

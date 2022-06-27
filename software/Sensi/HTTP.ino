@@ -46,7 +46,7 @@ void updateHTTP() {
         httpServer.on("/bme280",   handleBME280);
         httpServer.on("/bme680",   handleBME680);
         httpServer.on("/ccs811",   handleCCS811);
-        httpServer.on("/max",      handleMAX30);
+        httpServer.on("/max",      handleMAX30); // crashed here
         httpServer.on("/mlx",      handleMLX);
         httpServer.on("/scd30",    handleSCD30);
         httpServer.on("/sgp30",    handleSGP30);
@@ -56,6 +56,8 @@ void updateHTTP() {
         httpServer.on("/hostname", handleHostname);          
         httpServer.on("/ip",       handleIP);          
         httpServer.on("/config",   handleConfig);
+        httpServer.on("/system",   handleSystem);
+        httpServer.on("/edit",     handleEdit);
         httpServer.on("/upload", HTTP_GET, []() { if (!handleFileRead("/upload.htm")) httpServer.send(404, "text/plain", "404: Not Found"); });        
         httpServer.on("/upload", HTTP_POST, [](){ httpServer.send(200); }, handleFileUpload );
         httpServer.onNotFound(     handleNotFound);      // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
@@ -88,17 +90,17 @@ void handleRoot() {
 
 void handleAnimation() {
   handleFileRead("/animation.htm"); 
- if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("HTTP: animation request received")); }
+  if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("HTTP: animation request received")); }
 }
 
 void handleConfig() {
   handleFileRead("/Sensi.json"); 
- if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("HTTP: config request received")); }
+  if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("HTTP: config request received")); }
 }
 
 void handleNotFound(){
-  if (!handleFileRead(httpServer.uri())) {                // check if the file exists in the flash memory (SPIFFS), if so, send it
-   String message= "File Not Found \r\n\n";
+  if (!handleFileRead(httpServer.uri())) {                // check if the file exists in the flash memory, if so, send it
+   String message = "File Not Found \r\n\n";
    message += "URI: ";
    message += httpServer.uri();
    message += "\r\nMethod: ";
@@ -113,105 +115,122 @@ void handleNotFound(){
   if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("HTTP: invalid request received"));}
 }
 
+void handleEdit(){
+  String message = "You need to reprogram ESP with FSBrowser (extras)!\r\n";
+  httpServer.send(404, "text/plain", message); // Send can not use file editor/browser with this program
+  if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("HTTP: edit request received"));}
+}
+
+// { "system": { "freeheap": 30000, "heapfragmentation": 33, "maxfreeblock": 30000,"maxlooptime": 10000}}
+void handleSystem() {
+  char HTTPpayloadStr[128];  
+  systemJSON(HTTPpayloadStr);
+  httpServer.send(200, "text/json", HTTPpayloadStr);
+  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: system request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
+}
+
+// { "time": { "hour": 20, "minute": 19, "second": 18, "microsecond": 648567}}
 void handleTime() {
-  char HTTPpayloadStr[64];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[96]; 
   timeJSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: time request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "date": { "day": 26, "month": 06, "year": 2022}}
 void handleDate() {
-  char HTTPpayloadStr[64];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[64]; 
   dateJSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: date request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// {"hostname":"12345678901234567890123456789012"}
 void handleHostname() {
-  //Create JSON data
-  String response = "{\"hostname\":\"" + String(hostName) +"\"}";  
-  httpServer.send(200, "text/json", response);
-  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: hostname request received. Sent: %u"), response.length()); R_printSerialTelnetLogln(tmpStr); }
+  char HTTPpayloadStr[64];
+  sprintf_P(HTTPpayloadStr, PSTR("{ \"hostname\": \"%s\"}"), hostName);
+  httpServer.send(200, "text/json", HTTPpayloadStr);
+  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: hostname request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "ip": "123.123.123.123"}
 void handleIP() {
-  //Create JSON data
-  String response = "{\"ip\":\"" + WiFi.localIP().toString() +"\"}"; 
-  httpServer.send(200, "text/json", response);
-  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: time request received. Sent: %u"), response.length()); R_printSerialTelnetLogln(tmpStr);}
+  char HTTPpayloadStr[32];
+  IPAddress lip = WiFi.localIP();
+  sprintf_P(HTTPpayloadStr,PSTR("{ \"ip\": \"%d.%d.%d.%d\"}"), lip[0], lip[1], lip[2], lip[3]);
+  httpServer.send(200, "text/json", HTTPpayloadStr);
+  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: time request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "bme280": { "avail": false, "p": 1234, "pavg": 1234.445, "rH": -1.0, "aH": -1.0, "T": -35.0, "dp_airquality": "1234567890123456", "rH_airquality": "1234567890123456", "T_airquality": "1234567890123456"}}
 void handleBME280() {
-  //Create JSON data
-  //{"Sensi":{"bme280":{ "avail":true, "p":123.4,"rH":123.4,"aH":123.4,"T":+25.0,"rh_airquality":"normal"}}}
-  char HTTPpayloadStr[256];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[224]; 
   bme280JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: BME280 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "bme680": { "avail": false, "p": 1234.0, "pavg": 1234.0, "rH":100.0, "aH": 123.0, "T": 123.0, "resistance": 123123, "dp_airquality": "1234567890123456", "rH_airquality": "1234567890123456", "resistance_airquality": "1234567890123456","T_airquality": "1234567890123456"}}
 void handleBME680() {
-  //Create JSON data
-  //{"Sensi":{"bme680":{"p":123.4,"rH":12.3,"ah":123.4,"T":+25.1,"resistance":1234,"rH_airquality":"normal","resistance_airquality":"normal"}}}
-  char HTTPpayloadStr[256];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[288]; 
   bme680JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: BME680 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "ccs811": { "avail": false, "eCO2": 123456, "tVOC": 123456, "eCO2_airquality": "1234567890123456", "tVOC_airquality": "1234567890123456"}}
 void handleCCS811() {
-  //Create JSON data
-  char HTTPpayloadStr[256];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[160];
   ccs811JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: CCS811 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "scd30": { "avail": false, "CO2": 0, "rH": -1.0, "aH": 1234.0, "T": -999.0, "CO2_airquality": "1234567890123456", "rH_airquality": "1234567890123456", "T_airquality": "1234567890123456"}}
 void handleSCD30() {
-  //Create JSON data
-  char HTTPpayloadStr[256];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[224];  
   scd30JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: SCD30 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "sgp30": { "avail": true, "eCO2": 123456, "tVOC": 123456, "eCO2_airquality": "1234567890123456", "tVOC_airquality": "1234567890123456"}}
 void handleSGP30() {
-  //Create JSON data
-  char HTTPpayloadStr[256];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[160];   
   sgp30JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: SGP30 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "sps30": { "avail": false, "PM1": -100.0, "PM2": -100.0, "PM4": -100.0, "PM10": -100.0, "nPM0": -100.0, "nPM1": -100.0, "nPM2": -100.0, "nPM4": -100.0, "nPM10": -1000.0, "PartSize": -1000.0, "PM2_airquality": "1234567890123456", "PM10_airquality": "1234567890123456"}}
 void handleSPS30() {
-  //Create JSON data
-  char HTTPpayloadStr[512];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[288];  
   sps30JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: SPS30 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+// { "mlx": { "avail": false, "To": 123456, "Ta": 123456, "fever": "1234567890123456", "T_airquality": "1234567890123456"}}
 void handleMLX() {
-  //Create JSON data
-  char HTTPpayloadStr[256];                                 // String allocated for HTTP message  
+  char HTTPpayloadStr[128]; 
   mlxJSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: MLX request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
+
+// 12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678
+// { "max30": { "avail": false, "HR": 123456, "O2Sat": 123456, "MAX_quality": "1234567890123456"}}
 void handleMAX30() {
-  //Create JSON data
+  char HTTPpayloadStr[128];
   // Not Implemented Yet
-  String response = "{\"max\":{\"avail\":" +String(max_avail) +",";
-  if (max_avail) {
-    response += "\"HR\":-1.0,";
-    response += "\"O2Sat\":-1.0}}";
-  } else {
-    response += "\"HR\":-1.0,";
-    response += "\"O2Sat\":-1.0}}";    
-  }
-  httpServer.send(200, "text/json", response); //
-  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: MAX30 request received. Sent: %u"), response.length()); R_printSerialTelnetLogln(tmpStr); }
+  sprintf_P(HTTPpayloadStr, PSTR("{ \"max30\": {\"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\"}}"), 
+                       max_avail ? "true" : "false", 
+                       -1.0,
+                       -1.0,
+                       "n.a.");  
+  httpServer.send(200, "text/json", HTTPpayloadStr); //
+  if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: MAX30 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
 
 String getContentType(String filename){
@@ -266,10 +285,13 @@ void handleFileUpload() { // upload a new file to the SPIFFS
       if (LittleFS.exists(upfilePathWithGz))                          // version of that file must be deleted (if it exists)
         LittleFS.remove(upfilePathWithGz);
     }
-    R_printSerialTelnetLog(F("handleFileUpload Name: " ));
-      printSerialTelnetLog(upfilePath); 
-      printSerialTelnetLog(F("\r\n"));
 
+    if (mySettings.debuglevel == 3) {
+      R_printSerialTelnetLog(F("handleFileUpload Name: " ));
+        printSerialTelnetLog(upfilePath); 
+        printSerialTelnetLog(F("\r\n"));
+    }
+    
     uploadFile = LittleFS.open(upfilePath, "w");                      // Open the file for writing in SPIFFS (create if it doesn't exist)
     upfilePath = String();
   } else if (upload.status == UPLOAD_FILE_WRITE) {
@@ -278,7 +300,10 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   } else if (upload.status == UPLOAD_FILE_END) {
     if (uploadFile) {                                                 // If the file was successfully created
       uploadFile.close();                                             // Close the file again
-      sprintf_P(tmpStr, PSTR("handleFileUpload Size: %lu"), upload.totalSize); R_printSerialTelnetLogln(tmpStr);
+      if (mySettings.debuglevel == 3) {
+        sprintf_P(tmpStr, PSTR("handleFileUpload Size: %lu"), upload.totalSize); 
+        R_printSerialTelnetLogln(tmpStr);
+      }
       httpServer.sendHeader("Location", "/success.htm");              // Redirect the client to the success page
       httpServer.send(303);
     } else {

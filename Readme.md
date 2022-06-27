@@ -87,13 +87,13 @@ The sensor readings are compared to expected range and **LCD backlight flashes**
 A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. The program computes the avaraging filter coefficient (a) based on the sensor sample interval for a 24hr smoothing filter of y_smoothed = (1-a)\*y_smoothed + a*x_newdatapoint. 
 * CO2:  a value >1000ppm is poor
 * Temperature:  20-25.5C is normal range
-* Humidity:  30-60% is normal range (Since this project was made in Arizona, 25-65 is a better range)
+* Humidity:  30-60% is normal range (Since this project was made in Arizona, 25-65% is a better range)
 * Particles:  
 P2.5: >25ug/m3 is poor  
 P10: >50ug/m3 is poor   
 * tVOC:  a value >660ppb is poor
 
-It is common to find CO2 concentration above 1000ppm in single family homes. To lower CO2 concentration you need to open two windows at opposite sides of the hours and let air circulate.
+It is common to find CO2 concentration above 1000ppm in single family homes. To lower CO2 concentration you need to open two windows at opposite sides of the house and let air circulate.
 
 ## Sensor System
 

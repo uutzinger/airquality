@@ -26,3 +26,4 @@ bool initializeLCD(void);
 bool updateLCD(void);
 bool updateSinglePageLCD(void);
 bool updateTwoPageLCD(void);
+bool updateSinglePageLCDwTime(void);

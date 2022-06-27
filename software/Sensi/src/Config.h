@@ -15,7 +15,8 @@ unsigned long lastSaveSettingsJSON;                        // last time we updat
 // This table has grown over time. So its not in order.
 // Appending new settings will keeps the already stored settings.
 // Boolean settings are stored as a byte.
-// This structure is 608 bytes.
+// This structure is approx 620 bytes in size.
+
 struct Settings {
   unsigned long runTime;                                   // keep track of total sensor run time
   unsigned int  debuglevel;                                // amount of debug output on serial port
@@ -30,15 +31,15 @@ struct Settings {
   float         forcedCalibration_SCD30;                   // not used
   byte          tempOffset_MLX_valid;                      // 0xF0 = valid
   float         tempOffset_MLX;                            // in C
-  char          ssid1[33];                                 // WiFi SSID 32 bytes max
-  char          pw1[33];                                   // WiFi passwrod 64 chars max
-  char          ssid2[33];                                 // 2nd set of WiFi credentials
-  char          pw2[33];                                   //
-  char          ssid3[33];                                 // 3rd set of WiFi credentials
-  char          pw3[33];                                   //
-  char          mqtt_server[65];                           // your mqtt server
-  char          mqtt_username[33];                         // username for MQTT server, leave blank if no password
-  char          mqtt_password[33];                         // password for MQTT server
+  char          ssid1[32];                                 // WiFi SSID 32 bytes max
+  char          pw1[32];                                   // WiFi passwrod 64 chars max
+  char          ssid2[32];                                 // 2nd set of WiFi credentials
+  char          pw2[32];                                   //
+  char          ssid3[32];                                 // 3rd set of WiFi credentials
+  char          pw3[32];                                   //
+  char          mqtt_server[64];                           // your mqtt server
+  char          mqtt_username[32];                         // username for MQTT server, leave blank if no password
+  char          mqtt_password[32];                         // password for MQTT server
   bool          useLCD;                                    // use/not use LCD even if it is connected
   bool          useWiFi;                                   // use/not use WiFi and MQTT
   bool          useSCD30;                                  // ...
@@ -48,27 +49,29 @@ struct Settings {
   bool          useMLX;                                    // ...
   bool          useBME680;                                 // ...
   bool          useCCS811;                                 // ...
-  bool          sendMQTTimmediate;                         // true: update MQTT right away when new data is availablk, otherwise send one unified message
-  char          mqtt_fallback[65];                         // your fallback mqtt server if initial server fails, useful when on private home network
-  char          mqtt_mainTopic[33];                        // name of this sensing device for mqtt broker
-  bool          consumerLCD;                               // simplified display
-  bool          useBME280;                                 // ...
-  float         avgP;                                      // averagePressure
-  bool          useBacklight;                              // backlight on/off
-  uint16_t      nightBegin;                                // minutes from midnight when to stop changing backlight because of low airquality
-  uint16_t		  nightEnd;                                  // minutes from midnight when to start changing backight because of low airquality
-  int16_t       rebootMinute;                              // when should we attempt rebooting in minutes after midnight
   bool          useHTTP;                                   // provide webserver
   bool          useNTP;                                    // want network time
   bool          useMQTT;                                   // provide MQTT data
   bool          useOTA;                                    // porivide over the air programming
   bool          usemDNS;                                   // provide mDNS
-  char          ntpServer[65];                             // ntp server
-  char          timeZone[41];                              // The time zone according to second row in https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv 
-  bool          useHTTPUpdater;                            // upload firmware with HTTP interface
   bool          useTelnet;                                 // porivide telnet
   bool          useSerial;                                 // porivide Serial interface on USB
   bool          useLog;                                    // keep track of serial prints in logfile
+  bool          sendMQTTimmediate;                         // true: update MQTT right away when new data is availablk, otherwise send one unified message
+  bool          consumerLCD;                               // simplified display
+  bool          useBME280;                                 // ...
+  bool          useHTTPUpdater;                            // upload firmware with HTTP interface
+  bool          useBacklight;                              // backlight on/off
+  char          mqtt_fallback[64];                         // your fallback mqtt server if initial server fails, useful when on private home network
+  char          mqtt_mainTopic[32];                        // name of this sensing device for mqtt broker
+  float         avgP;                                      // averagePressure
+  uint16_t      nightBegin;                                // minutes from midnight when to stop changing backlight because of low airquality
+  uint16_t      nightEnd;                                  // minutes from midnight when to start changing backight because of low airquality
+  int16_t       rebootMinute;                              // when should we attempt rebooting in minutes after midnight
+  char          ntpServer[64];                             // ntp server
+  char          timeZone[64];                              // The time zone according to second row in https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv 
+  bool          useBacklightNight;                         // backlight at night on/off
+  bool          useBlinkNight;                             // blink the backlight at night on/off
 };
 
 Settings mySettings;                                       // the settings

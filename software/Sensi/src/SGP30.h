@@ -18,7 +18,7 @@
 bool sgp30_avail  = false;                                 // do we have this sensor
 bool sgp30NewData = false;                                 // do we have new data
 bool sgp30NewDataWS = false;                               // do we have new data for websocket
-TwoWire *sgp30_port =0;                                    // pointer to the i2c port, might be useful for other microcontrollers
+TwoWire *sgp30_port = 0;                                   // pointer to the i2c port, might be useful for other microcontrollers
 uint8_t sgp30_i2c[2];                                      // the pins for the i2c port, set during initialization
 bool baslineSGP30_valid = false;
 unsigned long lastSGP30;                                   // last time we obtained data

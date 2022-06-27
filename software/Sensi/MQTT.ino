@@ -91,12 +91,13 @@ void updateMQTT() {
 // Update MQTT Message
 /******************************************************************************************************/
 void updateMQTTMessage() {
-  char MQTTtopicStr[64];                                     // String allocated for MQTT topic 
+  char MQTTtopicStr[64];
   mqtt_sent = false;
-  
+  startYield = millis();
+    
   // --------------------- this sends new data to mqtt server as soon as its available ----------------
   if (mySettings.sendMQTTimmediate) {
-    char MQTTpayloadStr[512];                                 // String allocated for MQTT message
+    char MQTTpayloadStr[512]; 
     if (scd30NewData)  {
       sprintf_P(MQTTtopicStr,PSTR("%s/data"),mySettings.mqtt_mainTopic);
       scd30JSON(MQTTpayloadStr);
@@ -104,7 +105,7 @@ void updateMQTTMessage() {
       scd30NewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SCD30 MQTT updated")); }
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
     
     if (sgp30NewData)  {
@@ -114,7 +115,7 @@ void updateMQTTMessage() {
       sgp30NewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SGP30 MQTT updated")); }      
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
     
     if (sps30NewData)  {
@@ -124,7 +125,7 @@ void updateMQTTMessage() {
       sps30NewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SPS30 MQTT updated")); }      
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
     
     if (ccs811NewData) {
@@ -134,7 +135,7 @@ void updateMQTTMessage() {
       ccs811NewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("CCS811 MQTT updated")); }      
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
     
     if (bme680NewData) {
@@ -144,7 +145,7 @@ void updateMQTTMessage() {
       bme680NewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME680 MQTT updated")); }
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
     
     if (bme280NewData) {
@@ -154,7 +155,7 @@ void updateMQTTMessage() {
       bme280NewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME280 MQTT updated")); }
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
 
     
@@ -165,7 +166,7 @@ void updateMQTTMessage() {
       mlxNewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MLX MQTT updated")); }
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
 
     if (timeNewData) {
@@ -175,7 +176,7 @@ void updateMQTTMessage() {
       mlxNewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Time MQTT updated")); }
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
 
     if (dateNewData) {
@@ -185,24 +186,25 @@ void updateMQTTMessage() {
       mlxNewData = false;
       if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Data MQTT updated")); }
       mqtt_sent = true;
-      delay(1);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
     
     if (sendMQTTonce) { // send sensor polling once at boot up
       sprintf_P(MQTTtopicStr,PSTR("%s/status"),mySettings.mqtt_mainTopic);
-      sprintf_P(MQTTpayloadStr, PSTR("{\"mlx_interval\":%u,\"lcd_interval\":%u,\"ccs811_mode\":%u,\"sgp30_interval\":%u,\"scd30_interval\":%u,\"sps30_interval\":%u,\"bme680_interval\":%u,\"bme280_interval\":%u}"),
+      sprintf_P(MQTTpayloadStr, PSTR("{\"mlx_interval\":%lu,\"lcd_interval\":%lu,\"ccs811_mode\":%hhu,\"sgp30_interval\":%lu,\"scd30_interval\":%lu,\"sps30_interval\":%lu,\"bme680_interval\":%lu,\"bme280_interval\":%lu}"),
                                   intervalMLX,        intervalLCD,        ccs811Mode,        intervalSGP30,        intervalSCD30,        intervalSPS30,        intervalBME680,        intervalBME280);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      delay(1);      
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      
       sendMQTTonce = false;  // do not update interval information again
     }
     
     if (currentTime - lastMQTTPublish > intervalMQTTSlow) { // update sensor status every mninute
       sprintf_P(MQTTtopicStr,PSTR("%s/status"),mySettings.mqtt_mainTopic);
-      sprintf_P(MQTTpayloadStr, PSTR("{\"mlx_avail\":%u,\"lcd_avail\":%u,\"ccs811_avail\":%u,\"sgp30_avail\":%u,\"scd30_avail\":%u,\"sps30_avail\":%u,\"bme680_avail\":%u,\"bme280_avail\":%u,\"ntp_avail\":%u}"),
+      sprintf_P(MQTTpayloadStr, PSTR("{\"mlx_avail\":%d,\"lcd_avail\":%d,\"ccs811_avail\":%d,\"sgp30_avail\":%d,\"scd30_avail\":%d,\"sps30_avail\":%d,\"bme680_avail\":%d,\"bme280_avail\":%d,\"ntp_avail\":%d}"),
                                   therm_avail,     lcd_avail,       ccs811_avail,       sgp30_avail,       scd30_avail,       sps30_avail,       bme680_avail,       bme280_avail,       ntp_avail);
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      delay(1);      
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
 
       lastMQTTPublish = currentTime;
       mqtt_sent = true;
@@ -219,6 +221,7 @@ void updateMQTTMessage() {
       mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
       lastMQTTPublish = currentTime;
       mqtt_sent = true;
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     } // end interval
   } // end send immidiate
   

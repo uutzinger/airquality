@@ -17,6 +17,7 @@ bool initializeBME280() {
 
   bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
   bme280_port->setClock(I2C_FAST);
+  yieldI2C();
   bme280.settings.commInterface = I2C_MODE;
   bme280.settings.I2CAddress = 0x76;
   
@@ -120,7 +121,7 @@ bool initializeBME280() {
   if ((mySettings.avgP > 30000.0) && (mySettings.avgP <= 200000.0)) { bme280_pressure24hrs = mySettings.avgP; }
   
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME280: initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 
 } // end bme280
@@ -138,6 +139,7 @@ bool updateBME280() {
         D_printSerialTelnet(F("D:U:BME280:IS.."));
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
         bme280_port->setClock(I2C_FAST);
+        yieldI2C();
         bme280.setMode(MODE_FORCED); // Start reading
         lastBME280 = currentTime;
         stateBME280 = IS_BUSY;
@@ -150,6 +152,7 @@ bool updateBME280() {
         D_printSerialTelnet(F("D:U:BME280:IB.."));
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
         bme280_port->setClock(I2C_FAST);
+        yieldI2C();
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
           if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
@@ -175,6 +178,7 @@ bool updateBME280() {
       D_printSerialTelnet(F("D:U:BME280:DA.."));
       bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
       bme280_port->setClock(I2C_FAST);
+      yieldI2C();
       bme280_temp     = bme280.readTempC();
       bme280_pressure = bme280.readFloatPressure();
       if (BMEhum_avail) { 
@@ -209,11 +213,13 @@ bool updateBME280() {
         if (bme280_error_cnt++ > 3) { 
           success = false; 
           bme280_avail = false;
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reinitialization attempts exceeded, BME280: no longer available.")); }
           break; 
         } // give up after 3 tries
   
         bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
         bme280_port->setClock(I2C_FAST);
+        yieldI2C();
         bme280.reset();
         bme280.settings.commInterface = I2C_MODE;
         bme280.settings.I2CAddress = 0x76;
@@ -263,16 +269,22 @@ void bme280JSON(char *payload){
   char qualityMessage1[16];
   char qualityMessage2[16];
   char qualityMessage3[16];
-  checkdP((bme280_pressure-bme280_pressure24hrs)/100.0, qualityMessage1, 15);
-  checkHumidity(bme280_hum, qualityMessage2, 15);
-  checkAmbientTemperature(bme280_temp, qualityMessage3, 15);
-  sprintf_P(payload, PSTR("{\"bme280\":{\"avail\":%s,\"p\":%5.1f,\"pavg\":%5.1f,\"rH\":%4.1f,\"aH\":%4.1f,\"T\":%5.1f,\"dp_airquality\":\"%s\",\"rH_airquality\":\"%s\",\"T_airquality\":\"%s\"}}"), 
+  if (bme280_avail) { 
+    checkdP((bme280_pressure-bme280_pressure24hrs)/100.0, qualityMessage1, 15);
+    checkHumidity(bme280_hum, qualityMessage2, 15);
+    checkAmbientTemperature(bme280_temp, qualityMessage3, 15);
+  } else {
+    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage3, "none", sizeof(qualityMessage3));
+  }  
+  sprintf_P(payload, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme280_avail ? "true" : "false", 
-                       bme280_pressure/100.0, 
-                       bme280_pressure24hrs/100.0, 
-                       bme280_hum, 
-                       bme280_ah, 
-                       bme280_temp, 
+                       bme280_avail ? bme280_pressure/100.0 : -1.0, 
+                       bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 
+                       bme280_avail ? bme280_hum : -1.0, 
+                       bme280_avail ? bme280_ah : -1.0, 
+                       bme280_avail ? bme280_temp : -999.0, 
                        qualityMessage1, 
                        qualityMessage2,
                        qualityMessage3);

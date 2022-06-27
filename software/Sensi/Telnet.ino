@@ -9,7 +9,7 @@
 #endif
 
 void onTelnetInputReceived(String str){
-  telnetInputBuff = str;
+  strncpy(telnetInputBuff, str.c_str(), sizeof(telnetInputBuff)); 
   telnetReceived = true;
 }
 
@@ -23,8 +23,8 @@ void onTelnetConnect(String ip) {
   telnetConnected = true;
   Telnet.print(F("\nWelcome "));
   Telnet.print(Telnet.getIP());
-  Telnet.print(F("\r\nUse ^] + q  to disconnect\r\n"));
-  helpMenu();
+  Telnet.print(F("? for help\r\n"));
+  // helpMenu();
 }
 
 void onTelnetDisconnect(String ip) {
@@ -48,7 +48,7 @@ void onTelnetReconnect(String ip) {
 void onTelnetConnectionAttempt(String ip) {
   if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) {
     R_printSerialTelnetLog(F("- Telnet: "));
-      printSerialTelnetLog(ip);
+      printSerialTelnetLog(ip); // crashed here
       printSerialTelnetLogln(F(" tried to connect"));
   }
   telnetConnected = false;
@@ -78,8 +78,13 @@ void updateTelnet() {
         Telnet.onConnectionAttempt(onTelnetConnectionAttempt);
         Telnet.onReconnect(onTelnetReconnect);
         Telnet.onDisconnect(onTelnetDisconnect);
+        
         Telnet.onInputReceived(onTelnetInputReceived);
-                  
+        /* Telnet.onInputReceived([](String str) {
+          strncpy(telnetInputBuff, str.c_str(), sizeof(telnetInputBuff)); 
+          telnetReceived = true;
+        }); */      
+        
         if (Telnet.begin()) {
           if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) { R_printSerialTelnetLogln(F("Telnet: running")); }
           stateTelnet = CHECK_CONNECTION;

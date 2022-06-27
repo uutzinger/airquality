@@ -41,7 +41,7 @@ bool initializeSPS30() {
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: Interval: %lums"),intervalSPS30); R_printSerialTelnetLogln(tmpStr); }
   sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
   sps30_port->setClock(I2C_SLOW);
-  delay(1);
+  yieldI2C();
 
   if (sps30.begin(sps30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: Sensor not detected in I2C. Please check wiring")); }
@@ -54,9 +54,9 @@ bool initializeSPS30() {
     // attempt reset and retry, I dont know how to restart sps30 without physical access.
     // should wakeup first
     sps30.wakeup();
-    delay(500); // 5ms needed
+    delay(500); lastYield = millis(); // 5ms needed
     sps30.reset();
-    delay(1000); // takes 100ms to finish reset
+    delay(1000); lastYield = millis(); // takes 100ms to finish reset
     if (sps30.probe() == false) {
       if (mySettings.debuglevel > 0) {
         printSerialTelnetLogln(F("SPS30: could not probe / connect"));
@@ -67,15 +67,15 @@ bool initializeSPS30() {
       return(false);
     }
   } else { 
-    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("SPS30: detected")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: detected")); }
   }
 
   if (sps30.reset() == false) { 
-    if (mySettings.debuglevel > 0) {printSerialTelnetLogln(F("SPS30: could not reset")); }
+    if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: could not reset")); }
     stateSPS30 = HAS_ERROR;
     errorRecSPS30 = currentTime + 5000;
     return(false);
-  } else { delay(100); }
+  } else { delay(100); lastYield = millis(); }
 
   // read device info
 
@@ -135,10 +135,9 @@ bool initializeSPS30() {
   }
   
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 }
-
 
 /******************************************************************************************************/
 // Update SPS30
@@ -187,7 +186,7 @@ bool updateSPS30() {
         D_printSerialTelnet(F("D:U:SPS30:IB.."));
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
         sps30_port->setClock(I2C_SLOW);
-        delay(1);
+        yieldI2C();
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
         if (mySettings.debuglevel == 5)  { sprintf_P(tmpStr, PSTR("SPS30: values read in %ims"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
@@ -195,7 +194,7 @@ bool updateSPS30() {
           if (mySettings.debuglevel > 0) { 
             sprintf_P(tmpStr, PSTR("SPS30: error data length or zero reading, %u"), sps_error_cnt); R_printSerialTelnetLogln(tmpStr); 
           }
-          if (sps_error_cnt++ > 3) { 
+          if (sps_error_cnt++ > 3) { // i2c error recovery with retries, this will not initiate reset
             stateSPS30 = HAS_ERROR; 
             errorRecSPS30 = currentTime + 5000; 
             sps_error_cnt = 0; 
@@ -209,6 +208,7 @@ bool updateSPS30() {
           break;
         }
         sps_error_cnt = 0;
+        sps30_error_cnt = 0;
         lastSPS30 = currentTime; 
         // adjust time to get stable readings, it takes longer  with lower concentration to get a precise reading
         totalParticles = (valSPS30.NumPM0 + valSPS30.NumPM1 + valSPS30.NumPM2 + valSPS30.NumPM4 + valSPS30.NumPM10);
@@ -236,7 +236,7 @@ bool updateSPS30() {
         D_printSerialTelnet(F("D:U:SPS30:WS.."));
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);
         sps30_port->setClock(I2C_SLOW);
-        delay(1);  
+        yieldI2C(); 
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);
         if (mySettings.debuglevel == 5) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
@@ -306,7 +306,7 @@ bool updateSPS30() {
         wakeTimeSPS30 = (unsigned long) (lastSPS30 + intervalSPS30 - 50 - timeToStableSPS30);
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
         sps30_port->setClock(I2C_SLOW);
-        delay(1); 
+        yieldI2C();
         ret = sps30.sleep(); // takes 5ms
         if (ret != ERR_OK) { 
           if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: error, could not go to sleep")); }
@@ -326,7 +326,7 @@ bool updateSPS30() {
         D_printSerialTelnet(F("D:U:SPS30:IS.."));
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
         sps30_port->setClock(I2C_SLOW);
-        delay(1);
+        yieldI2C();
         if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: waking up")); }
         ret = sps30.wakeup(); // takes 5ms
         if (ret != ERR_OK) {
@@ -347,7 +347,7 @@ bool updateSPS30() {
         D_printSerialTelnet(F("D:U:SPS30:IW.."));
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
         sps30_port->setClock(I2C_SLOW);
-        delay(1);
+        yieldI2C();
         ret = sps30.start();  //takes 20ms
         if (ret != ERR_OK) { 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: error, could not start SPS30 measurements")); }
@@ -368,28 +368,29 @@ bool updateSPS30() {
         if (sps30_error_cnt++ > 3) { 
           success = false; 
           sps30_avail = false; 
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: reinitialization attempts exceeded, SPS30: no longer available.")); }
           break;
         } // give up after 3 tries
         sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
         sps30_port->setClock(I2C_SLOW);
-        delay(1); 
+        yieldI2C();
         sps30.EnableDebugging(SPS30Debug);
         if (sps30.begin(sps30_port) == false) {
           stateSPS30 = HAS_ERROR;
           errorRecSPS30 = currentTime + 5000;
-          success = false;
+          // success = false;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: could not re-intialize")); }
           break;
         }
         if (sps30.probe() == false) { 
           sps30.wakeup();
-          delay(5);
-          sps30.reset();
-          delay(100);
+          delay(5); lastYield = millis(); // 5ms needed to wake up
+          sps30.reset(); 
+          delay(100); lastYield = millis(); // 100ms needed to reset
           if (sps30.probe() == false) {
             stateSPS30 = HAS_ERROR;
             errorRecSPS30 = currentTime + 5000;
-            success = false;
+            // success = false;
             if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: probe not successful, could not re-intialize")); }
             break;
           }
@@ -397,10 +398,11 @@ bool updateSPS30() {
         if (sps30.reset() == false) { 
           stateSPS30 = HAS_ERROR;
           errorRecSPS30 = currentTime + 5000;
-          success = false;
+          delay(1); lastYield = millis();
+          // success = false;
           if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: could not re-intialize/reset")); }
           break;
-        } else { delay(100); }
+        } else { delay(100); lastYield = millis();}
         // read device info
         ret = sps30.GetVersion(&v);
         if (ret != ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
@@ -409,11 +411,12 @@ bool updateSPS30() {
         }
         ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
         if (sps30.start() == true) { 
+          delay(1); lastYield = millis();
           stateSPS30 = IS_BUSY; 
         } else { 
           stateSPS30 = HAS_ERROR;
           errorRecSPS30 = currentTime + 5000;
-          success = false;
+          // success = false;
           if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: could not re-intialize")); }
           break;
         }
@@ -431,20 +434,25 @@ bool updateSPS30() {
 void sps30JSON(char *payload) {
   char qualityMessage1[16];
   char qualityMessage2[16];
-  checkPM2(valSPS30.MassPM2, qualityMessage1, 15); 
-  checkPM10(valSPS30.MassPM10, qualityMessage2, 15);
-  sprintf_P(payload, PSTR("{\"sps30\":{\"avail\":%s,\"PM1\":%4.1f,\"PM2\":%4.1f,\"PM4\":%4.1f,\"PM10\":%4.1f,\"nPM0\":%4.1f,\"nPM1\":%4.1f,\"nPM2\":%4.1f,\"nPM4\":%4.1f,\"nPM10\":%4.1f,\"PartSize\":%4.1f,\"PM2_airquality\":\"%s\",\"PM10_airquality\":\"%s\"}}"), 
+  if (sps30_avail) { 
+    checkPM2(valSPS30.MassPM2, qualityMessage1, 15); 
+    checkPM10(valSPS30.MassPM10, qualityMessage2, 15);
+  } else {
+    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+  } 
+  sprintf_P(payload, PSTR("{ \"sps30\": { \"avail\": %s, \"PM1\": %4.1f, \"PM2\": %4.1f, \"PM4\": %4.1f, \"PM10\": %4.1f, \"nPM0\": %4.1f, \"nPM1\": %4.1f, \"nPM2\": %4.1f, \"nPM4\": %4.1f, \"nPM10\": %4.1f, \"PartSize\": %4.1f, \"PM2_airquality\": \"%s\", \"PM10_airquality\": \"%s\"}}"), 
                        sps30_avail ? "true" : "false", 
-                       valSPS30.MassPM1,
-                       valSPS30.MassPM2,
-                       valSPS30.MassPM4,
-                       valSPS30.MassPM10,
-                       valSPS30.NumPM0,
-                       valSPS30.NumPM1,
-                       valSPS30.NumPM2,
-                       valSPS30.NumPM4,
-                       valSPS30.NumPM10,
-                       valSPS30.PartSize,
+                       sps30_avail ? valSPS30.MassPM1 : -1.,
+                       sps30_avail ? valSPS30.MassPM2 : -1.,
+                       sps30_avail ? valSPS30.MassPM4 : -1.,
+                       sps30_avail ? valSPS30.MassPM10 : -1.,
+                       sps30_avail ? valSPS30.NumPM0 : -1.,
+                       sps30_avail ? valSPS30.NumPM1 : -1.,
+                       sps30_avail ? valSPS30.NumPM2 : -1.,
+                       sps30_avail ? valSPS30.NumPM4 : -1.,
+                       sps30_avail ? valSPS30.NumPM10 : -1.,
+                       sps30_avail ? valSPS30.PartSize : -1.,
                        qualityMessage1, 
                        qualityMessage2);
 }

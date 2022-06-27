@@ -41,6 +41,7 @@ bool initializeSCD30() {
   attachInterrupt(digitalPinToInterrupt(SCD30interruptPin),  handleSCD30Interrupt,  RISING);
   scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
   scd30_port->setClock(I2C_SLOW);
+  yieldI2C();
   if (scd30.begin(*scd30_port, true)) {                    // start with autocalibration
     scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
     scd30.setAutoSelfCalibration(true); 
@@ -54,7 +55,7 @@ bool initializeSCD30() {
     return(false);
   }
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SCD30: initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 }
 
@@ -85,6 +86,7 @@ bool updateSCD30 () {
         D_printSerialTelnet(F("D:U:SCD30:IM.."));
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
         scd30_port->setClock(I2C_SLOW);
+        yieldI2C();
         if (scd30.dataAvailable()) {
           scd30_ppm  = scd30.getCO2(); 
           scd30_temp = scd30.getTemperature();
@@ -105,7 +107,10 @@ bool updateSCD30 () {
         D_printSerialTelnet(F("D:U:SCD30:IB.."));
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
         scd30_port->setClock(I2C_SLOW);
-        if (scd30.dataAvailable()) {scd30.readMeasurement();} // without reading data, RDY pin will remain high and no interrupt will occur
+        yieldI2C();
+        if (scd30.dataAvailable()) {
+          scd30.readMeasurement();
+        } // without reading data, RDY pin will remain high and no interrupt will occur
         lastSCD30Busy = currentTime;
         if (mySettings.debuglevel == 4) { R_printSerialTelnetLogln(F("SCD30: is busy")); }
       }
@@ -116,9 +121,13 @@ bool updateSCD30 () {
       D_printSerialTelnet(F("D:U:SCD30:DA.."));
       scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
       scd30_port->setClock(I2C_SLOW);
+      yieldI2C();  
       scd30_ppm  = scd30.getCO2();
       scd30_temp = scd30.getTemperature();
       scd30_hum  = scd30.getHumidity();
+      float tmp = 273.15 + scd30_temp;
+      scd30_ah = scd30_hum * 13.246 / tmp * exp(19.854 - 5423.0/tmp); // [gr/m^3]
+      if ( (scd30_ah<0) | (scd30_ah>40.0) ) { scd30_ah = -1.0; } // make sure its reasonable
       lastSCD30  = currentTime;
       scd30NewData = true;
       scd30NewDataWS = true;
@@ -131,11 +140,12 @@ bool updateSCD30 () {
 
       D_printSerialTelnet(F("D:U:SCD30:I.."));
       // wait for intrrupt to occur, 
-      // backup: if interrupt timed out, check the sensor
+      // backup: if interrupt timed out, obtain data manually
       if ( (currentTime - lastSCD30) > (2*intervalSCD30) ) {
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: interrupt timeout occured")); }
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
         scd30_port->setClock(I2C_SLOW);
+        yieldI2C();
         if (scd30.dataAvailable()) { 
           stateSCD30 = DATA_AVAILABLE; 
           scd30_error_cnt = 0;
@@ -152,6 +162,7 @@ bool updateSCD30 () {
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
           scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
           scd30_port->setClock(I2C_SLOW);
+          yieldI2C();
           scd30.setAmbientPressure(uint16_t(bme680.pressure/100.0));  // update with value from pressure sensor, needs to be mbar
           lastPressureSCD30 = currentTime;
           if (mySettings.debuglevel == 4) { sprintf_P(tmpStr, PSTR("SCD30: pressure updated to %fmbar"), bme680.pressure/100.0); R_printSerialTelnetLogln(tmpStr); }
@@ -160,6 +171,7 @@ bool updateSCD30 () {
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
           scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);  
           scd30_port->setClock(I2C_SLOW);
+          yieldI2C();
           scd30.setAmbientPressure(uint16_t(bme280_pressure/100.0));  // pressure is in Pa and scd30 needs mBar
           lastPressureSCD30 = currentTime;
           if (mySettings.debuglevel == 4) { sprintf_P(tmpStr, PSTR("SCD30: pressure updated to %fmbar"), bme280_pressure/100.0); R_printSerialTelnetLogln(tmpStr); }
@@ -174,11 +186,13 @@ bool updateSCD30 () {
         if (scd30_error_cnt++ > 3) { 
           success = false; 
           scd30_avail = false; 
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: reinitialization attempts exceeded, SCD30: no longer available.")); }
           break;
         } // give up after 3 tries
         // trying to recover sensor
         scd30_port->begin(scd30_i2c[0], scd30_i2c[1]);
         scd30_port->setClock(I2C_SLOW);
+        yieldI2C();
         if (scd30.begin(*scd30_port, true)) { 
           scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
           scd30.setAutoSelfCalibration(true); 
@@ -187,7 +201,7 @@ bool updateSCD30 () {
         } else {
           stateSCD30 = HAS_ERROR;
           errorRecSCD30 = currentTime + 5000;
-          success = false;
+          // success = false;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: re-initialization failed")); }
           break;
         }
@@ -207,15 +221,21 @@ void scd30JSON(char *payload){
   char qualityMessage1[16];
   char qualityMessage2[16];
   char qualityMessage3[16];
-  checkCO2(float(scd30_ppm), qualityMessage1, 15); 
-  checkHumidity(scd30_hum, qualityMessage2, 15);
-  checkAmbientTemperature(scd30_temp, qualityMessage3, 15);
-  sprintf_P(payload, PSTR("{\"scd30\":{\"avail\":%s,\"CO2\":%hu,\"rH\":%4.1f,\"aH\":%4.1f,\"T\":%4.1f,\"CO2_airquality\":\"%s\",\"rH_airquality\":\"%s\",\"T_airquality\":\"%s\"}}"), 
+  if (scd30_avail) { 
+    checkCO2(float(scd30_ppm), qualityMessage1, 15); 
+    checkHumidity(scd30_hum, qualityMessage2, 15);
+    checkAmbientTemperature(scd30_temp, qualityMessage3, 15);
+  } else {
+    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage3, "none", sizeof(qualityMessage3));
+  } 
+  sprintf_P(payload, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %4.1f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        scd30_avail ? "true" : "false", 
-                       scd30_ppm, 
-                       scd30_hum,
-                       scd30_ah,
-                       scd30_temp,
+                       scd30_avail ? scd30_ppm : 0, 
+                       scd30_avail ? scd30_hum : -1.0,
+                       scd30_avail ? scd30_ah : -1.0,
+                       scd30_avail ? scd30_temp : -999.0,
                        qualityMessage1, 
                        qualityMessage2,
                        qualityMessage3);

@@ -57,7 +57,7 @@ void initializeWiFi() {
     stateMDNS = IS_WAITING;
     stateOTA  = IS_WAITING;
     stateNTP  = IS_WAITING;
-    delay(50);
+    delay(50); lastYield = millis();
   }
 } // init wifi
 

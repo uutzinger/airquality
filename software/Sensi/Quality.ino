@@ -318,19 +318,25 @@ bool checkAmbientTemperature(float T, char *message, int len) {
       // 20-25.5 normal
       strcpy_P(message, "?");
     } else if (len == 1) {
-      if (T < 20.0)       { strcpy_P(message, cold1); }
+      if (T < 0.0)        { strcpy_P(message, cold1); }
+      else if (T <= 20.0) { strcpy_P(message, coldish1); }
       else if (T <= 25.5) { strcpy_P(message, normal1); }
+      else if (T <= 40.0) { strcpy_P(message, warm1); }
       else                { strcpy_P(message, hot1); }
   
     } else if (len <= 4) {
-      if (T < 20.0)       { strncpy_P(message, cold4,   len);  }
-      else if (T <= 25.5) { strncpy_P(message, normal4, len);  }
-      else                { strncpy_P(message, hot4,    len); }
+      if (T <= 0.0)       { strncpy_P(message, cold4,    len);  }
+      else if (T <= 20.5) { strncpy_P(message, coldish4, len);  }
+      else if (T <= 25.5) { strncpy_P(message, normal4,  len);  }
+      else if (T <= 40.0) { strncpy_P(message, warm4,    len);  }
+      else                { strncpy_P(message, hot4,     len); }
   
     } else {
-      if (T < 20.0)       { strncpy_P(message, coldF,   len); }
-      else if (T <= 25.5) { strncpy_P(message, normalF, len); }
-      else                { strncpy_P(message, hotF,    len); }
+      if (T < 20.0)       { strncpy_P(message, coldF,    len); }
+      else if (T <= 20.0) { strncpy_P(message, coldishF, len); }
+      else if (T <= 25.5) { strncpy_P(message, normalF,  len); }
+      else if (T <= 40.0) { strncpy_P(message, warmF,    len); }
+      else                { strncpy_P(message, hotF,     len); }
     }
     message[len] = '\0';
   } else {
