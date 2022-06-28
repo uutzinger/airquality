@@ -4,7 +4,7 @@ html {
 }
 
 body {
-    font-family: 'Roboto', sans-serif;
+    font-family: "Times New Roman", Times, serif;
     color: #444;
     background-color: #fff;
     margin: 0;
@@ -59,4 +59,24 @@ center>div {
 
 .button:hover {
     box-shadow: 1px 1px 3px #444;
+}
+
+table, td, th {
+    border: 0px solid black;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+td {
+    height: 20px;
+    width: 160px;
+    font-family: "Times New Roman", Times, serif;
+    text-align: right;
+}
+
+th {
+    height: 25px;
+    width: 160px;
 }

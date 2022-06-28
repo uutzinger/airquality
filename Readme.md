@@ -1,6 +1,7 @@
 # Airquality Sensors with ESP8266
-The goal of this project is to connect several air quality sensors via i2c bus to 
-the ESP8266 microcontroller.
+This project connects several air quality sensors via i2c bus to 
+the ESP8266 microcontroller. It automatically detects the supported sensors. 
+Most WiFi features of the ESP8266 are implemented (web, telnet, web sockets, mqtt, mDNS, ntp client, upload).
 
 - [Airquality Sensors with ESP8266](#airquality-sensors-with-esp8266)
   * [Air Quality Sensor](#air-quality-sensor)
@@ -32,32 +33,35 @@ At this time this software **supports the following devices**:
 - SGP30 Senserione VOC, eCO2  
 - CCS811 Airquality eCO2 tVOC  
 - SPS30 Senserion particle sensor (requires 5V power, compatible with 3.3V logic signals)
-- MLX90614 Melex temp contactless  
+- MLX90614 Melex temp contactless
 - MAX30105 Maxim pulseox (in progress)
+- more will be added in future
 
 The electrical and softare specifications of the selected sensors are listed in [**Sensor Specs**](Sensor_Specs.md).
 
 It should be straight forward to use this frame work to expand but also to remove unwanted modules.
 
-Many gas sensors are not suitable for low power operation as a metal oxid sensor needs to be heated for a brief time. For humidity, tempterauter and pressure mesaurements, the system can run from a battery.
+Many gas sensors are not suitable for low power operation as a metal oxid sensor needs to be heated for a brief time. 
+For humidity, tempterauter and pressure mesaurements, the system can run from a battery.
 
-## Build Instructions
+## Hardware Build Instructions
 To build the system one will need to consider the [**ESP8266 pinout and configuratin**](ESP8266_i2c.md) as well as the [**Wiring of the Board**](Wiring_of_Board.md)
 As can be seen in the images below, I use a standard PCB and add JST connectors and socker for ESP.
 The front and back panel I cut on laser cutter. I use M2.5 stand offs. 
 
 Sorry no circuit diagram with pullup and wire connections has been made to include in the docs at this time.
 
-## Programming Instructions
-The software folder in this destribution is the main sketch folder. When opening Sensi main program, all other modules are loaded. 
+## Software Build Instructions
+The software folder in this destribution will need to become the main sketch folder (Arduino Preferences).
+ When opening Sensi main program, all other modules are loaded.
 
 The drivers and programs will compile with ESP8266 2.x Arduino Libary but not with latest 3.x. Third party drivers fail to build on 3.x.
 
 All hard coded settings are stored in .h files in the ```src``` folder.
 
-For first time progamming of a new ESP, you will need to upload via USB cable. Afterwards you can use OTA or http uploader.
+For first time progamming of a new ESP, you will need to upload via a USB cable. Afterwards you can use OTA or http uploader.
 
-You will also need to upload files to the LittleFS using the https://github.com/earlephilhower/arduino-esp8266littlefs-plugin in order to use the sensor from a web browser. After initial upload you can upload files to (http://host/upload).
+You will also need to upload files to the LittleFS using the https://github.com/earlephilhower/arduino-esp8266littlefs-plugin in order to view the sensor from a web browser. After initial upload you can upload files to (http://host/upload).
 
 ## Features
 
@@ -65,19 +69,19 @@ Data is displayed on an **LCD** and can be sent to **MQTT server** or viewed thr
 
 When wireless connection is lost, the wifi driver scans for available networks and reestablishes the connection. Up to 3 netids can be setup.
 
-The software currenlty works with **multiple separate i2c buses**. The software **scans** all availabel pins for i2c devices and **identifies the pin configuration for SCL and SDA** for the supported sensors. The motivation to provide multiple ports was that some breakout boards affect the proper operation of others boards. For example LCD display corrupts within 12-24hrs time frame. SPS30 does not properly reset after program upload. MLX sensor sometimes reports excessive or negative temperature. ESP8266 Arduino frame work does not provide independent i2c interfaces and all share one single layer. Its not possible to run multiple i2c ports at different clock speeds and with different clock stretching simultanously. However before each communication one can switch to differnt SCL and SDA pins and set the clock speed.
+The software currenlty works with **multiple separate i2c buses**. The software **scans** all availabel pins for i2c devices and **identifies the pin configuration for SCL and SDA** for the supported sensors. The motivation to provide multiple ports was that some breakout boards affect the proper operation of other boards. For example LCD display corrupts within 12-24hrs time frame. SPS30 does not properly reset after program upload. MLX sensor sometimes reports excessive or negative temperature. ESP8266 Arduino frame work does not provide independent i2c interfaces and all share one single i2c layer. Its not possible to run multiple i2c ports at different clock speeds and with different clock stretching simultanously. However before each communication one can switch to a differnt SCL and SDA pins and set the clock speed.
 
 Most **settings** are stored in EEPROM and can be changed at runtime. Over the air programming **OTA**, **JSON** encoding, **HTTP firmware updater** (http://host:8890/firmware), **telnet** interface, **HTTP** server are provided and can be enabled/disabled.
 
-Runtime settings are listed in [**Runtime Settings**](Runtime_Settings.md)
+Runtime settings are listed in [**Runtime Settings**](Runtime_Settings.md) and over the terminal with '?'  command.
 
-Passwords are set but since SSL is not available, the system is not particulary secure.
+Passwords are set but since SSL is not available, the system is not particulary secure. For more secure use, disable telnet and littleFS upload.
 
 Debugging of code was enabled with two approaches:
-1) Setting debugging levels (0 = no ouptut to serial or telnet). Setting debug level to 99 will printout sensor values and system status continously. 
-2) Enable ```#define DBG``` creates DBG output at all essential function calls, so that a software crash can be pin pointed. This will create a lot of output and is not
-   suited for regular operation of the system.
-3) sending "." will provide execution times of the major function calls.
+1) Setting debugging levels (e.g. 0 = no debuggin). Setting debug level to 99 will printout sensor values and system status continously. Refer to the help menu for the debug levels. 
+2) Enable ```#define DBG``` creates DBG output at all essential function calls, so that a software crash could be pin pointed. This will create a lot of output and is not
+   suited for regular operation of the system. Its better to install the ESP Exception Decoder and to analyze the crash dump from the terminal.
+3) sending "." will provide execution times of the major function calls. This was created to identify which sections of the code delay the main loop substantially.
 
 ## Air Quality Assessments
 
@@ -94,6 +98,8 @@ P10: >50ug/m3 is poor
 * tVOC:  a value >660ppb is poor
 
 It is common to find CO2 concentration above 1000ppm in single family homes. To lower CO2 concentration you need to open two windows at opposite sides of the house and let air circulate.
+
+If you do not want the backlight of the LCD to blink you can turn it off in the settings. You can also turn it off during the night.
 
 ## Sensor System
 

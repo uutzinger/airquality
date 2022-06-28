@@ -18,52 +18,138 @@
   </header>
 
 	<h2>Date and Time</h2>
-	  Time <spawn id="Hour">--</spawn>:<spawn id="Minute">--</spawn> <br>
-	  Date <spawn id="Month">--</spawn>/<spawn id="Day">--</spawn>/<spawn id="Year">--</spawn> <br>
+  <table>
+    <tr>
+	    <td>Time</td> <td><spawn id="Hour">--</spawn>:<spawn id="Minute">--</spawn> </td>
+    </tr>
+    <tr>
+        <td>Date</td> <td><spawn id="Month">--</spawn>/<spawn id="Day">--</spawn>/<spawn id="Year">--</spawn> </td>
+    </tr>
+  </table>
+  <br>
 
 	<h2>Wi-Fi</h2>
-	  <spawn id="Hostname">-----</spawn> is at <spawn id="IP">---.---.---.---</spawn>
+  <table>
+    <tr>
+  	  <td><spawn id="Hostname">-----</spawn></td> <td><spawn id="IP">---.---.---.---</spawn> </td>
+    </tr>
+  </table>
+  <br>
 
   <h2>Barometric Pressure</h2>
-  BME280      : <spawn id="BME280Pressure">0mb</spawn>, <spawn id="BME280dPaq"></spawn> <br>
-  BME280 24hrs: <spawn id="BME280PressureAvg">0mb</spawn><br>
-  BME680      : <spawn id="BME680Pressure">0mb</spawn>, <spawn id="BME680dPaq"></spawn><br>
-  BME680 24hrs: <spawn id="BME680PressureAvg">0mb</spawn><br>
-  
+  <table>
+    <tr>
+      <td>BME280 </td> <td><spawn id="BME280Pressure">0mb</spawn> </td> <td><spawn id="BME280dPaq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>BME280 24hrs </td> <td><spawn id="BME280PressureAvg">0mb</spawn> </td>
+    </tr>
+    <tr>
+      <td>BME680 </td> <td><spawn id="BME680Pressure">0mb</spawn> </td> <td><spawn id="BME680dPaq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>BME680 24hrs </td> <td><spawn id="BME680PressureAvg">0mb</spawn> </td>
+    </tr>
+  </table>
+  <br>
+
   <h2>Temperature</h2>
-  BME280      : <spawn id="BME280Temp">-999 &deg;C</spawn>, <spawn id="BME280Tq"></spawn><br>
-  BME680      : <spawn id="BME680Temp">-999 &deg;C</spawn>, <spawn id="BME680Tq"></spawn><br>
-  MLX ambient : <spawn id="MLXAmbient">-999 &deg;C</spawn>, <spawn id="MLXaTq"></spawn><br>
-  MLX object  : <spawn id="MLXObject">-999 &deg;C</spawn>, <spawn id="MLXfever"></spawn><br>
-  SCD30       : <spawn id="SCD30Temp">-999 &deg;C</spawn>, <spawn id="SCD30Tq"></spawn><br>
+  <table>
+    <tr>
+      <td>BME280 </td> <td><spawn id="BME280Temp">-999 &deg;C</spawn> </td> <td><spawn id="BME280Tq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>BME680 </td> <td><spawn id="BME680Temp">-999 &deg;C</spawn> </td> <td><spawn id="BME680Tq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>MLX ambient </td> <td><spawn id="MLXAmbient">-999 &deg;C</spawn> </td> <td><spawn id="MLXaTq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>MLX object </td> <td><spawn id="MLXObject">-999 &deg;C</spawn> </td> <td><spawn id="MLXfever"></spawn> </td>
+    </tr>
+    <tr>
+      <td>SCD30 </td> <td><spawn id="SCD30Temp">-999 &deg;C</spawn> </td> <td><spawn id="SCD30Tq"></spawn> </td>
+    </tr>
+  </table>
+  <br>
   
   <h2>Humidity</h2>
-  BME280      : <spawn id="BME280rHum">0%</spawn>, <spawn id="BME280aHum">45g/m<sup>3</sup></spawn>, <spawn id="BME280Haq"></spawn><br>
-  BME680      : <spawn id="BME680rHum">0%</spawn>, <spawn id="BME680aHum">45g/m<sup>3</sup></spawn>, <spawn id="BME680Haq"></spawn><br>
-  SCD30       : <spawn id="SCD30rHum">0%</spawn>, <spawn id="SCD30aHum">45g/m<sup>3</sup></spawn>, <spawn id="SCD30rHaq"></spawn><br>
-  
+  <table>
+    <tr>
+      <td>BME280 </td> <td><spawn id="BME280rHum">0%</spawn>, <spawn id="BME280aHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="BME280Haq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>BME680 </td> <td><spawn id="BME680rHum">0%</spawn>, <spawn id="BME680aHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="BME680Haq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>SCD30 </td> <td><spawn id="SCD30rHum">0%</spawn>, <spawn id="SCD30aHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="SCD30rHaq"></spawn> </td>
+    </tr>
+  </table>
+  <br>
+
   <h2>CO2</h2>
-  SCD30 CO2   : <spawn id="SCD30CO2">0ppm</spawn>, <spawn id="SCD30CO2aq"></spawn><br>
-  CCS811 eCO2 : <spawn id="CCS811CO2">0ppm</spawn>, <spawn id="CCS811eCO2aq"></spawn><br>
-  SGP30 eCO2  : <spawn id="SGP30CO2">0ppm</spawn>, <spawn id="SGP30eCO2aq"></spawn><br>
-  
+  <table>
+    <tr>
+      <td>SCD30 CO2 </td> <td><spawn id="SCD30CO2">0ppm</spawn> </td> <td><spawn id="SCD30CO2aq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>CCS811 eCO2 </td> <td><spawn id="CCS811CO2">0ppm</spawn> </td> <td><spawn id="CCS811eCO2aq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>SGP30 eCO2 </td> <td><spawn id="SGP30CO2">0ppm</spawn> </td> <td><spawn id="SGP30eCO2aq"></spawn> </td>
+    </tr>
+  </table>
+  <br>
+
   <h2>Gas</h2>
-  CCS811 tVOC : <spawn id="CCS811tVOC">0pbb</spawn>, <spawn id="CCS811tVOCaq"></spawn><br>
-  SGP30 tVOC  : <spawn id="SGP30tVOC">0pbb</spawn>, <spawn id="SGP30tVOCaq"></spawn><br>
-  BME680 Gas Resistance : <spawn id="BME680Resistance">0Ohm</spawn>, <spawn id="BME680Raq"></spawn><br>
-  
+  <table>
+    <tr>
+      <td>CCS811 tVOC </td> <td><spawn id="CCS811tVOC">0pbb</spawn> </td> <td><spawn id="CCS811tVOCaq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>SGP30 tVOC </td> <td><spawn id="SGP30tVOC">0pbb</spawn> </td> <td><spawn id="SGP30tVOCaq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>BME680 Gas Resistance </td> <td><spawn id="BME680Resistance">0Ohm</spawn> </td> <td><spawn id="BME680Raq"></spawn> </td>
+    </tr>
+  </table>
+  <br>
+
   <h2>Particulate Matter</h2>
-  Particulate Matter 1.0 : <spawn id="PM1"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM1"></sup></spawn><br>
-  Particulate Matter 2.5 : <spawn id="PM2"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM2"></spawn>, <spawn id="PM2aq"></spawn><br>
-  Particulate Matter 4.0 : <spawn id="PM4"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM4"></spawn><br>
-  Particulate Matter 10  : <spawn id="PM10"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM10"></spawn>, <spawn id="PM10aq"></spawn><br>
-  Average Size           : <spawn id="PartSize"></spawn><br>
+  <table>
+    <tr>
+      <td>Particulate Matter 1.0 </td> <td><spawn id="PM1"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM1"></sup></spawn> </td>
+    </tr>
+    <tr>
+      <td>Particulate Matter 2.5 </td> <td><spawn id="PM2"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM2"></spawn> </td> <td><spawn id="PM2aq"></spawn></td>
+    </tr>
+    <tr>
+      <td>Particulate Matter 4.0 </td> <td><spawn id="PM4"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM4"></spawn> </td>
+    </tr>
+    <tr>
+      <td>Particulate Matter 10 </td> <td><spawn id="PM10"> -1.0 &micro;g/m<sup>3</sup></spawn>, <spawn id="NumPM10"></spawn> </td> <td><spawn id="PM10aq"></spawn> </td>
+    </tr>
+    <tr>
+      <td>Average Size </td> <td><spawn id="PartSize"></spawn> </td>
+  </tr>
+  </table>
+  <br>
 
   <h2>System</h2>
-  Free Heap: <spawn id="FreeHeap">--</spawn><br>
-  Heap Fragmentation: <spawn id="HeapFrag">--</spawn><br>
-  Max Free Block Size: <spawn id="MaxFreeBlock">--</spawn><br> 
-  Max Loop Time: <spawn id="MaxLoopTime">--</spawn><br>
+  <table>
+    <tr>
+      <td>Free Heap </td> <td><spawn id="FreeHeap">--</spawn></td>
+    </tr>
+    <tr>
+      <td>Heap Fragmentation </td> <td><spawn id="HeapFrag">--</spawn></td>
+    </tr>
+    <tr>
+      <td>Max Free Block Size </td> <td><spawn id="MaxFreeBlock">--</spawn></td>
+    </tr>
+    <tr>
+      <td>Max Loop Time</td> <td><spawn id="MaxLoopTime">--</spawn></td>
+  </tr>
+  </table>
 
   <br><a href="https://github.com/uutzinger/airquality">Urs Utzinger</a>
 
@@ -154,10 +240,10 @@
       if (this.readyState == 4 && this.status == 200) {
         var txt = this.responseText;
         var obj = JSON.parse(txt); 
-        document.getElementById('FreeHeap').innerHTML = obj.system.freeheap;
-        document.getElementById('HeapFrag').innerHTML = obj.system.heapfragmentation;
-        document.getElementById('MaxFreeBlock').innerHTML = obj.system.maxfreeblock;
-        document.getElementById('MaxLoopTime').innerHTML = obj.system.maxlooptime;
+        document.getElementById('FreeHeap').innerHTML = obj.system.freeheap + "bytes";
+        document.getElementById('HeapFrag').innerHTML = obj.system.heapfragmentation + "%";
+        document.getElementById('MaxFreeBlock').innerHTML = obj.system.maxfreeblock + "bytes";
+        document.getElementById('MaxLoopTime').innerHTML = obj.system.maxlooptime +"ms";
       }
     };
     xhttp.open("GET", "system", true);

@@ -2,6 +2,8 @@
 
 ```
 ================================================================================
+| Sensi, 2020-2022, Urs Utzinger                                               |
+================================================================================
 Supports........................................................................
 ........................................................................LCD 20x4
 ........................................................SPS30 Senserion Particle
@@ -15,6 +17,7 @@ Supports........................................................................
 | p: print current settings             | s: save settings (EEPROM) sj: JSON   |
 | d: create default seetings            | r: read settings (EEPROM) rj: JSON   |
 | .: execution times                    | L: list content of filesystem        |
+| j: print sensor data in JSON          |                                      |
 ==Network===============================|==MQTT=================================
 | P1: SSID 1, P1myssid                  | u: mqtt username, umqtt or empty     |
 | P2: SSID 2, P2myssid                  | w: mqtt password, ww1ldc8ts or empty |
@@ -38,26 +41,29 @@ Supports........................................................................
 |-MLX Temp------------------------------|-LCD----------------------------------|
 | m: set temp offset, m1.4              | i: simplified display                |
 ==Disable===============================|==Disable==============================
-| x: 2 LCD on/off                       | x: 11 MLX on/off                     |
-| x: 3 WiFi on/off                      | x: 12 BME680 on/off                  |
-| x: 4 SCD30 on/off                     | x: 13 BME280 on/off                  |
-| x: 5 SPS30 on/off                     | x: 14 CCS811 on/off                  |
-| x: 6 SGP30 on/off                     | x: 15 LCD backlight on/off           |
-| x: 7 MQTT on/off                      | x: 16 HTML server on/off             |
-| x: 8 NTP on/off                       | x: 17 OTA on/off                     |
-| x: 9 mDNS on/off                      | x: 18 Serial on/off                  |
-| x: 10 MAX30 on/off                    | x: 19 Telnet on/off                  |
-| x: 99 reset microcontroller           | x: 20 HTTP Updater on/off            |
+| x: 2 LCD on/off                       | x: 14 CCS811 on/off                  |
+| x: 3 WiFi on/off                      | x: 15 LCD backlight on/off           |
+| x: 4 SCD30 on/off                     | x: 16 LCD backlight at night on/off  |
+| x: 5 SPS30 on/off                     | x: 17 Blink backlgiht at night on/off|
+| x: 6 SGP30 on/off                     | x: 18 HTML server on/off             |
+| x: 7 MQTT on/off                      | x: 19 OTA on/off                     |
+| x: 8 NTP on/off                       | x: 20 Serial on/off                  |
+| x: 9 mDNS on/off                      | x: 21 Telnet on/off                  |
+| x: 10 MAX30 on/off                    | x: 22 HTTP Updater on/off            |
+| x: 11 MLX on/off                      | x: 23 Logfile on/off                 |
+| x: 12 BME680 on/off                   |                                      |
+| x: 13 BME280 on/off                   | x: 99 Reset/Reboot                   |
 |---------------------------------------|--------------------------------------|
 | You will need to x99 to initialize the sensor                                |
 ==Debug Level===========================|==Debug Level==========================
-| l: 0 ALL off                          | l: 99 continous                      |
-| l: 1 minimal                          | l: 6 SGP30 max level                 |
-| l: 2 LCD max level                    | l: 7 MAX30 max level                 |
-| l: 3 WiFi max level                   | l: 8 MLX max level                   |
-| l: 4 SCD30 max level                  | l: 9 BME680/280 max level            |
-| l: 5 SPS30 max level                  | l: 10 CCS811 max level               |
+| l: 0 ALL off                          | l: 6 SGP30 max level                 |
+| l: 1 Errors only                      | l: 7 MAX30 max level                 |
+| l: 2 Minimal                          | l: 8 MLX max level                   |
+| l: 3 WiFi max level                   | l: 9 BME680/280 max level            |
+| l: 4 SCD30 max level                  | l: 10 CCS811 max level               |
+| l: 5 SPS30 max level                  | l: 11 LCD max level                  |
+| l: 99 continous                       |                                      |
 ================================================================================
-|  Dont forget to save settings                                                |
+|  Dont forget to save settings with s                                         |
 ================================================================================
 ```
