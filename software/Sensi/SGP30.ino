@@ -199,8 +199,8 @@ void sgp30JSON(char *payload){
     checkCO2(float(sgp30.CO2), qualityMessage1, 15); 
     checkTVOC(float(sgp30.TVOC), qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   } 
   sprintf(payload, PSTR("{ \"sgp30\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        sgp30_avail ? "true" : "false", 

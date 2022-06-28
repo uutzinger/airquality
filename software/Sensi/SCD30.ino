@@ -226,9 +226,9 @@ void scd30JSON(char *payload){
     checkHumidity(scd30_hum, qualityMessage2, 15);
     checkAmbientTemperature(scd30_temp, qualityMessage3, 15);
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
-    strncpy(qualityMessage3, "none", sizeof(qualityMessage3));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
+    strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
   } 
   sprintf_P(payload, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %4.1f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        scd30_avail ? "true" : "false", 

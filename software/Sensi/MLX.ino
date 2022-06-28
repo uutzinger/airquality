@@ -161,8 +161,8 @@ void mlxJSON(char *payload){
     checkFever(therm.object()+mlxOffset+fhDelta, qualityMessage1, 15);
     checkAmbientTemperature(therm.ambient(), qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   }  
   sprintf_P(payload, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.1f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        therm_avail ? "true" : "false", 

@@ -207,4 +207,7 @@ void printState(void);                                          // lists states 
 void timeJSON(char *payload);                                   // provide time
 void dateJSON(char *payload);                                   // provide date
 void systemJSON(char *payload);                                 // provide system stats
+void ipJSON(char *payload);                                     // provide ip
+void hostnameJSON(char *payload);                               // provide hostname
+void max30JSON(char *payload);                                  // provide max data, temporarily
 void yieldOS(void);                                             // execute yield or delay

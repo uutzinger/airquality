@@ -318,8 +318,8 @@ void ccs811JSON(char *payload){
     checkCO2(float(ccs811.getCO2()), qualityMessage1, 15); 
     checkTVOC(float(ccs811.getTVOC()), qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   }
   sprintf_P(payload, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        ccs811_avail ? "true" : "false", 

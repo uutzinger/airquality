@@ -274,9 +274,9 @@ void bme280JSON(char *payload){
     checkHumidity(bme280_hum, qualityMessage2, 15);
     checkAmbientTemperature(bme280_temp, qualityMessage3, 15);
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
-    strncpy(qualityMessage3, "none", sizeof(qualityMessage3));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
+    strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
   }  
   sprintf_P(payload, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme280_avail ? "true" : "false", 

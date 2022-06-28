@@ -280,10 +280,10 @@ void bme680JSON(char *payload){
     checkGasResistance(bme680.gas_resistance, qualityMessage3, 15); 
     checkAmbientTemperature(bme680.temperature, qualityMessage4, 15); 
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
-    strncpy(qualityMessage3, "none", sizeof(qualityMessage3));
-    strncpy(qualityMessage4, "none", sizeof(qualityMessage4));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
+    strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
+    strncpy(qualityMessage4, "not available", sizeof(qualityMessage4));
   }  
   sprintf_P(payload, PSTR("{ \"bme680\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme680_avail ? "true" : "false", 

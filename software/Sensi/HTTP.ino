@@ -148,7 +148,7 @@ void handleDate() {
 // {"hostname":"12345678901234567890123456789012"}
 void handleHostname() {
   char HTTPpayloadStr[64];
-  sprintf_P(HTTPpayloadStr, PSTR("{ \"hostname\": \"%s\"}"), hostName);
+  hostnameJSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: hostname request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
@@ -156,8 +156,7 @@ void handleHostname() {
 // { "ip": "123.123.123.123"}
 void handleIP() {
   char HTTPpayloadStr[32];
-  IPAddress lip = WiFi.localIP();
-  sprintf_P(HTTPpayloadStr,PSTR("{ \"ip\": \"%d.%d.%d.%d\"}"), lip[0], lip[1], lip[2], lip[3]);
+  ipJSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: time request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }
@@ -223,12 +222,7 @@ void handleMLX() {
 // { "max30": { "avail": false, "HR": 123456, "O2Sat": 123456, "MAX_quality": "1234567890123456"}}
 void handleMAX30() {
   char HTTPpayloadStr[128];
-  // Not Implemented Yet
-  sprintf_P(HTTPpayloadStr, PSTR("{ \"max30\": {\"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\"}}"), 
-                       max_avail ? "true" : "false", 
-                       -1.0,
-                       -1.0,
-                       "n.a.");  
+  max30JSON(HTTPpayloadStr);
   httpServer.send(200, "text/json", HTTPpayloadStr); //
   if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("HTTP: MAX30 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
 }

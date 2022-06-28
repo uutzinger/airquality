@@ -1213,7 +1213,7 @@ void serialTrigger(const char* mess, int timeout) {
 void timeJSON(char *payLoad) {
   timeval tv;
   gettimeofday (&tv, NULL);
-  sprintf_P(payLoad, "{ \"time\": { \"hour\": %d, \"minute\": %d, \"second\": %d, \"microsecond\": %06ld}}",
+  sprintf_P(payLoad, PSTR("{ \"time\": { \"hour\": %d, \"minute\": %d, \"second\": %d, \"microsecond\": %06ld}}"),
   localTime->tm_hour,
   localTime->tm_min,
   localTime->tm_sec,
@@ -1221,18 +1221,37 @@ void timeJSON(char *payLoad) {
 }
 
 void dateJSON(char *payLoad) {
-  sprintf_P(payLoad, "{ \"date\": { \"day\": %d, \"month\": %d, \"year\": %d}}",
+  sprintf_P(payLoad, PSTR("{ \"date\": { \"day\": %d, \"month\": %d, \"year\": %d}}"),
   localTime->tm_mday,
   localTime->tm_mon+1,
   localTime->tm_year+1900); 
 }
 
 void systemJSON(char *payLoad) {
-  sprintf_P(payLoad, "{ \"system\": {\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptime\": %d}}",
+  sprintf_P(payLoad, PSTR("{ \"system\": {\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptime\": %d}}"),
   ESP.getFreeHeap(),
   ESP.getHeapFragmentation(),      
   ESP.getMaxFreeBlockSize(),
-  myLoopMaxAvg);
+  (int)myLoopMaxAvg);
+}
+
+void ipJSON(char *payLoad) {
+  IPAddress lip = WiFi.localIP();
+  sprintf_P(payLoad, PSTR("{ \"ip\": \"%d.%d.%d.%d\"}"), lip[0], lip[1], lip[2], lip[3]);
+
+}
+
+void hostnameJSON(char *payLoad) {
+   sprintf_P(payLoad, PSTR("{ \"hostname\": \"%s\"}"), hostName);
+}
+
+void max30JSON(char *payLoad) {
+  // Not Implemented Yet
+  sprintf_P(payLoad, PSTR("{ \"max30\": {\"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\"}}"), 
+                       max_avail ? "true" : "false", 
+                       -1.0,
+                       -1.0,
+                       "n.a.");  
 }
 
 /**************************************************************************************/
@@ -1810,14 +1829,19 @@ bool inputHandle() {
       char payLoad[256]; // this will cover all possible payload sizes
       timeJSON(payLoad);   R_printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
       dateJSON(payLoad);     printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
+      ipJSON(payLoad);       printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
+      hostnameJSON(payLoad); printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
+      systemJSON(payLoad);   printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
       bme280JSON(payLoad);   printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
       bme680JSON(payLoad);   printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
       ccs811JSON(payLoad);   printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
       mlxJSON(payLoad);      printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
+      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
       scd30JSON(payLoad);    printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
       sgp30JSON(payLoad);    printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
       sps30JSON(payLoad);    printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
+      max30JSON(payLoad);    printSerialTelnetLog(payLoad); sprintf_P(tmpStr, PSTR(" len: %u"), strlen(payLoad)); printSerialTelnetLogln(tmpStr);
       startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
     }
 
@@ -1875,7 +1899,7 @@ void helpMenu() {
     printSerialTelnetLogln(F("...................................................CCS811 eCO2 tVOC, Air Quality"));
     printSerialTelnetLogln(F("..........................................MLX90614 Melex Temperature Contactless"));
     startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
-    printSerialTelnetLogln(F("==All Sensors===========================|======================================="));
+    printSerialTelnetLogln(F("==General===============================|======================================="));
     printSerialTelnetLogln(F("| z: print all sensor data              | n: this device Name, nSensi          |"));
     printSerialTelnetLogln(F("| p: print current settings             | s: save settings (EEPROM) sj: JSON   |"));
     printSerialTelnetLogln(F("| d: create default seetings            | r: read settings (EEPROM) rj: JSON   |"));
@@ -1895,7 +1919,7 @@ void helpMenu() {
     printSerialTelnetLogln(F("| a: night start in min after midnight  | A: night end                         |"));
     printSerialTelnetLogln(F("| R: reboot time in min after midnight: -1=off                                 |"));
     startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
-    printSerialTelnetLogln(F("==Sensors======================================================================="));
+    printSerialTelnetLogln(F("==Sensors&LCD==================================================================="));
     printSerialTelnetLogln(F("|-SGP30-eCO2----------------------------|-MAX----------------------------------|"));
     printSerialTelnetLogln(F("| e: force eCO2, e400                   |                                      |"));
     printSerialTelnetLogln(F("| v: force tVOC, t3000                  |                                      |"));

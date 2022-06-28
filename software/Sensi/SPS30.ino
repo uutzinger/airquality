@@ -438,8 +438,8 @@ void sps30JSON(char *payload) {
     checkPM2(valSPS30.MassPM2, qualityMessage1, 15); 
     checkPM10(valSPS30.MassPM10, qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "none", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "none", sizeof(qualityMessage2));
+    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
+    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   } 
   sprintf_P(payload, PSTR("{ \"sps30\": { \"avail\": %s, \"PM1\": %4.1f, \"PM2\": %4.1f, \"PM4\": %4.1f, \"PM10\": %4.1f, \"nPM0\": %4.1f, \"nPM1\": %4.1f, \"nPM2\": %4.1f, \"nPM4\": %4.1f, \"nPM10\": %4.1f, \"PartSize\": %4.1f, \"PM2_airquality\": \"%s\", \"PM10_airquality\": \"%s\"}}"), 
                        sps30_avail ? "true" : "false", 
