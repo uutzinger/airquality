@@ -158,9 +158,16 @@ bool ntpFirstTime  = true;
 bool time_avail    = false;                                // do not display time until time is established
 
 // i2c speed
-#define I2C_FAST    100000                                 // Fast   400 000
+#define I2C_FAST    400000                                 // Fast   400 000
 #define I2C_REGULAR 100000                                 // Normal 100 000
 #define I2C_SLOW     50000                                 // Slow    50 000
+
+// i2c clock stretch limit
+#define I2C_DEFAULTSTRETCH    230                          // Normal 230 micro seconds
+#define I2C_LONGSTRETCH    200000                          // Slow   200 milli seconds
+// SCD30 needs 150ms timeout
+// CCS811 needs 100ms timeout
+// Default is 230us
 
 // Serial & Telnet
 #define BAUDRATE 115200                                    // serial communicaiton speed, terminal settings need to match
@@ -197,7 +204,7 @@ unsigned long lastLogFile; // last time we checked logfile size or closes the lo
 /******************************************************************************************************/
 #include <Wire.h>
 bool checkI2C(uint8_t address, TwoWire *myWire);                   // is device attached at this address?
-void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed);
+void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed, uint32_t i2cStretch);
 void serialTrigger(const char* mess, int timeout);              // delays until user input
 bool inputHandle(void);                                         // hanldes user input
 void helpMenu(void);                                            // lists user functions

@@ -21,6 +21,11 @@
 #define intervalSPS30Fast  4000                            // minimum is 1 sec
 #define intervalSPS30Slow 60000                            // system will sleep for intervalSPS30Slow - timetoStable if sleep function is available
 #define SPS30Debug 0                                       // define driver debug: 0 np debug
+
+#define sps30_i2cspeed               I2C_REGULAR             
+#define sps30_i2cClockStretchLimit   I2C_LONGSTRETCH       // because its on shared bus
+//#define sps30_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
+
 //   0 - no messages,
 //   1 - request sending and receiving,
 //   2 - request sending and receiving + show protocol errors */

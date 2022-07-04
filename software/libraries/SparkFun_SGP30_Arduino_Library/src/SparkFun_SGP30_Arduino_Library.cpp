@@ -88,12 +88,12 @@ void SGP30::startAirQuality(void)
 {
   _i2cPort->beginTransmission(_SGP30Address);
   _i2cPort->write(measure_air_quality, 2); //command to measure air quality
-  _i2cPort->endTransmission();
+  _i2cPort->endTransmission();  
 }
 
 SGP30ERR SGP30::getAirQuality(void)
 {
-  //Comes back in 6 bytes, CO2 data(MSB) / data(LSB) / Checksum / TVOC data(MSB) / data(LSB) / Checksum
+ //Comes back in 6 bytes, CO2 data(MSB) / data(LSB) / Checksum / TVOC data(MSB) / data(LSB) / Checksum
   uint8_t toRead;
   toRead = _i2cPort->requestFrom(_SGP30Address, (uint8_t)6);
   if (toRead != 6)

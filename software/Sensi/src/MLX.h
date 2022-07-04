@@ -7,6 +7,10 @@
 #define timeToStableMLX 250                                // time until stable internal readings in ms
 #define fhDelta 0.5                                        // difference from forehead to oral temperature: https://www.mottchildren.org/health-library/tw9223
 #define emissivity 0.98                                    // emissivity of skin
+
+#define mlx_i2cspeed               I2C_REGULAR             
+#define mlx_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
+
 unsigned long intervalMLX = 1000;                          // readout intervall in ms, 250ms minimum
 float mlxOffset = 1.4;                                     // offset to adjust for sensor inaccuracy,
 // reading a black surface should give the same value as room temperature measuresd with other sensors

@@ -64,7 +64,7 @@ bool initializeCCS811(){
   delayMicroseconds(100); // wakeup takes 50 microseconds
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("CCS811: sensor waking up")); }
   
-  switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+  switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
   
   css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
@@ -143,7 +143,7 @@ bool updateCCS811() {
     
     case DATA_AVAILABLE : { // executed after sleeping or ideling
       D_printSerialTelnet(F("D:U:CCS811:DA.."));
-      switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+      switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
       startMeasurementCCS811 = millis();
       css811Ret = ccs811.readAlgorithmResults(); 
       if ( css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { // Calling this function updates the global tVOC and CO2 variables
@@ -204,7 +204,7 @@ bool updateCCS811() {
       if ( (currentTime - lastCCS811) > 2*intervalCCS811 ) { 
         D_printSerialTelnet(F("D:U:CCS811:T.."));
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: interrupt timeout occured")); }
-        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
         if ( ccs811.dataAvailable() ) {
           if (fastMode == true) { 
             stateCCS811 = DATA_AVAILABLE;                        // update the sensor state
@@ -258,7 +258,7 @@ bool updateCCS811() {
         // trying to recover sensor, reinitialize it
         digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
         delayMicroseconds(100); // wakeup takes 50 microseconds      
-        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
         css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
         if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
           errorRecCCS811 = currentTime + 5000;

@@ -12,7 +12,7 @@
 bool initializeLCD() {
   bool success = true; // unfortuntely the LCD driver functions have no error checking
   
-  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
 
 #if defined(ADALCD)
   lcd.begin(20, 4, LCD_5x8DOTS, *lcd_port);
@@ -99,10 +99,10 @@ bool updateSinglePageLCDwTime() {
     myP    = bme280_pressure/100.0;
   }
   
-  if (ccs811_avail && mySettings.useCCS811) {
+  if (ccs811_avail && mySettings.useCCS811) { // =tVOC =========================================
     mytVOC = float(ccs811.getTVOC());
-  } else if (sgp30_avail && mySettings.useSGP30) { // =tVOC =========================================
-    mytVOC = float(sgp30.TVOC);    
+  } else if (sgp30_avail && mySettings.useSGP30) { 
+    mytVOC = float(sgp30.TVOC);               // tVoc fall back
   }
 
   if (sps30_avail && mySettings.useSPS30) { // =Particles ===========================================
@@ -206,10 +206,10 @@ bool updateSinglePageLCDwTime() {
   if (mytVOC >= 0.) {
     sprintf_P(lcdbuf, PSTR("%4.0fppb"), mytVOC);
     strncpy(&lcdDisplay[1][6], lcdbuf, 7);
-    strncpy(&lcdDisplay[0][4],  mytVOC_warning, 1);
+    strncpy(&lcdDisplay[0][4], mytVOC_warning, 1);
   } else {
     strncpy(&lcdDisplay[1][6], myNaN, 1);
-    strncpy(&lcdDisplay[0][4],  myNaN, 1);
+    strncpy(&lcdDisplay[0][4], myNaN, 1);
   }
 
   // Particulate Matter
@@ -257,7 +257,7 @@ bool updateSinglePageLCDwTime() {
   
   D_printSerialTelnet(F("D:LCD:US.."));
 
-  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
   
   // lcd.clear();
   lcd.setCursor(0, 0); 
@@ -437,7 +437,7 @@ bool updateSinglePageLCD() {
     strncpy(&lcdDisplay[1][0], myNaN, 4);
   }
 
-  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
   
   // lcd.clear();
   lcd.setCursor(0, 0); 
@@ -577,7 +577,7 @@ bool updateTwoPageLCD() {
     }
   } // end alt display
 
-  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
   
   //lcd.clear();
   lcd.setCursor(0, 0); 
@@ -765,7 +765,7 @@ bool updateLCD() {
 
   altDisplay = !altDisplay;
   
-  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+  switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
   
   //lcd.clear();
   lcd.setCursor(0, 0); 

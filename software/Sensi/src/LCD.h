@@ -12,6 +12,8 @@
 //
 #define intervalLCDFast  5000                              // 5sec
 #define intervalLCDSlow 60000                              // 1min
+#define lcd_i2cspeed               I2C_REGULAR             
+#define lcd_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
 unsigned long intervalLCD = 0;                             // LCD refresh rate, is set depending on fastmode during setup
 bool lcd_avail = false;                                    // is LCD attached?
 unsigned long lastLCD;                                     // last time LCD was modified

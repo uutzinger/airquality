@@ -14,6 +14,10 @@
 #define intervalSCD30Slow 60000                            // once a minute
 #define intervalSCD30Busy   500                            // how frequently to read dataReady when sensor boots up, this is needed to clear the dataready signal for the interrupt
 #define intervalPressureSCD30 120000                       // if we have pressure data from other sensor we will provide it to the co2 sensor to improve accuracy in this interval
+
+#define scd30_i2cspeed               I2C_REGULAR             
+#define scd30_i2cClockStretchLimit   I2C_LONGSTRETCH
+
 uint16_t scd30_ppm=0;                                      // co2 concentration from sensor
 float scd30_temp=-999.;                                    // temperature from sensor
 float scd30_hum=-1.;                                       // humidity from sensor

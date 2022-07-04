@@ -15,7 +15,7 @@
 
 bool initializeBME280() {
 
-  switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
+  switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
   bme280.settings.commInterface = I2C_MODE;
   bme280.settings.I2CAddress = 0x76;
   
@@ -137,7 +137,7 @@ bool updateBME280() {
     case IS_SLEEPING: { // ------------------ Slow and Energy Saving Mode: Wait until time to start measurement
       if ((currentTime - lastBME280) >= intervalBME280) {
         D_printSerialTelnet(F("D:U:BME280:IS.."));
-        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
+        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
         bme280.setMode(MODE_FORCED); // Start reading
         lastBME280 = currentTime;
         stateBME280 = IS_BUSY;
@@ -148,7 +148,7 @@ bool updateBME280() {
     case IS_BUSY: {  // ---------------------- Slow and Energy Saving Mode: Wait until measurement complete
       if ((currentTime - lastBME280) >= bme280_measuretime) { // wait until measurement completed
         D_printSerialTelnet(F("D:U:BME280:IB.."));
-        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
+        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
           if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
@@ -172,7 +172,7 @@ bool updateBME280() {
 
     case DATA_AVAILABLE : { //--------------- Data is available either from slow or fast mode
       D_printSerialTelnet(F("D:U:BME280:DA.."));
-      switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
+      switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
       startMeasurementBME280 = millis();
       bme280_temp     = bme280.readTempC();
       bme280_pressure = bme280.readFloatPressure();
@@ -212,7 +212,7 @@ bool updateBME280() {
           break; 
         } // give up after 3 tries
   
-        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
+        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
         bme280.reset();
         bme280.settings.commInterface = I2C_MODE;
         bme280.settings.I2CAddress = 0x76;

@@ -14,7 +14,7 @@
 
 bool initializeMLX(){
   
-  switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
+  switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
   
   if (therm.begin(0x5A, *mlx_port) == true) { 
     therm.setUnit(TEMP_C); // Set the library's units to Centigrade
@@ -57,7 +57,7 @@ bool updateMLX() {
     case IS_MEASURING : { //---------------------
       if ( (currentTime - lastMLX) > intervalMLX ) {
         D_printSerialTelnet(F("D:U:MLX:IM.."));
-        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
+        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
         startMeasurementMLX = millis();
         if (therm.read()) {
           if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("MLX: T read in %ldms"), (millis()-startMeasurementMLX)); R_printSerialTelnetLogln(tmpStr); }
@@ -101,7 +101,7 @@ bool updateMLX() {
     case IS_SLEEPING : { //---------------------
       if ((currentTime - lastMLX) > sleepTimeMLX) {
         D_printSerialTelnet(F("D:U:MLX:IS.."));
-        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
+        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
         therm.wake(); // takes 250ms to wake up, sleepTime is shorter than intervalMLX to accomodate that
         if (mySettings.debuglevel == 8) { R_printSerialTelnetLogln(F("MLX: initiated wake up")); }
         stateMLX = IS_MEASURING;
@@ -119,7 +119,7 @@ bool updateMLX() {
           break; 
         } // give up after 3 tries
         // trying to recover sensor
-        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
+        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
         if (therm.begin(0x5A, *mlx_port) == true) { 
           therm.setUnit(TEMP_C); // Set the library's units to Centigrade
           therm.setEmissivity(emissivity); // hard coded from definitions file

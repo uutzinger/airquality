@@ -1,7 +1,7 @@
 ## Sensor Electrical Characteristics
-| NAME | Power Sup | Logic | Clock Speed | Clock Stretch| Pull ups on breakout board | Board | 
+| NAME | Power Sup | Logic | Clock Speed | Extra Clock Stretch Limit| Pull ups on breakout board | Board | 
 | --- | --- | --- | --- | --- | --- | --- |
-| LCD20x4| 5V| 5V | 100kHz| | | LCD display
+| LCD20x4| 5V| 5V | 100kHz| No | | LCD display
 | LEVEL Shift|  3.3 & 5V | | | |   5k | Level Shifter
 | SPS30 | 5V | 3.3 & 5 V w pullup | 100kHz |           No| Inf (add 10k)| Senserion particle, not compatible with LCD driver
 | SCD30  | 3.3-5V | out: 2.4=h 0.4=l in: 1.75-3=h |  50 [...100]kHz | 150ms | Inf (add 10k)| Senserion CO2
@@ -31,10 +31,13 @@ Sensirion sensors without pullups (Inf) need an external 10k pullup on SDA and S
 | --- | --- | 
 | LCD      | x27 generic, x20 Adafruit
 | SCD30    | x61
+| SCD40    | x62
+| SCD41    | x62
 | SPS30    | x69
 | SGP30    | x58
-| BME680   | x77
-| BME280   | x76
+| BME680   | x76/x77
+| BME688   | x76/x77
+| BME280   | x76/x77
 | CCS811   | x5B (address pin on high) otherwise x5A)
 | MLX90614 | x5A
 | MAX30105 | x57

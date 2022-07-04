@@ -37,6 +37,10 @@
 #define bme280_ModeSlow               MODE_FORCED          // measure manually
 #define bme280_StandbyTimeSlow        0                    // is not relevant
 #define intervalBME280Slow            60000                // 1 minute
+
+#define bme280_i2cspeed               I2C_FAST             
+#define bme280_i2cClockStretchLimit   I2C_LONGSTRETCH      // because its on shared bus
+// #define bme280_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
 //////// ===================================================
 float bme280_pressure = -1.;                               // pressure from sensor
 float bme280_temp = -999.;                                 // temperature from sensor

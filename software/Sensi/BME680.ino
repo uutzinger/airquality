@@ -19,7 +19,7 @@
 
 bool initializeBME680() {
 
-  switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
+  switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
   
   if (bme680.begin(0x77, true) == true) { 
     if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: setting oversampling for sensors")); }
@@ -102,7 +102,7 @@ bool updateBME680() {
     case IS_IDLE : { //---------------------
       if ((currentTime - lastBME680) >= intervalBME680) {
         D_printSerialTelnet(F("D:U:BME680:II.."));
-        switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
+        switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
         tmpTime = millis();          
         startMeasurementBME680 = millis();
         endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
@@ -144,7 +144,7 @@ bool updateBME680() {
 
     case DATA_AVAILABLE : { //---------------------
       D_printSerialTelnet(F("D:U:BME680:DA.."));
-      switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
+      switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
       if (bme680.endReading() ==  false) {
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: Failed to complete reading, timeout")); }
         stateBME680 = HAS_ERROR;
@@ -201,7 +201,7 @@ bool updateBME680() {
           break; 
         } // give up after 3 tries
   
-        switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
+        switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
         if (bme680.begin(0x77, true) == true) { 
           if (fastMode == true) { 
             intervalBME680 = intervalBME680Fast; 

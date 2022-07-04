@@ -26,6 +26,11 @@
 // AirQuality Index is Bosch proprietary software and not used here. We only measure sensor resistance.
 #define bme680_HeaterTemp             320                  // C
 #define bme680_HeaterDuration         150                  // ms, time it takes for stable reading
+
+#define bme680_i2cspeed               I2C_FAST             
+#define bme680_i2cClockStretchLimit   I2C_LONGSTRETCH      // because its on shared bus
+// #define bme680_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
+
 bool bme680_avail = false;                                 // do we hace the sensor?
 bool bme680NewData = false;                                // do we have new data?
 bool bme680NewDataWS = false;                              // do we have new data for websocket

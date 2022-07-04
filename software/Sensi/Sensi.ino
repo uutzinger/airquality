@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Air Quality Sensor
+// Air Quality Sensors                                                                                  //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Supported Hardware:
@@ -10,7 +10,7 @@
 //                                                  https://github.com/uutzinger/SparkFun_SCD30_Arduino_Library.git
 //  - SGP30 Senserion VOC, eCO2,                    Sparkfun library, replaced byte with uint8_t, 
 //                                                  https://github.com/uutzinger/SparkFun_SGP30_Arduino_Library.git
-//  - BME680 Bosch Temp, Humidity, Pressure, VOC,   Adafruit library
+//  - BME680 Bosch Temp, Humidity, Pressure, VOC,   Adafruit library, modifed include file to allow setting wire interface
 //                                                  https://github.com/adafruit/Adafruit_BME680.git
 //  - BM[E/P]280 Bosch Temp, [Humidity,] Pressure   Sparkfun library, replaced byte with uint8_t, 
 //                                                  https://github.com/uutzinger/SparkFun_BME280_Arduino_Library.git
@@ -54,8 +54,8 @@
 //  Scans network for known ssid, attempts connection with username password, if disconnected attempts reconnection.
 //  MQTT server is contacted, if it can not be reached, a backup server is contected. username password is supported.
 //  Network Time is obtained using ESPNtpClient and unix system time is converted to local time using time zone settings.
-//  Over the Air programming can be enabled. 
-//  HTTPUpdater can be enabled at http://host:8890/firmware username admin password ... 
+//  Over the air (OTA) programming can be enabled. 
+//  HTTPUpdater can be enabled at http://hostname:8890/firmware username admin password ... 
 //  mDNS responder and client are implemented, OTA starts them automatically
 //  HTML webserver is implemented. Sensors can be read useing hostname/sensor. hostname/ provides self updating root page using websockets.
 //  Large html files are streamed from LittleFS.
@@ -830,7 +830,7 @@ void loop() {
                // or dont want backlight at night
                ( (mySettings.useBacklightNight == false) && ( (localTime->tm_hour*60+localTime->tm_min > mySettings.nightBegin) && (localTime->tm_hour*60+localTime->tm_min < mySettings.nightEnd) ) )  
              ) { // TURN OFF LCD light
-               switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+               switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
                #if defined(ADALCD)
                  lcd.setBacklight(LOW);
                #else
@@ -846,7 +846,7 @@ void loop() {
                    // or backlight on during the day
                    ( (mySettings.useBacklightNight == false) && ( (localTime->tm_hour*60+localTime->tm_min < mySettings.nightBegin) && (localTime->tm_hour*60+localTime->tm_min > mySettings.nightEnd) ) ) 
                  ) { // TURN ON LCD light
-                   switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+                   switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
                    #if defined(ADALCD)
                      lcd.setBacklight(HIGH);
                    #else
@@ -992,7 +992,7 @@ void loop() {
       // Copy CCS811 basline to settings when warmup is finished
       if (ccs811_avail && mySettings.useCCS811) {
         if (currentTime >= warmupCCS811) {
-          switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+          switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
           mySettings.baselineCCS811 = ccs811.getBaseline();
           mySettings.baselineCCS811_valid = 0xF0;
           if (mySettings.debuglevel > 1) { R_printSerialTelnetLog(F("CCS811 baseline placed into settings")); }
@@ -1000,6 +1000,7 @@ void loop() {
           yieldTime += yieldOS();           
         }
       }
+      
       // Copy SGP30 basline to settings when warmup is finished
       if (sgp30_avail && mySettings.useSGP30) {
         if (currentTime >=  warmupSGP30) {
@@ -1052,7 +1053,7 @@ void loop() {
       // blink LCD background ----------------------------------------------------
       if (blinkLCD) {
         // if (mySettings.debuglevel > 1) { sprintf_P(tmpStr, PSTR("Sensors out of normal range!")); }
-        switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], I2C_REGULAR);
+        switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
         lastBlink = currentTime;
         lastLCDInten = !lastLCDInten;
         #if defined(ADALCD)
@@ -1183,9 +1184,10 @@ bool checkI2C(uint8_t address, TwoWire *myWire) {
 
 // Switches I2C port for ESP8266
 // # if defined(ESP8266)
-void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed) {
+void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed, uint32_t i2cStretch) {
   myPort->begin(sdaPin, sclPin);
   myPort->setClock(i2cSpeed);
+  myPort->setClockStretchLimit(i2cStretch);
   yieldI2C();
 }  
 
@@ -1415,14 +1417,14 @@ bool inputHandle() {
     ///////////////////////////////////////////////////////////////////
     // SGP30
     ///////////////////////////////////////////////////////////////////
-    else if (command[0] == 'e') {                                            // forced CO2 set setpoint
+    else if (command[0] == 'e') {                                            // forced eCO2 set setpoint
       if (strlen(value)>0) {
         tmpuI = strtoul(value, NULL, 10);
         if ((tmpuI >= 400) && (tmpuI <= 2000)) {
           if (sgp30_avail && mySettings.useSGP30) {
-            switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
+            switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
             sgp30.getBaseline();
-            mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
+            mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;             // dong change tVOC
             sgp30.setBaseline((uint16_t)tmpuI, (uint16_t)mySettings.baselinetVOC_SGP30); // set CO2 and TVOC baseline
             mySettings.baselineSGP30_valid = 0xF0;
             mySettings.baselineeCO2_SGP30 = (uint16_t)tmpuI;
@@ -1442,9 +1444,9 @@ bool inputHandle() {
         tmpuI = strtoul(value, NULL, 10);
         if ((tmpuI > 400) && (tmpuI < 2000)) {
           if (sgp30_avail && mySettings.useSGP30) {
-            switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
+            switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
             sgp30.getBaseline();
-            mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;
+            mySettings.baselineeCO2_SGP30 = sgp30.baselineCO2;  // dont change eCO2
             sgp30.setBaseline((uint16_t)mySettings.baselineeCO2_SGP30, (uint16_t)tmpuI);
             mySettings.baselineSGP30_valid = 0xF0;
             mySettings.baselinetVOC_SGP30 = (uint16_t)tmpuI;
@@ -1457,9 +1459,9 @@ bool inputHandle() {
       yieldTime += yieldOS(); 
     }
 
-    else if (command[0] == 'g') {                                            // forced tVOC set setpoint
+    else if (command[0] == 'g') {                                            // read eCO2 and tVOC set setpoint
       if (sgp30_avail && mySettings.useSGP30) {
-        switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
+        switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
         sgp30.getBaseline();
         mySettings.baselineSGP30_valid = 0xF0;
         mySettings.baselinetVOC_SGP30 = sgp30.baselineTVOC;
@@ -1477,7 +1479,7 @@ bool inputHandle() {
         tmpuI = strtoul(value, NULL, 10);
         if ((tmpuI >= 400) && (tmpuI <= 2000)) {
           if (scd30_avail && mySettings.useSCD30) {
-            switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], I2C_SLOW);
+            switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
             scd30.setForcedRecalibrationFactor((uint16_t)tmpuI);
             sprintf_P(tmpStr, PSTR("Calibration point is: %u"), tmpuI); R_printSerialTelnetLogln(tmpStr);
           }
@@ -1495,7 +1497,7 @@ bool inputHandle() {
         tmpF = strtof(value,NULL);
         if ((tmpF >= 0.0) && (tmpF <= 10.0)) {
           if (scd30_avail && mySettings.useSCD30) {
-            switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], I2C_SLOW);
+            switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
             scd30.setTemperatureOffset(tmpF);
             mySettings.tempOffset_SCD30_valid = 0xF0;
             mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
@@ -1518,7 +1520,7 @@ bool inputHandle() {
         tmpuI = strtoul(value, NULL, 10);
         if ((tmpuI >= 0) && (tmpuI <= 65535)) {
           if (ccs811_avail && mySettings.useCCS811) {
-            switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+            switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
             ccs811.setBaseline((uint16_t)tmpuI);
             mySettings.baselineCCS811_valid = 0xF0;
             mySettings.baselineCCS811 = (uint16_t)tmpuI;
@@ -1535,7 +1537,7 @@ bool inputHandle() {
 
     else if (command[0] == 'b') {                                            // getbaseline
       if (ccs811_avail && mySettings.useCCS811) {
-        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
         mySettings.baselineCCS811 = ccs811.getBaseline();
         sprintf_P(tmpStr, PSTR("CCS811: baseline is %d"), mySettings.baselineCCS811); R_printSerialTelnetLogln(tmpStr);
       }
@@ -2054,7 +2056,7 @@ void printSensors() {
 
   if (scd30_avail && mySettings.useSCD30) {
     char qualityMessage[16];
-    switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], I2C_SLOW);
+    switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
     sprintf_P(tmpStr, PSTR("SCD30 CO2:%hu[ppm], rH:%4.1f[%%], T:%4.1f[C] T_offset:%4.1f[C}"), scd30_ppm, scd30_hum, scd30_temp, scd30.getTemperatureOffset() ); printSerialTelnetLogln(tmpStr);
     checkCO2(float(scd30_ppm),qualityMessage,15);
     sprintf_P(tmpStr, PSTR("SCD30 CO2 is: %s"), qualityMessage); printSerialTelnetLogln(tmpStr);
@@ -2120,7 +2122,7 @@ void printSensors() {
     char qualityMessage[16]; 
     uint16_t CO2uI = ccs811.getCO2();
     uint16_t TVOCuI = ccs811.getTVOC();
-    switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+    switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
     uint16_t BaselineuI = ccs811.getBaseline();
     sprintf_P(tmpStr,PSTR("CCS811 CO2:%hu tVOC:%hu CCS811_baseline:%hu"), CO2uI, TVOCuI, BaselineuI);  printSerialTelnetLogln(tmpStr);
     checkCO2(float(CO2uI),qualityMessage,15);                                          
@@ -2154,7 +2156,7 @@ void printSensors() {
 
   if (therm_avail && mySettings.useMLX) {
     char qualityMessage[16];
-    switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
+    switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
     float tmpOF = therm.object()+mlxOffset;
     float tmpAF = therm.ambient();
     sprintf_P(tmpStr,PSTR("MLX Object:%+5.1f[C] MLX Ambient:%+5.1f[C]"), tmpOF, tmpAF); printSerialTelnetLogln(tmpStr);
@@ -2173,7 +2175,7 @@ void printSensors() {
 
   if (max_avail && mySettings.useMAX30) {
     char qualityMessage[16];
-    //switchI2C(max_port, max_i2c[0], max_i2c[1], I2C_FAST);
+    //switchI2C(max_port, max_i2c[0], max_i2c[1], I2C_FAST, I2C_LONGSTRETCH);
     sprintf_P(tmpStr,PSTR("MAX interval: %d Port: %d SDA %d SCL %d"), intervalMAX, uint32_t(max_port), max_i2c[0], max_i2c[1]); printSerialTelnetLogln(tmpStr);
   } else {
     printSerialTelnetLogln(F("MAX: not available"));

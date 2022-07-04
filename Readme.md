@@ -5,8 +5,8 @@ Most WiFi features of the ESP8266 are implemented (web, telnet, web sockets, mqt
 
 - [Airquality Sensors with ESP8266](#airquality-sensors-with-esp8266)
   * [Air Quality Sensor](#air-quality-sensor)
-  * [Build Instructions](#build-insrtuctions)
-  * [Programming Instructions](#programming-instructions)
+  * [Hardware Build Instructions](#hardware-build-instructions)
+  * [Software Build Instructions](#software-build-instructions)
   * [Features](#features)
   * [Air Quality Assessments](#air-quality-assessments)
   * [Sensor System](#sensor-system)
@@ -19,6 +19,9 @@ Most WiFi features of the ESP8266 are implemented (web, telnet, web sockets, mqt
     + [MLX90614](#mlx90614)
     + [MAX30105](#max30105)
   * [References](#references)
+    + [All you need to know about ESP8266 programming](#all-you-need-to-know-about-esp8266-programming)
+    + [ESP8266 memory optimization](#esp8266-memory-optimization)
+    + [Software](#software)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 

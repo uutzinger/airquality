@@ -39,7 +39,7 @@ bool initializeSPS30() {
   else                  { intervalSPS30 = intervalSPS30Slow; }
 
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: Interval: %lums"),intervalSPS30); R_printSerialTelnetLogln(tmpStr); }
-  switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
+  switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
 
   if (sps30.begin(sps30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: Sensor not detected in I2C. Please check wiring")); }
@@ -182,7 +182,7 @@ bool updateSPS30() {
       if (mySettings.debuglevel == 5) {  R_printSerialTelnetLogln(F("SPS30: is busy")); }
       if ((currentTime - lastSPS30) > 1020) { // start command needs 20ms to complete but it takes 1 sec to produce data
         D_printSerialTelnet(F("D:U:SPS30:IB.."));
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
         if (mySettings.debuglevel >= 2)  { sprintf_P(tmpStr, PSTR("SPS30: PM read in %ims"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
@@ -230,7 +230,7 @@ bool updateSPS30() {
       }**/
       if (currentTime >= timeSPS30Stable) {
         D_printSerialTelnet(F("D:U:SPS30:WS.."));
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW); 
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);
         if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
@@ -298,7 +298,7 @@ bool updateSPS30() {
         stateSPS30 = WAIT_STABLE;             
       } else {
         wakeTimeSPS30 = (unsigned long) (lastSPS30 + intervalSPS30 - 50 - timeToStableSPS30);
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         ret = sps30.sleep(); // takes 5ms
         if (ret != SPS30_ERR_OK) { 
           if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: error, could not go to sleep")); }
@@ -316,7 +316,7 @@ bool updateSPS30() {
       if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: is sleepig")); }
       if (currentTime >= wakeTimeSPS30) { // Wake up if sleep time exceeded
         D_printSerialTelnet(F("D:U:SPS30:IS.."));
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: waking up")); }
         ret = sps30.wakeup(); // takes 5ms
         if (ret != SPS30_ERR_OK) {
@@ -335,7 +335,7 @@ bool updateSPS30() {
       if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: is waking up")); }
       if ((currentTime - wakeSPS30) >= 50) { // Give some time (50ms)to wake up 
         D_printSerialTelnet(F("D:U:SPS30:IW.."));
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         ret = sps30.start();  //takes 20ms
         if (ret != SPS30_ERR_OK) { 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: error, could not start SPS30 measurements")); }
@@ -359,7 +359,7 @@ bool updateSPS30() {
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: reinitialization attempts exceeded, SPS30: no longer available.")); }
           break;
         } // give up after 3 tries
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         sps30.EnableDebugging(SPS30Debug);
         if (sps30.begin(sps30_port) == false) {
           stateSPS30 = HAS_ERROR;

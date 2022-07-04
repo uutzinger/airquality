@@ -15,6 +15,11 @@
 #define intervalSGP30Humidity  60000                       // update humidity once a minute if available from other sensor
 #define warmupSGP30_withbaseline 3600000                   // 60min 
 #define warmupSGP30_withoutbaseline 43200000               // 12hrs 
+
+#define sgp30_i2cspeed               I2C_FAST             
+#define sgp30_i2cClockStretchLimit   I2C_LONGSTRETCH       // because its on shared bus
+//#define sgp30_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
+
 bool sgp30_avail  = false;                                 // do we have this sensor
 bool sgp30NewData = false;                                 // do we have new data
 bool sgp30NewDataWS = false;                               // do we have new data for websocket

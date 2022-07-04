@@ -23,6 +23,9 @@
 //#define stablebaseCCS811     86400000                    // sensor needs 24hr until baseline stable
 #define stablebaseCCS811       43200000                    // sensor needs 12hr until baseline stable
 #define burninCCS811          172800000                    // sensor needs 48hr burn in
+
+#define ccs811_i2cspeed               I2C_FAST             
+#define ccs811_i2cClockStretchLimit   I2C_LONGSTRETCH
 bool ccs811_avail = false;                                 // do we have this sensor?
 bool ccs811NewData = false;                                // do we have new data
 bool ccs811NewDataWS = false;                              // do we have new data for websocket
