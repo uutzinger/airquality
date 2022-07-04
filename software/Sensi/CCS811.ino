@@ -64,9 +64,7 @@ bool initializeCCS811(){
   delayMicroseconds(100); // wakeup takes 50 microseconds
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("CCS811: sensor waking up")); }
   
-  ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
-  ccs811_port->setClock(I2C_FAST);
-  yieldI2C();
+  switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
   
   css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
@@ -145,16 +143,14 @@ bool updateCCS811() {
     
     case DATA_AVAILABLE : { // executed after sleeping or ideling
       D_printSerialTelnet(F("D:U:CCS811:DA.."));
-      tmpTime = millis();
-      ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);
-      ccs811_port->setClock(I2C_FAST);
-      yieldI2C();
+      switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
+      startMeasurementCCS811 = millis();
       css811Ret = ccs811.readAlgorithmResults(); 
       if ( css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { // Calling this function updates the global tVOC and CO2 variables
         stateCCS811 = HAS_ERROR;
         errorRecCCS811 = currentTime + 5000;
       } else {
-        if (mySettings.debuglevel == 10) { sprintf_P(tmpStr, PSTR("CCS811: readAlgorithmResults completed in %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
+        if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("CCS811: eCO2, tVOC read in %ldms"), (millis()-startMeasurementCCS811)); R_printSerialTelnetLogln(tmpStr); }
         ccs811NewData=true;
         ccs811NewDataWS=true;
         uint8_t error = ccs811.getErrorRegister();
@@ -184,13 +180,13 @@ bool updateCCS811() {
           if (bme680_avail && mySettings.useBME680) {
             tmpTime = millis();
             ccs811.setEnvironmentalData(bme680.humidity, bme680.temperature);
-            if (mySettings.debuglevel == 10) { sprintf_P(tmpStr, PSTR("CCS811: humidity and temperature compensation updated in %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
+            if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("CCS811: humidity and temperature compensation updated in %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
           }
         }
         
         if (fastMode == false) { 
           digitalWrite(CCS811_WAKE, HIGH); // put CCS811 to sleep
-          if (mySettings.debuglevel == 10) { R_printSerialTelnetLogln(F("CCS811: puttting sensor to sleep")); }
+          if (mySettings.debuglevel >= 2) { R_printSerialTelnetLogln(F("CCS811: puttting sensor to sleep")); }
           stateCCS811 = IS_SLEEPING;
         } else {
           stateCCS811 = IS_IDLE;
@@ -208,9 +204,7 @@ bool updateCCS811() {
       if ( (currentTime - lastCCS811) > 2*intervalCCS811 ) { 
         D_printSerialTelnet(F("D:U:CCS811:T.."));
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: interrupt timeout occured")); }
-        ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
-        ccs811_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
         if ( ccs811.dataAvailable() ) {
           if (fastMode == true) { 
             stateCCS811 = DATA_AVAILABLE;                        // update the sensor state
@@ -264,9 +258,7 @@ bool updateCCS811() {
         // trying to recover sensor, reinitialize it
         digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
         delayMicroseconds(100); // wakeup takes 50 microseconds      
-        ccs811_port->begin(ccs811_i2c[0], ccs811_i2c[1]);  
-        ccs811_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], I2C_FAST);
         css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
         if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
           errorRecCCS811 = currentTime + 5000;

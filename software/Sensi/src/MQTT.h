@@ -16,4 +16,4 @@ volatile WiFiStates stateMQTT       = IS_WAITING;          // keeping track of M
 void updateMQTT(void);
 void updateMQTTMessage(void);
 void updateMQTTpayload(char *payload);
-void mqttCallback(char* topic, byte* payload, unsigned int len);
+void mqttCallback(char* topic, uint8_t* payload, unsigned int len);

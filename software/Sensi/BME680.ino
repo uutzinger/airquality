@@ -19,11 +19,9 @@
 
 bool initializeBME680() {
 
-  bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
-  bme680_port->setClock(I2C_FAST);
-  yieldI2C();
+  switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
   
-  if (bme680.begin(0x77, true, bme680_port) == true) { 
+  if (bme680.begin(0x77, true) == true) { 
     if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: setting oversampling for sensors")); }
     if (fastMode == true) { 
       intervalBME680 = intervalBME680Fast; 
@@ -70,11 +68,13 @@ bool initializeBME680() {
       // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
       // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
       // filter cut off frequency is 1/day
-      float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                       // = cut off frequency [radians / seconds]
-      float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
-              w_c = w_c / f_s;                                           // = normalized cut off frequency [radians]
-      float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency
-      alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
+      // float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
+      // float   f_c = (1.0 / (24.0 * 3600.0)) / f_s;                       // = normalzied cut off frequency = 1 per day / sampling frequency 
+      // float   w_c = 2.0 * 3.141 * f_c;                                   // = cut off frequency in [radians / seconds]
+      // float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
+      float   w_c = float(intervalBME680) * 7.27e-8;
+      float     y =  w_c*w_c/2.;                                           // small angle approximation
+      alphaBME680 = -y + sqrt( y*y + 2.*y );                               // is quite small e.g. 1e-6
     }
 
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu"), intervalBME680); printSerialTelnetLog(tmpStr); }
@@ -102,10 +102,9 @@ bool updateBME680() {
     case IS_IDLE : { //---------------------
       if ((currentTime - lastBME680) >= intervalBME680) {
         D_printSerialTelnet(F("D:U:BME680:II.."));
-        bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
-        bme680_port->setClock(I2C_FAST);
-        yieldI2C();
-        tmpTime = millis();
+        switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
+        tmpTime = millis();          
+        startMeasurementBME680 = millis();
         endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
         lastBME680 = currentTime;
         if (endTimeBME680 == 0) { // if measurement was not started
@@ -121,13 +120,14 @@ bool updateBME680() {
             // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
             // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
             // filter cut off frequency is 1/day
-            float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                       // = cut off frequency [radians / seconds]
-            float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
-                    w_c = w_c / f_s;                                           // = normalized cut off frequency [radians]
-            float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency
-            alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
+            // float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
+            // float   f_c = (1.0 / (24.0 * 3600.0)) / f_s;                       // = normalzied cut off frequency = 1 per day / sampling frequency 
+            // float   w_c = 2.0 * 3.141 * f_c;                                   // = cut off frequency in [radians / seconds]
+            // float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
+            float   w_c = float(intervalBME680) * 7.27e-8;
+            float     y =  w_c*w_c/2.;                                           // small angle approximation
+            alphaBME680 = -y + sqrt( y*y + 2.*y );                               // is quite small e.g. 1e-6
           }
-          stateBME680 = IS_BUSY; 
           if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
         }
       }
@@ -144,9 +144,7 @@ bool updateBME680() {
 
     case DATA_AVAILABLE : { //---------------------
       D_printSerialTelnet(F("D:U:BME680:DA.."));
-      bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);  
-      bme680_port->setClock(I2C_FAST);
-      yieldI2C();
+      switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
       if (bme680.endReading() ==  false) {
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: Failed to complete reading, timeout")); }
         stateBME680 = HAS_ERROR;
@@ -183,8 +181,7 @@ bool updateBME680() {
         if (bme680_pressure24hrs == 0.0) {bme680_pressure24hrs = bme680.pressure; } 
         else {bme680_pressure24hrs = (1.0-alphaBME680) * bme680_pressure24hrs + alphaBME680* bme680.pressure; }
         mySettings.avgP = bme680_pressure24hrs;
-
-        if (mySettings.debuglevel == 9) { R_printSerialTelnetLogln(F("BME680: readout completed")); }
+        if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("BME680: T, rH, P read in %ldms"), (millis()-startMeasurementBME680)); R_printSerialTelnetLogln(tmpStr); }
         bme680NewData = true;
         bme680NewDataWS = true;
 
@@ -204,10 +201,8 @@ bool updateBME680() {
           break; 
         } // give up after 3 tries
   
-        bme680_port->begin(bme680_i2c[0], bme680_i2c[1]);        
-        bme680_port->setClock(I2C_FAST);
-        yieldI2C();
-        if (bme680.begin(0x77, true, bme680_port) == true) { 
+        switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], I2C_FAST);
+        if (bme680.begin(0x77, true) == true) { 
           if (fastMode == true) { 
             intervalBME680 = intervalBME680Fast; 
             bme680.setTemperatureOversampling(bme680_TempOversampleFast);
@@ -231,6 +226,7 @@ bool updateBME680() {
         }   
   
         tmpTime = millis();
+        startMeasurementBME680 = millis();
         endTimeBME680 = bme680.beginReading(); // sensors tells us when its going to have new data
         lastBME680 = currentTime;
   
@@ -245,11 +241,13 @@ bool updateBME680() {
             // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
             // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
             // filter cut off frequency is 1/day
-            float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                       // = cut off frequency [radians / seconds]
-            float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
-                    w_c = w_c / f_s;                                           // = normalized cut off frequency [radians]
-            float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency
-            alphaBME680 = -y + sqrt( y*y + 2*y );                              // is quite small e.g. 1e-6
+            // float   f_s = 1.0 / (intervalBME680 / 1000.0);                     // = sampling frequency [1/s] 
+            // float   f_c = (1.0 / (24.0 * 3600.0)) / f_s;                       // = normalzied cut off frequency = 1 per day / sampling frequency 
+            // float   w_c = 2.0 * 3.141 * f_c;                                   // = cut off frequency in [radians / seconds]
+            // float     y = 1 - cos(w_c);                                        // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
+            float   w_c = float(intervalBME680) * 7.27e-8;
+            float     y =  w_c*w_c/2.;                                           // small angle approximation
+            alphaBME680 = -y + sqrt( y*y + 2.*y );                               // is quite small e.g. 1e-6
           }
           stateBME680 = IS_BUSY; 
   

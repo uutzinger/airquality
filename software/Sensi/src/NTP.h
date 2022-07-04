@@ -31,7 +31,7 @@ unsigned long intervalNTP = 64000;                         // Request NTP time e
 //
 IPAddress timeServerIP;                                    // e.g. time.nist.gov NTP server address
 const int NTP_PACKET_SIZE = 48;                            // NTP time stamp is in the first 48 bytes of the message
-byte NTPBuffer[NTP_PACKET_SIZE];                           // buffer to hold incoming and outgoing packets
+uint8_t NTPBuffer[NTP_PACKET_SIZE];                           // buffer to hold incoming and outgoing packets
 unsigned long lastNTPResponse = 0;                         // last time in system clock we got NTP response
 unsigned long lastNTPSent = 0;                             // keeps track when packets went out
 uint32_t ntpTime = 0;                                      // the time received from NTP server

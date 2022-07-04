@@ -46,9 +46,7 @@ bool initializeSGP30() {
   if (fastMode) { intervalSGP30 = intervalSGP30Fast;}
   else          { intervalSGP30 = intervalSGP30Slow;}
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: Interval: %lu"), intervalSGP30); R_printSerialTelnetLogln(tmpStr); }
-  sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
-  sps30_port->setClock(I2C_FAST);
-  yieldI2C();
+  switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
   if (sgp30.begin(*sgp30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: No SGP30 Detected. Check connections")); }
     stateSGP30 = HAS_ERROR;
@@ -100,24 +98,20 @@ bool updateSGP30() {
       if ((currentTime - lastSGP30Humidity) > intervalSGP30Humidity) {
         D_printSerialTelnet(F("D:U:SGP:H.."));
         if (bme680_avail && mySettings.useBME680) {
-          sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);
-          sps30_port->setClock(I2C_FAST);
-          yieldI2C();
+          switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
           // Humidity correction, 8.8 bit number
           // 0x0F80 = 15.5 g/m^3
           // 0x0001 = 1/256 g/m^3
           // 0xFFFF = 256 +256/256 g/m^3
           if (bme680_ah > 0.) { sgp30.setHumidity(uint16_t(bme680_ah * 256.0 + 0.5)); }
-          if (mySettings.debuglevel == 6) { R_printSerialTelnetLogln(F("SGP30: humidity updated for eCO2")); }
+          if (mySettings.debuglevel >= 2) { R_printSerialTelnetLogln(F("SGP30: humidity updated for eCO2")); }
         }
         lastSGP30Humidity = currentTime;        
       } // end humidity update 
 
       if ((currentTime - lastSGP30Baseline) > intervalSGP30Baseline) {
         D_printSerialTelnet(F("D:U:SGP:B.."));
-        sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
-        sps30_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
         sgp30Error = sgp30.getBaseline(); // this has 10ms delay
         if (sgp30Error != SGP30_SUCCESS) {
            if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error obtaining baseline: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
@@ -132,9 +126,8 @@ bool updateSGP30() {
 
       if ((currentTime - lastSGP30) > intervalSGP30) {
         D_printSerialTelnet(F("D:U:SGP:IM.."));
-        sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
-        sps30_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
+        startMeasurementSGP30 = millis();
         sgp30Error = sgp30.measureAirQuality();
         if (sgp30Error != SGP30_SUCCESS) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error measuring eCO2 & tVOC: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
@@ -142,7 +135,7 @@ bool updateSGP30() {
           errorRecSGP30 = currentTime + 5000;
           break;
         } else {
-          if (mySettings.debuglevel == 6) { R_printSerialTelnetLogln(F("SGP30: eCO2 & tVOC measured"));  }
+          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SGP30: eCO2 & tVOC read in %ldms"), (millis()-startMeasurementSGP30)); R_printSerialTelnetLogln(tmpStr); }
           sgp30NewData = true;
           sgp30NewDataWS = true;
           sgp30_error_cnt = 0;
@@ -162,9 +155,7 @@ bool updateSGP30() {
           break; 
         } // give up after 3 tries
         // trying to recover sensor
-        sgp30_port->begin(sgp30_i2c[0], sgp30_i2c[1]);  
-        sps30_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], I2C_FAST);
         if (sgp30.begin(*sgp30_port) == false) {
           stateSGP30 = HAS_ERROR;
           errorRecSGP30 = currentTime + 5000;

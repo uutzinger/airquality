@@ -196,7 +196,8 @@ unsigned long lastLogFile; // last time we checked logfile size or closes the lo
 // Support Functions
 /******************************************************************************************************/
 #include <Wire.h>
-bool checkI2C(byte address, TwoWire *myWire);                   // is device attached at this address?
+bool checkI2C(uint8_t address, TwoWire *myWire);                   // is device attached at this address?
+void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed);
 void serialTrigger(const char* mess, int timeout);              // delays until user input
 bool inputHandle(void);                                         // hanldes user input
 void helpMenu(void);                                            // lists user functions
@@ -210,4 +211,4 @@ void systemJSON(char *payload);                                 // provide syste
 void ipJSON(char *payload);                                     // provide ip
 void hostnameJSON(char *payload);                               // provide hostname
 void max30JSON(char *payload);                                  // provide max data, temporarily
-void yieldOS(void);                                             // execute yield or delay
+unsigned long maxyieldOS(void);                                             // execute yield or delay

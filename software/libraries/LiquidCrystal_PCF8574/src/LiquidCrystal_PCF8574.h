@@ -9,8 +9,8 @@
 /// See http://www.mathertel.de/License.aspx
 ///
 /// \details
-/// This library is can drive a Liquid Cristal display based on the Hitachi HD44780 chip that is connected through a PCF8574 I2C adapter.
-/// This is given by many (not all) LCD adapters. This library uses the original Wire library for communication.
+/// This library can drive a Liquid Crystal Display (LCD) based on the Hitachi HD44780 chip that is connected 
+/// through a PCF8574 I2C adapter. It uses the original Wire library for communication.
 /// The API if common to many LCD libraries and documented in https://www.arduino.cc/en/Reference/LiquidCrystal.
 /// and partially functions from https://playground.arduino.cc/Code/LCDAPI/.
 
@@ -19,12 +19,15 @@
 /// --------
 /// * 19.10.2013 created.
 /// * 05.06.2019 rewrite from scratch.
-/// * 16.12.2020 modified to provide user's chosen I2C hardware, changed int to unint8_t
+/// * 26.05.2022 8-bit datatypes in interfaces and compatibility topics.
+/// * 26.05.2022 createChar with PROGMEM character data for AVR processors.
+/// * 26.05.2022 constructor with pin assignments. Thanks to @markisch.
+
 #ifndef LiquidCrystal_PCF8574_h
 #define LiquidCrystal_PCF8574_h
 
 #include "Arduino.h"
-#include <Wire.h>				 
+#include <Wire.h>	
 #include "Print.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -33,25 +36,44 @@
 class LiquidCrystal_PCF8574 : public Print
 {
 public:
-  LiquidCrystal_PCF8574(int i2cAddr);
+  LiquidCrystal_PCF8574(uint8_t i2cAddr);
   // note:
   // There is no sda and scl parameter for i2c in any api.
   // The Wire library has standard settings that can be overwritten by using Wire.begin(int sda, int scl) before calling LiquidCrystal_PCF8574::begin();
-										  // When using multiple I2C ports one can use 
-  //   LiquidCrystal_PCF8574 lcd(0x27);
-  //   TwoWire Wire_1 = TwoWire(); 
-  //   Wire_1.begin(sdaPin, sclPin); 
-  //   Wire_1.setClock(100000);             // standard 100kHz speed
-  //   Wire_1.setClockStretchLimit(200000); // 200ms, for slow devices
-  //   lcd.begin(clos, rows, Wire_1);
-  // Funtions from reference:
 
-  void begin(int cols, int rows, TwoWire &wirePort = Wire);
+	// When using multiple I2C ports one can initialize with
+  //   LiquidCrystal_PCF8574 lcd(0x27);     // create lcd
+  //   TwoWire myWire = TwoWire();          // create new wire instance
+  //   myWire.begin(sdaPin, sclPin);        // define SDA and SCL pins
+  //   myWire.setClock(100000);             // I2C speed 100kHz
+  //   myWire.setClockStretchLimit(200000); // I2C clock stretch to 200ms for slow devices
+  //   lcd_port = &myWire;                  // Keep address to wire instance
+  //   lcd.begin(clos, rows, *lcd_port);    // Initialize lcd
+  //
+  // and in the main program update display with
+  //   # if defined(ESP8266)
+  //     Although we created multiple wire ports, in ESP8266 there is only one wire structure available
+  //     Each time we switch to different i2c port we need to switch the pins
+  //     lcd_port->begin(sdaPin, sclPin);     
+  //     lcd_port->setClock(100000);
+  //     lcd_port->setClockStretchLimit(200000); // 200ms, for slow devices
+  //   # endif
+  //   lcd.setCursor(0, 0); 
+  //   lcd.print(lcdbuf);
 
-  void init();
+  // constructors, which allow to redefine bit assignments in case your adapter is wired differently
+  LiquidCrystal_PCF8574(uint8_t i2cAddr, uint8_t rs, uint8_t enable,
+    uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7, uint8_t backlight=255);
+  LiquidCrystal_PCF8574(uint8_t i2cAddr, uint8_t rs, uint8_t rw, uint8_t enable,
+    uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7, uint8_t backlight=255);
 
+  // Functions from reference:
+
+  void begin(uint8_t cols, uint8_t rows, TwoWire &wirePort = Wire);
+
+  void clear();
   void home();
-  void setCursor(int col, int row);
+  void setCursor(uint8_t col, uint8_t row);
   void cursor();
   void noCursor();
   void blink();
@@ -64,31 +86,50 @@ public:
   void noAutoscroll();
   void leftToRight();
   void rightToLeft();
-  void createChar(int, byte[]);
+  void createChar(uint8_t location, uint8_t charmap[]);
+#ifdef __AVR__
+  void createChar_P(uint8_t, const uint8_t *);
+  inline void createChar(uint8_t n, const uint8_t *data) {
+    createChar_P(n, data);
+  };
+#endif
 
   // plus functions from LCDAPI:
-  void clear(); // same as init()
-  void setBacklight(int brightness);
+  void setBacklight(uint8_t brightness);
+  inline void command(uint8_t value) { _send(value); }
 
   // support of Print class
   virtual size_t write(uint8_t ch);
-  using Print::write;
 
 private:
+
+  TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
+
   // instance variables
-  int _i2cAddr; ///< Wire Address of the LCD
-  int _backlight; ///< the backlight intensity
-  int _cols; ///< number of cols of the display
-  int _lines; ///< number of lines of the display
-  int _entrymode; ///<flags from entrymode
-  int _displaycontrol; ///<flags from displaycontrol
-  int _row_offsets[4];
-  TwoWire *_i2cPort;																		 //The generic connection to user's chosen I2C hardware
-  
+  uint8_t _i2cAddr; ///< Wire Address of the LCD
+  uint8_t _backlight; ///< the backlight intensity
+  uint8_t _cols; ///< number of cols of the display
+  uint8_t _lines; ///< number of lines of the display
+  uint8_t _entrymode; ///<flags from entrymode
+  uint8_t _displaycontrol; ///<flags from displaycontrol
+  uint8_t _row_offsets[4];
+
+  // variables describing how the PCF8574 is connected to the LCD
+  uint8_t _rs_mask;
+  uint8_t _rw_mask;
+  uint8_t _enable_mask;
+  uint8_t _backlight_mask;
+  // these are used for 4-bit data to the display.
+  uint8_t _data_mask[4];
+
   // low level functions
-  void _send(int value, bool isData = false);
-  void _sendNibble(int halfByte, bool isData = false);
-  void _write2Wire(int halfByte, bool isData, bool enable);
+  void _send(uint8_t value, bool isData = false);
+  void _sendNibble(uint8_t halfByte, bool isData = false);
+  void _writeNibble(uint8_t halfByte, bool isData);
+  void _write2Wire(uint8_t data, bool isData, bool enable);
+
+  void init(uint8_t i2cAddr, uint8_t rs, uint8_t rw, uint8_t enable,
+    uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7, uint8_t backlight=255);
 };
 
 #endif

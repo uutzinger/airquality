@@ -97,9 +97,7 @@ Adafruit_BME680::Adafruit_BME680(int8_t cspin, int8_t mosipin, int8_t misopin,
  *          Default is true.
  *  @return True on sensor initialization success. False on failure.
  */
-bool Adafruit_BME680::begin(uint8_t addr, bool initSettings, TwoWire *theWire) {
-  _wire = theWire;
-
+bool Adafruit_BME680::begin(uint8_t addr, bool initSettings) {
   int8_t rslt;
 
   if (!_spidev) { // i2c
@@ -605,6 +603,7 @@ static int8_t spi_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len,
 }
 
 static void delay_usec(uint32_t us, void *intf_ptr) {
+  (void)intf_ptr; // Unused parameter
   delayMicroseconds(us);
   yield();
 }

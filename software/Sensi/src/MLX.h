@@ -20,7 +20,8 @@ unsigned long lastMLX;                                     // last time we inter
 unsigned long sleepTimeMLX;                                // computed internally
 unsigned long errorRecMLX;
 uint8_t mlx_error_cnt = 0;                                 //
-uint8_t therm_error_cnt = 0;                                 //
+uint8_t therm_error_cnt = 0;                               //
+unsigned long  startMeasurementMLX;
 volatile SensorStates stateMLX = IS_IDLE;                  // sensor state
 bool initializeMLX(void);
 bool updateMLX(void);

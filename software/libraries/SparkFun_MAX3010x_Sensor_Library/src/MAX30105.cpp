@@ -433,7 +433,7 @@ uint8_t MAX30105::getRevisionID() {
 // ADC Range = 16384 (62.5pA per LSB)
 // Sample rate = 50
 //Use the default setup if you are just getting started with the MAX30105 sensor
-void MAX30105::setup(byte powerLevel, byte sampleAverage, byte ledMode, int sampleRate, int pulseWidth, int adcRange) {
+void MAX30105::setup(uint8_t powerLevel, uint8_t sampleAverage, uint8_t ledMode, int sampleRate, int pulseWidth, int adcRange) {
   softReset(); //Reset all configuration, threshold, and data registers to POR values
 
   //FIFO Configuration
@@ -594,8 +594,8 @@ uint16_t MAX30105::check(void)
   //Read register FIDO_DATA in (3-byte * number of active LED) chunks
   //Until FIFO_RD_PTR = FIFO_WR_PTR
 
-  byte readPointer = getReadPointer();
-  byte writePointer = getWritePointer();
+  uint8_t readPointer = getReadPointer();
+  uint8_t writePointer = getWritePointer();
 
   int numberOfSamples = 0;
 
@@ -640,7 +640,7 @@ uint16_t MAX30105::check(void)
         sense.head++; //Advance the head of the storage struct
         sense.head %= STORAGE_SIZE; //Wrap condition
 
-        byte temp[sizeof(uint32_t)]; //Array of 4 bytes that we will convert into long
+        uint8_t temp[sizeof(uint32_t)]; //Array of 4 bytes that we will convert into long
         uint32_t tempLong;
 
         //Burst read three bytes - RED

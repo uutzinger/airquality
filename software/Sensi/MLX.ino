@@ -14,9 +14,7 @@
 
 bool initializeMLX(){
   
-  mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
-  mlx_port->setClock(I2C_REGULAR);
-  yieldI2C();
+  switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
   
   if (therm.begin(0x5A, *mlx_port) == true) { 
     therm.setUnit(TEMP_C); // Set the library's units to Centigrade
@@ -59,11 +57,10 @@ bool updateMLX() {
     case IS_MEASURING : { //---------------------
       if ( (currentTime - lastMLX) > intervalMLX ) {
         D_printSerialTelnet(F("D:U:MLX:IM.."));
-        mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
-        mlx_port->setClock(I2C_REGULAR);
-        yieldI2C();
+        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
+        startMeasurementMLX = millis();
         if (therm.read()) {
-          if (mySettings.debuglevel == 8) { R_printSerialTelnetLogln(F("MLX: temperature measured")); }
+          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("MLX: T read in %ldms"), (millis()-startMeasurementMLX)); R_printSerialTelnetLogln(tmpStr); }
           lastMLX = currentTime;
           // check if temperature is in valid range
           if ( (therm.object() < -273.15) || ( therm.ambient() < -273.15) ) { 
@@ -81,7 +78,7 @@ bool updateMLX() {
           }
           if (fastMode == false) {
             therm.sleep();
-            if (mySettings.debuglevel == 8) { printSerialTelnetLogln(F("MLX: sent to sleep")); }
+            if (mySettings.debuglevel >= 2) { printSerialTelnetLogln(F("MLX: sent to sleep")); }
             stateMLX = IS_SLEEPING;
           }
         } else {
@@ -104,9 +101,7 @@ bool updateMLX() {
     case IS_SLEEPING : { //---------------------
       if ((currentTime - lastMLX) > sleepTimeMLX) {
         D_printSerialTelnet(F("D:U:MLX:IS.."));
-        mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
-        mlx_port->setClock(I2C_REGULAR);
-        yieldI2C();
+        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
         therm.wake(); // takes 250ms to wake up, sleepTime is shorter than intervalMLX to accomodate that
         if (mySettings.debuglevel == 8) { R_printSerialTelnetLogln(F("MLX: initiated wake up")); }
         stateMLX = IS_MEASURING;
@@ -124,9 +119,7 @@ bool updateMLX() {
           break; 
         } // give up after 3 tries
         // trying to recover sensor
-        mlx_port->begin(mlx_i2c[0], mlx_i2c[1]);  
-        mlx_port->setClock(I2C_REGULAR);
-        yieldI2C();
+        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], I2C_REGULAR);
         if (therm.begin(0x5A, *mlx_port) == true) { 
           therm.setUnit(TEMP_C); // Set the library's units to Centigrade
           therm.setEmissivity(emissivity); // hard coded from definitions file

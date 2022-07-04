@@ -39,9 +39,7 @@ bool initializeSPS30() {
   else                  { intervalSPS30 = intervalSPS30Slow; }
 
   if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: Interval: %lums"),intervalSPS30); R_printSerialTelnetLogln(tmpStr); }
-  sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
-  sps30_port->setClock(I2C_SLOW);
-  yieldI2C();
+  switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
 
   if (sps30.begin(sps30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: Sensor not detected in I2C. Please check wiring")); }
@@ -82,14 +80,14 @@ bool initializeSPS30() {
   if (mySettings.debuglevel > 0) {
     printSerialTelnetLogln(F("SPS30: obtaining device information"));
     ret = sps30.GetSerialNumber(buf, 32);
-    if (ret == ERR_OK) {
+    if (ret == SPS30_ERR_OK) {
       printSerialTelnetLog("SPS30: serial number : ");
       if(strlen(buf) > 0) { printSerialTelnetLog(buf); printSerialTelnetLog(F("\r\n")); }
       else { printSerialTelnetLog(F("not available\r\n")); }
     } else { printSerialTelnetLogln(F("SPS30: could not obtain serial number")); }
 
     ret = sps30.GetProductName(buf, 32);
-    if (ret == ERR_OK)  {
+    if (ret == SPS30_ERR_OK)  {
         printSerialTelnetLog(F("SPS30: product name : "));
         if(strlen(buf) > 0)  { printSerialTelnetLog(buf); printSerialTelnetLog(F("\r\n")); }
         else { printSerialTelnetLogln("not available"); }
@@ -97,7 +95,7 @@ bool initializeSPS30() {
   }
   
   ret = sps30.GetVersion(&v);
-  if (ret != ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
+  if (ret != SPS30_ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
     if (mySettings.debuglevel > 0 ) { printSerialTelnetLog("SPS30: error when reading version information\r\n"); } 
     v.major = 1;  // is reasonable minimal version
     v.minor = 0;  // is not reasonable
@@ -110,7 +108,7 @@ bool initializeSPS30() {
   }
   
   ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
-  if (ret == ERR_OK) {
+  if (ret == SPS30_ERR_OK) {
     if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: current Auto Clean interval: %us"), autoCleanIntervalSPS30); printSerialTelnetLogln(tmpStr); }
   } else { 
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: coulnd not obtain autoclean information")); }
@@ -184,13 +182,11 @@ bool updateSPS30() {
       if (mySettings.debuglevel == 5) {  R_printSerialTelnetLogln(F("SPS30: is busy")); }
       if ((currentTime - lastSPS30) > 1020) { // start command needs 20ms to complete but it takes 1 sec to produce data
         D_printSerialTelnet(F("D:U:SPS30:IB.."));
-        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
-        sps30_port->setClock(I2C_SLOW);
-        yieldI2C();
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
-        if (mySettings.debuglevel == 5)  { sprintf_P(tmpStr, PSTR("SPS30: values read in %ims"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
-        if (ret == ERR_DATALENGTH || valSPS30.MassPM1 == 0) { 
+        if (mySettings.debuglevel >= 2)  { sprintf_P(tmpStr, PSTR("SPS30: PM read in %ims"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
+        if (ret == SPS30_ERR_DATALENGTH || valSPS30.MassPM1 == 0) { 
           if (mySettings.debuglevel > 0) { 
             sprintf_P(tmpStr, PSTR("SPS30: error data length or zero reading, %u"), sps_error_cnt); R_printSerialTelnetLogln(tmpStr); 
           }
@@ -201,7 +197,7 @@ bool updateSPS30() {
           } // give up after 3 tries
           lastSPS30 = currentTime; 
           break; // remains in same state and try again in about a second
-        } else if (ret != ERR_OK) {
+        } else if (ret != SPS30_ERR_OK) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: %hu"), ret); R_printSerialTelnetLogln(tmpStr); }
           stateSPS30 = HAS_ERROR; // got to recovery
           errorRecSPS30 = currentTime + 5000;
@@ -234,13 +230,11 @@ bool updateSPS30() {
       }**/
       if (currentTime >= timeSPS30Stable) {
         D_printSerialTelnet(F("D:U:SPS30:WS.."));
-        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);
-        sps30_port->setClock(I2C_SLOW);
-        yieldI2C(); 
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW); 
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);
-        if (mySettings.debuglevel == 5) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
-        if (ret == ERR_DATALENGTH || valSPS30.MassPM1 == 0.0) { 
+        if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SPS30: values read in %ldms"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
+        if (ret == SPS30_ERR_DATALENGTH || valSPS30.MassPM1 == 0.0) { 
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error data length while reading values or zero reading, %u"), sps_error_cnt); R_printSerialTelnetLogln(tmpStr); }
           // we will allow this to happen 3 times in a row until we throw an error
           if ( sps_error_cnt++ > 3 ) { 
@@ -251,7 +245,7 @@ bool updateSPS30() {
           } // give up after 3 tries
           timeSPS30Stable = currentTime + 1000;  
           break; // remain in same state and try again in a second
-        } else if (ret != ERR_OK) {
+        } else if (ret != SPS30_ERR_OK) {
           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SPS30: error reading values: error x%hu"), ret); R_printSerialTelnetLogln(tmpStr); }
           stateSPS30 = HAS_ERROR;
           errorRecSPS30 = currentTime + 5000;
@@ -265,8 +259,8 @@ bool updateSPS30() {
         // obtain device status
         if (((v.major==2) && (v.minor>=2)) || (v.major>2)) {
           ret = sps30.GetStatusReg(&st);// takes 20ms
-          if (ret == ERR_OK) {
-            if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: reading status completed")); }
+          if (ret == SPS30_ERR_OK) {
+            if (mySettings.debuglevel >= 2) { R_printSerialTelnetLogln(F("SPS30: reading status completed")); }
             if (st == STATUS_OK) {
               if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: ok")); }
             } else {
@@ -304,16 +298,14 @@ bool updateSPS30() {
         stateSPS30 = WAIT_STABLE;             
       } else {
         wakeTimeSPS30 = (unsigned long) (lastSPS30 + intervalSPS30 - 50 - timeToStableSPS30);
-        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
-        sps30_port->setClock(I2C_SLOW);
-        yieldI2C();
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
         ret = sps30.sleep(); // takes 5ms
-        if (ret != ERR_OK) { 
+        if (ret != SPS30_ERR_OK) { 
           if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: error, could not go to sleep")); }
           stateSPS30 = HAS_ERROR;
           errorRecSPS30 = currentTime + 5000;
         } else {
-          if (mySettings.debuglevel == 5) { printSerialTelnetLogln(F("SPS30: going to sleep")); }
+          if (mySettings.debuglevel >= 2) { printSerialTelnetLogln(F("SPS30: going to sleep")); }
           stateSPS30 = IS_SLEEPING;
         }
       }
@@ -324,12 +316,10 @@ bool updateSPS30() {
       if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: is sleepig")); }
       if (currentTime >= wakeTimeSPS30) { // Wake up if sleep time exceeded
         D_printSerialTelnet(F("D:U:SPS30:IS.."));
-        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
-        sps30_port->setClock(I2C_SLOW);
-        yieldI2C();
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
         if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: waking up")); }
         ret = sps30.wakeup(); // takes 5ms
-        if (ret != ERR_OK) {
+        if (ret != SPS30_ERR_OK) {
           if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: error could not wakeup")); }
           stateSPS30 = HAS_ERROR; 
           errorRecSPS30 = currentTime + 5000;
@@ -345,16 +335,14 @@ bool updateSPS30() {
       if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: is waking up")); }
       if ((currentTime - wakeSPS30) >= 50) { // Give some time (50ms)to wake up 
         D_printSerialTelnet(F("D:U:SPS30:IW.."));
-        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]);  
-        sps30_port->setClock(I2C_SLOW);
-        yieldI2C();
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
         ret = sps30.start();  //takes 20ms
-        if (ret != ERR_OK) { 
+        if (ret != SPS30_ERR_OK) { 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: error, could not start SPS30 measurements")); }
           stateSPS30 = HAS_ERROR; 
           errorRecSPS30 = currentTime + 5000;
         } else {
-          if (mySettings.debuglevel == 5) { R_printSerialTelnetLogln(F("SPS30: started")); }
+          if (mySettings.debuglevel >= 2) { R_printSerialTelnetLogln(F("SPS30: started")); }
           stateSPS30 = IS_BUSY;
         }
         lastSPS30 = currentTime;
@@ -371,9 +359,7 @@ bool updateSPS30() {
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: reinitialization attempts exceeded, SPS30: no longer available.")); }
           break;
         } // give up after 3 tries
-        sps30_port->begin(sps30_i2c[0], sps30_i2c[1]); 
-        sps30_port->setClock(I2C_SLOW);
-        yieldI2C();
+        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], I2C_SLOW);
         sps30.EnableDebugging(SPS30Debug);
         if (sps30.begin(sps30_port) == false) {
           stateSPS30 = HAS_ERROR;
@@ -405,7 +391,7 @@ bool updateSPS30() {
         } else { delay(100); lastYield = millis();}
         // read device info
         ret = sps30.GetVersion(&v);
-        if (ret != ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
+        if (ret != SPS30_ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
           v.major = 1;  // is reasonable minimal version
           v.minor = 0;  // is not reasonable
         }

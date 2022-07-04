@@ -41,7 +41,7 @@ void saveConfiguration(const Settings &config) {
       doc["tempOffset_MLX"]               = config.tempOffset_MLX;                           // in C
       
       D_printSerialTelnet(F("D:JSON:2.."));
-      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      //yieldTime += yieldOS(); 
     
       doc["useWiFi"]                      = config.useWiFi;                                  // use/not use WiFi and MQTT
       doc["ssid1"]                        = config.ssid1;                                    // WiFi SSID 32 bytes max
@@ -52,7 +52,7 @@ void saveConfiguration(const Settings &config) {
       doc["pw3"]                          = config.pw3;                                      //
   
       D_printSerialTelnet(F("D:JSON:3.."));
-      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      //yieldTime += yieldOS(); 
     
       doc["useMQTT"]                      = config.useMQTT;                                  // provide MQTT data
       doc["mqtt_server"]                  = config.mqtt_server;                              // your mqtt server
@@ -71,7 +71,7 @@ void saveConfiguration(const Settings &config) {
       doc["nightEnd"]                     = config.nightEnd;                                 // minutes from midnight when to start changing backight because of low airquality
   
       D_printSerialTelnet(F("D:JSON:4.."));
-      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      //yieldTime += yieldOS(); 
     
       doc["useSCD30"]                     = config.useSCD30;                                 // ...
       doc["useSPS30"]                     = config.useSPS30;                                 // ...
@@ -92,7 +92,7 @@ void saveConfiguration(const Settings &config) {
       doc["useLog"]                       = config.useLog;                                   // keep copy of seriel and telnet prints in log file
     
       D_printSerialTelnet(F("D:JSON:5.."));
-      //startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      //yieldTime += yieldOS(); 
 
       doc["useNTP"]                       = config.useNTP;                                   // want network time
       doc["ntpServer"]                    = config.ntpServer;                                // ntp server
@@ -102,7 +102,7 @@ void saveConfiguration(const Settings &config) {
       //serializeJsonPretty(doc, Serial);  Serial.println();
       
       D_printSerialTelnet(F("D:JSON:O.."));
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
 
       // Open file for writing
       #if defined(DEBUG)
@@ -119,7 +119,7 @@ void saveConfiguration(const Settings &config) {
         // Close the file
         cfgFile.close();
       }
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
   }
 }

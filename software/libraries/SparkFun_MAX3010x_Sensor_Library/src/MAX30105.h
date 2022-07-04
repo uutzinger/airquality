@@ -122,7 +122,7 @@ class MAX30105 {
   uint8_t readPartID();  
 
   // Setup the IC with user selectable settings
-  void setup(byte powerLevel = 0x1F, byte sampleAverage = 4, byte ledMode = 3, int sampleRate = 400, int pulseWidth = 411, int adcRange = 4096);
+  void setup(uint8_t powerLevel = 0x1F, uint8_t sampleAverage = 4, uint8_t ledMode = 3, int sampleRate = 400, int pulseWidth = 411, int adcRange = 4096);
 
   // Low-level I2C communication
   uint8_t readRegister8(uint8_t address, uint8_t reg);
@@ -133,7 +133,7 @@ class MAX30105 {
   uint8_t _i2caddr;
 
   //activeLEDs is the number of channels turned on, and can be 1 to 3. 2 is common for Red+IR.
-  byte activeLEDs; //Gets set during setup. Allows check() to calculate how many bytes to read from FIFO
+  uint8_t activeLEDs; //Gets set during setup. Allows check() to calculate how many bytes to read from FIFO
   
   uint8_t revisionID; 
 
@@ -147,8 +147,8 @@ class MAX30105 {
     uint32_t red[STORAGE_SIZE];
     uint32_t IR[STORAGE_SIZE];
     uint32_t green[STORAGE_SIZE];
-    byte head;
-    byte tail;
+    uint8_t head;
+    uint8_t tail;
   } sense_struct; //This is our circular buffer of readings from the sensor
 
   sense_struct sense;

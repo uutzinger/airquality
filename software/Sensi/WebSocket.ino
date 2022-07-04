@@ -148,7 +148,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       bme280NewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("BME280 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
 
     if (scd30NewDataWS)  {
@@ -156,7 +156,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       scd30NewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("SCD30 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
     
     if (sgp30NewDataWS)  {
@@ -164,7 +164,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       sgp30NewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("SGP30 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
     
     if (sps30NewDataWS)  {
@@ -172,7 +172,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       sps30NewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("SPS30 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
     
     if (ccs811NewDataWS) {
@@ -180,7 +180,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       ccs811NewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("CCS811 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
 
     if (bme680NewDataWS) {
@@ -188,7 +188,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       bme680NewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("BME680 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
 
     if (mlxNewDataWS) {
@@ -196,7 +196,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       mlxNewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("MLX WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }  
 
     if (timeNewDataWS) {
@@ -204,7 +204,7 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       timeNewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("Time WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
     
     if (dateNewDataWS) {
@@ -212,6 +212,6 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       dateNewDataWS = false;
       if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("Date WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
-      startYield = millis(); yieldOS(); yieldTime += (millis()-startYield); 
+      yieldTime += yieldOS(); 
     }
 }

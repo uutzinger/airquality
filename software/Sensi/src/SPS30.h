@@ -31,6 +31,7 @@ unsigned long wakeSPS30;                                   // time when wakeup w
 unsigned long wakeTimeSPS30;                               // time when sensor is supposed to be woken up
 unsigned long timeToStableSPS30;                           // how long it takes to get stable readings, automatically pupulated based on total particles
 unsigned long errorRecSPS30;
+unsigned long startMeasurementSPS30;
 char buf[64];                                              // messaging buffer
 uint8_t ret, st;                                           // return variables
 float totalParticles = -1.;                                      // we need to calculate time to stable readings depending on total particle concentration

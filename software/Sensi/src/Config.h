@@ -20,16 +20,16 @@ unsigned long lastSaveSettingsJSON;                        // last time we updat
 struct Settings {
   unsigned long runTime;                                   // keep track of total sensor run time
   unsigned int  debuglevel;                                // amount of debug output on serial port
-  byte          baselineSGP30_valid;                       // 0xF0 = valid
+  uint8_t       baselineSGP30_valid;                       // 0xF0 = valid
   uint16_t      baselineeCO2_SGP30;                        //
   uint16_t      baselinetVOC_SGP30;                        //
-  byte          baselineCCS811_valid;                      // 0xF0 = valid
+  uint8_t       baselineCCS811_valid;                      // 0xF0 = valid
   uint16_t      baselineCCS811;                            // baseline is an internal value, not ppm
-  byte          tempOffset_SCD30_valid;                    // 0xF0 = valid
+  uint8_t       tempOffset_SCD30_valid;                    // 0xF0 = valid
   float         tempOffset_SCD30;                          // in C
-  byte          forcedCalibration_SCD30_valid;             // 0xF0 = valid, not used as the sensor is not designed to prepoluate its internal calibration
+  uint8_t       forcedCalibration_SCD30_valid;             // 0xF0 = valid, not used as the sensor is not designed to prepoluate its internal calibration
   float         forcedCalibration_SCD30;                   // not used
-  byte          tempOffset_MLX_valid;                      // 0xF0 = valid
+  uint8_t       tempOffset_MLX_valid;                      // 0xF0 = valid
   float         tempOffset_MLX;                            // in C
   char          ssid1[32];                                 // WiFi SSID 32 bytes max
   char          pw1[32];                                   // WiFi passwrod 64 chars max

@@ -74,8 +74,9 @@ public:
   Adafruit_BME680(TwoWire *theWire = &Wire);
   Adafruit_BME680(int8_t cspin, SPIClass *theSPI = &SPI);
   Adafruit_BME680(int8_t cspin, int8_t mosipin, int8_t misopin, int8_t sckpin);
+  void setWire(TwoWire *theWire = &Wire) {_wire = theWire;}
 
-  bool begin(uint8_t addr = BME68X_DEFAULT_ADDRESS, bool initSettings = true, TwoWire *theWire = &Wire);
+  bool begin(uint8_t addr = BME68X_DEFAULT_ADDRESS, bool initSettings = true);
   float readTemperature();
   float readPressure();
   float readHumidity();

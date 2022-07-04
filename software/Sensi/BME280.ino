@@ -15,9 +15,7 @@
 
 bool initializeBME280() {
 
-  bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
-  bme280_port->setClock(I2C_FAST);
-  yieldI2C();
+  switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
   bme280.settings.commInterface = I2C_MODE;
   bme280.settings.I2CAddress = 0x76;
   
@@ -99,11 +97,13 @@ bool initializeBME280() {
   // Construct poor man's lowpass filter y = (1-alpha) * y + alpha * x
   // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
   // filter cut off frequency is 1/day, we want to know average pressure in a day
-  float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                        // = cut off frequency [radians / seconds]
-  float   f_s = 1.0 / (intervalBME280 / 1000.0);                      // = sampling frenecy [1/s] 
-          w_c = w_c / f_s;                                            // = normalize cut off frequency [radians]
-  float     y = 1 - cos(w_c);                                         // compute alpha for 3dB attenuation at cut off frequency
-  alphaBME280 = -y + sqrt( y*y + 2*y );                               // will be quite small e.g. 1e-6 if we measure every second
+  // float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                        // = cut off frequency [radians / seconds]
+  // float   f_s = 1.0 / (intervalBME280 / 1000.0);                      // = sampling frenecy [1/s] 
+  //         w_c = w_c / f_s;                                            // = normalize cut off frequency [radians]
+  // float     y = 1 - cos(w_c);                                          // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
+  float   w_c = float(intervalBME280) * 7.27e-8;
+  float     y =  w_c*w_c/2.;                                            // small angle approximation
+  alphaBME280 = -y + sqrt( y*y + 2.*y );                                // is quite small e.g. 1e-6
 
   if ((chipID == 0x58) || (chipID == 0x60))  {                        //
     if (bme280.settings.runMode == MODE_NORMAL) {                     // for normal mode we obtain readings periodically
@@ -137,9 +137,7 @@ bool updateBME280() {
     case IS_SLEEPING: { // ------------------ Slow and Energy Saving Mode: Wait until time to start measurement
       if ((currentTime - lastBME280) >= intervalBME280) {
         D_printSerialTelnet(F("D:U:BME280:IS.."));
-        bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
-        bme280_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
         bme280.setMode(MODE_FORCED); // Start reading
         lastBME280 = currentTime;
         stateBME280 = IS_BUSY;
@@ -150,9 +148,7 @@ bool updateBME280() {
     case IS_BUSY: {  // ---------------------- Slow and Energy Saving Mode: Wait until measurement complete
       if ((currentTime - lastBME280) >= bme280_measuretime) { // wait until measurement completed
         D_printSerialTelnet(F("D:U:BME280:IB.."));
-        bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
-        bme280_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
           if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
@@ -176,9 +172,8 @@ bool updateBME280() {
 
     case DATA_AVAILABLE : { //--------------- Data is available either from slow or fast mode
       D_printSerialTelnet(F("D:U:BME280:DA.."));
-      bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  
-      bme280_port->setClock(I2C_FAST);
-      yieldI2C();
+      switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
+      startMeasurementBME280 = millis();
       bme280_temp     = bme280.readTempC();
       bme280_pressure = bme280.readFloatPressure();
       if (BMEhum_avail) { 
@@ -189,7 +184,7 @@ bool updateBME280() {
         bme280_hum = -1.0;
         bme280_ah =-1.0;
       }
-      if (mySettings.debuglevel == 9) { R_printSerialTelnetLogln(F("BM[E/P]280: readout completed")); }
+      if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("BM[E/P]280: T, P read in %ldms"), (millis()-startMeasurementBME280)); R_printSerialTelnetLogln(tmpStr); }
       bme280NewData = true;
       bme280NewDataWS = true;
       lastBME280 = currentTime;
@@ -217,9 +212,7 @@ bool updateBME280() {
           break; 
         } // give up after 3 tries
   
-        bme280_port->begin(bme280_i2c[0], bme280_i2c[1]);  // switch to BME280 i2c port  
-        bme280_port->setClock(I2C_FAST);
-        yieldI2C();
+        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], I2C_FAST);
         bme280.reset();
         bme280.settings.commInterface = I2C_MODE;
         bme280.settings.I2CAddress = 0x76;

@@ -78,37 +78,17 @@ void SGP30::initAirQuality(void)
 //Returns SGP30_SUCCESS if successful or other error code if unsuccessful
 SGP30ERR SGP30::measureAirQuality(void)
 {
-  _i2cPort->beginTransmission(_SGP30Address);
-  _i2cPort->write(measure_air_quality, 2); //command to measure air quality
-  _i2cPort->endTransmission();
-  //Hang out while measurement is taken. datasheet says 10-12ms
-  delay(12);
-  //Comes back in 6 bytes, CO2 data(MSB) / data(LSB) / Checksum / TVOC data(MSB) / data(LSB) / Checksum
-  uint8_t toRead;
-  toRead = _i2cPort->requestFrom(_SGP30Address, (uint8_t)6);
-  if (toRead != 6)
-    return SGP30_ERR_I2C_TIMEOUT;              //Error out
-  uint16_t _CO2 = _i2cPort->read() << 8; //store MSB in CO2
-  _CO2 |= _i2cPort->read();              //store LSB in CO2
-  uint8_t checkSum = _i2cPort->read();   //verify checksum
-  if (checkSum != _CRC8(_CO2))
-    return SGP30_ERR_BAD_CRC;                   //checksum failed
-  uint16_t _TVOC = _i2cPort->read() << 8; //store MSB in TVOC
-  _TVOC |= _i2cPort->read();              //store LSB in TVOC
-  checkSum = _i2cPort->read();            //verify checksum
-  if (checkSum != _CRC8(_TVOC))
-    return SGP30_ERR_BAD_CRC; //checksum failed
-  CO2 = _CO2;           //publish valid data
-  TVOC = _TVOC;         //publish valid data
-  return SGP30_SUCCESS;
+  startAirQuality();
+  delay(12); //Hang out while measurement is taken. datasheet says 10-12ms
+  return getAirQuality();
+
 }
 
-SGP30ERR SGP30::startAirQuality(void)
+void SGP30::startAirQuality(void)
 {
   _i2cPort->beginTransmission(_SGP30Address);
   _i2cPort->write(measure_air_quality, 2); //command to measure air quality
   _i2cPort->endTransmission();
-  return SGP30_SUCCESS;
 }
 
 SGP30ERR SGP30::getAirQuality(void)
@@ -141,37 +121,17 @@ SGP30ERR SGP30::getAirQuality(void)
 //Returns SGP30_SUCCESS if successful or other error code if unsuccessful
 SGP30ERR SGP30::getBaseline(void)
 {
-  _i2cPort->beginTransmission(_SGP30Address);
-  _i2cPort->write(get_baseline, 2);
-  _i2cPort->endTransmission();
+  startGetBaseline();
   //Hang out while measurement is taken. datasheet says 10ms
   delay(10);
-  uint8_t toRead;
-  //Comes back in 6 bytes, baselineCO2 data(MSB) / data(LSB) / Checksum / baselineTVOC data(MSB) / data(LSB) / Checksum
-  toRead = _i2cPort->requestFrom(_SGP30Address, (uint8_t)6);
-  if (toRead != 6)
-    return SGP30_ERR_I2C_TIMEOUT;                      //Error out
-  uint16_t _baselineCO2 = _i2cPort->read() << 8; //store MSB in _baselineCO2
-  _baselineCO2 |= _i2cPort->read();              //store LSB in _baselineCO2
-  uint8_t checkSum = _i2cPort->read();           //verify checksum
-  if (checkSum != _CRC8(_baselineCO2))
-    return SGP30_ERR_BAD_CRC;                           //checksum failed
-  uint16_t _baselineTVOC = _i2cPort->read() << 8; //store MSB in _baselineTVOC
-  _baselineTVOC |= _i2cPort->read();              //store LSB in _baselineTVOC
-  checkSum = _i2cPort->read();                    //verify checksum
-  if (checkSum != _CRC8(_baselineTVOC))
-    return SGP30_ERR_BAD_CRC;         //checksum failed
-  baselineCO2 = _baselineCO2;   //publish valid data
-  baselineTVOC = _baselineTVOC; //publish valid data
-  return SGP30_SUCCESS;
+  return finishGetBaseline();
 }
 
-SGP30ERR SGP30::startGetBaseline(void)
+void SGP30::startGetBaseline(void)
 {
   _i2cPort->beginTransmission(_SGP30Address);
   _i2cPort->write(get_baseline, 2);
   _i2cPort->endTransmission();
-  return SGP30_SUCCESS;
 }
 
 SGP30ERR SGP30::finishGetBaseline(void)

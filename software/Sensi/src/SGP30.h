@@ -27,6 +27,7 @@ unsigned long lastSGP30Baseline;                           // last time we obtai
 unsigned long intervalSGP30 = 1000;                        // populated during setup
 unsigned long warmupSGP30;                                 // populated during setup
 unsigned long errorRecSGP30;
+unsigned long startMeasurementSGP30;
 volatile SensorStates stateSGP30 = IS_IDLE; 
 bool initializeSGP30(void);
 bool updateSGP30(void);

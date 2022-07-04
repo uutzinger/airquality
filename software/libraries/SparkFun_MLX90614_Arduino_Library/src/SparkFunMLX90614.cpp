@@ -291,7 +291,7 @@ void IRTherm::wake()
 	pinMode(SCL, INPUT); // SCL high
 	pinMode(SDA, OUTPUT);
 	digitalWrite(SDA, LOW); // SDA low
-	delay(50); // delay at least 13ms
+	delay(50); // delay at least 33ms
 	pinMode(SDA, INPUT); // SDA high
 	delay(250);
 	// PWM to SMBus mode:
@@ -359,7 +359,7 @@ float IRTherm::calcTemperature(int16_t rawTemp)
 	return retTemp;
 }
 
-bool IRTherm::I2CReadWord(byte reg, int16_t * dest)
+bool IRTherm::I2CReadWord(uint8_t reg, int16_t * dest)
 {
 	_i2cPort->beginTransmission(_deviceAddress);
 	_i2cPort->write(reg);
@@ -388,15 +388,15 @@ bool IRTherm::I2CReadWord(byte reg, int16_t * dest)
 	}
 }
 
-bool IRTherm::writeEEPROM(byte reg, int16_t data)
+bool IRTherm::writeEEPROM(uint8_t reg, int16_t data)
 {
 	// Clear out EEPROM first:
 	if (I2CWriteWord(reg, 0) != 0)
 		return 0; // If the write failed, return 0
-	delay(10); // Delay tErase
+	delay(10); // Delay tErase at least 5 ms
 
 	uint8_t i2cRet = I2CWriteWord(reg, data);
-	delay(10); // Delay tWrite
+	delay(10); // Delay tWrite at least 5 ms
 
 	if (i2cRet == 0)
 		return true;
@@ -404,7 +404,7 @@ bool IRTherm::writeEEPROM(byte reg, int16_t data)
 		return false;
 }
 
-uint8_t IRTherm::I2CWriteWord(byte reg, int16_t data)
+uint8_t IRTherm::I2CWriteWord(uint8_t reg, int16_t data)
 {
 	uint8_t crc;
 	uint8_t lsb = data & 0x00FF;

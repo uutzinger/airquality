@@ -28,7 +28,8 @@ unsigned long lastSCD30;                                   // last time we inter
 unsigned long lastPressureSCD30;                           // last time we updated pressure
 unsigned long lastSCD30Busy;                               // for the statemachine
 unsigned long errorRecSCD30;
-const int SCD30interruptPin = SCD30_RDY;                  // 
+unsigned long startMeasurementSCD30;
+const int SCD30interruptPin = SCD30_RDY;                   // 
 volatile SensorStates stateSCD30 = IS_IDLE;                // keeping track of sensor state
 bool initializeSCD30(void);
 bool updateSCD30(void);

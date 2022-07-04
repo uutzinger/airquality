@@ -52,16 +52,32 @@ The front and back panel I cut on laser cutter. I use M2.5 stand offs.
 Sorry no circuit diagram with pullup and wire connections has been made to include in the docs at this time.
 
 ## Software Build Instructions
-The software folder in this destribution will need to become the main sketch folder (Arduino Preferences).
- When opening Sensi main program, all other modules are loaded.
+The software folder in this destribution will need to become the main sketch folder (Arduino Preferences). When opening Sensi main program, all other modules are loaded.
 
-The drivers and programs will compile with ESP8266 2.x Arduino Libary but not with latest 3.x. Third party drivers fail to build on 3.x.
+This software will work with ESP8266 2.x and 3.x Arduino Libary. However several libraries were modified for 3.x compatibility as listed below. The ```byte``` statement was replaced with ```uint8_t```.   
 
 All hard coded settings are stored in .h files in the ```src``` folder.
 
 For first time progamming of a new ESP, you will need to upload via a USB cable. Afterwards you can use OTA or http uploader.
 
 You will also need to upload files to the LittleFS using the https://github.com/earlephilhower/arduino-esp8266littlefs-plugin in order to view the sensor from a web browser. After initial upload you can upload files to (http://host/upload).
+
+The libraries included in this distribution are:
+
+- SPS30 Senserion particle, Paul Van Haastrecht library, modified to accept faulty version information, replaced byte with uint8_t, https://github.com/uutzinger/sps30.git
+- SCD30 Senserion CO2, Sparkfun library, using interrupt from data ready pin, replaced byte with uint8_t, https://github.com/uutzinger/SparkFun_SCD30_Arduino_Library.git
+- SGP30 Senserion VOC, eCO2, Sparkfun library, replaced byte with uint8_t, https://github.com/uutzinger/SparkFun_SGP30_Arduino_Library.git
+- BME680 Bosch Temp, Humidity, Pressure, VOC, Adafruit library https://github.com/adafruit/Adafruit_BME680.git
+- BM[E/P]280 Bosch Temp, [Humidity,] Pressure Sparkfun library, replaced byte with uint8_t,   https://github.com/uutzinger/SparkFun_BME280_Arduino_Library.git
+- CCS811 Airquality eCO2 tVOC, Sparkfun library, using interrupt from data ready pin https://github.com/sparkfun/SparkFun_CCS811_Arduino_Library.git
+- MLX90614 Melex temp contactless, Sparkfun library, replaced byte with uint8_t, https://github.com/uutzinger/SparkFun_MLX90614_Arduino_Library.git
+- MAX30105 Maxim pulseox, not implemented yet, Sparkfun library, replaced byte with uint8_t,  https://github.com/uutzinger/SparkFun_MAX3010x_Sensor_Library.git
+- LCD 20x4, LiquidCrystal_PCF8574* or Adafruit_LCD library* both modified for wireport selection https://github.com/uutzinger/Adafruit_LiquidCrystal.git  https://github.com/uutzinger/LiquidCrystal_PCF8574.git
+- MQTT publication to broker, PubSubClient library http://pubsubclient.knolleary.net
+- ESP_Telnet, https://github.com/LennartHennigs/ESPTelnet
+- ESPNTPClient, https://github.com/gmag11/ESPNtpClient
+- ArduWebSockets, https://github.com/Links2004/arduinoWebSockets
+- ArduJSON, https://github.com/bblanchon/ArduinoJson.git
 
 ## Features
 
@@ -83,12 +99,13 @@ Debugging of code was enabled with two approaches:
    suited for regular operation of the system. Its better to install the ESP Exception Decoder and to analyze the crash dump from the terminal.
 3) sending "." will provide execution times of the major function calls. This was created to identify which sections of the code delay the main loop substantially.
 
+If you do not want the backlight of the LCD to blink you can turn it off in the settings. You can also have it turn itself off during the night.
+
 ## Air Quality Assessments
 
 The sensor readings are compared to expected range and **LCD backlight flashes** if readings are outside recommended range. Those ranges are:
 
-* Pressure:  
-A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. The program computes the avaraging filter coefficient (a) based on the sensor sample interval for a 24hr smoothing filter of y_smoothed = (1-a)\*y_smoothed + a*x_newdatapoint. 
+* Pressure: A change of 5mbar within in 24hrs can cause headaches in suseptible subjects. The program computes the avaraging filter coefficient based on the sensor sample interval for a 24hr smoothing filter. 
 * CO2:  a value >1000ppm is poor
 * Temperature:  20-25.5C is normal range
 * Humidity:  30-60% is normal range (Since this project was made in Arizona, 25-65% is a better range)
@@ -98,8 +115,6 @@ P10: >50ug/m3 is poor
 * tVOC:  a value >660ppb is poor
 
 It is common to find CO2 concentration above 1000ppm in single family homes. To lower CO2 concentration you need to open two windows at opposite sides of the house and let air circulate.
-
-If you do not want the backlight of the LCD to blink you can turn it off in the settings. You can also turn it off during the night.
 
 ## Sensor System
 
