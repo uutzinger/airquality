@@ -96,6 +96,7 @@ void saveConfiguration(const Settings &config) {
 
       doc["useNTP"]                       = config.useNTP;                                   // want network time
       doc["ntpServer"]                    = config.ntpServer;                                // ntp server
+      doc["ntpFallback"]                  = config.ntpFallback;                              // ntp allback server
       doc["timeZone"]                     = config.timeZone;                                 // time zone according second column in https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv
       doc["rebootMinute"]                 = config.rebootMinute;                             // if sensor error, when should we attempt rebooting in minutes after midnight?
     
@@ -106,8 +107,8 @@ void saveConfiguration(const Settings &config) {
 
       // Open file for writing
       #if defined(DEBUG)
-      sprintf_P(tmpStr,PSTR("\r\nFilename is: %s"),"/Sensi.json"); printSerialTelnetln(tmpStr);
-      sprintf_P(tmpStr,PSTR("Free Heap Size: %dbytes Heap Fragmentation: %d%% Max Block Size: %dbytes"), ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize()); printSerialTelnetln(tmpStr);
+      snprintf_P(tmpStr, sizeof(tmpStr),PSTR("\r\nFilename is: %s"),"/Sensi.json"); printSerialTelnetln(tmpStr);
+      snprintf_P(tmpStr, sizeof(tmpStr),PSTR("Free Heap Size: %dbytes Heap Fragmentation: %d%% Max Block Size: %dbytes"), ESP.getFreeHeap(), ESP.getHeapFragmentation(), ESP.getMaxFreeBlockSize()); printSerialTelnetln(tmpStr);
       #endif
       File cfgFile = LittleFS.open("/Sensi.json", "w+");
       if (!cfgFile) { printSerialTelnetLogln(F("Failed to create file")); return; }
@@ -155,19 +156,19 @@ void loadConfiguration(Settings &config) {
         config.tempOffset_MLX         = doc["tempOffset_MLX"]                       | 0.0;
       
         config.useWiFi                = doc["useWiFi"]                              | true;
-        strlcpy(config.ssid1,           doc["ssid1"]                                | "MEDDEV", sizeof(config.ssid1));
-        strlcpy(config.pw1,             doc["pw1"]                                  | "", sizeof(config.pw1));
-        strlcpy(config.ssid2,           doc["ssid2"]                                | "UAGUest", sizeof(config.ssid2));
-        strlcpy(config.pw2,             doc["pw2"]                                  | "", sizeof(config.pw3));
-        strlcpy(config.ssid3,           doc["ssid3"]                                | "MuchoCoolioG", sizeof(config.ssid3));
-        strlcpy(config.pw3,             doc["pw3"]                                  | "", sizeof(config.pw3));
+        strncpy(config.ssid1,           doc["ssid1"]                                | "MEDDEV", sizeof(config.ssid1));
+        strncpy(config.pw1,             doc["pw1"]                                  | "", sizeof(config.pw1));
+        strncpy(config.ssid2,           doc["ssid2"]                                | "UAGUest", sizeof(config.ssid2));
+        strncpy(config.pw2,             doc["pw2"]                                  | "", sizeof(config.pw3));
+        strncpy(config.ssid3,           doc["ssid3"]                                | "MuchoCoolioG", sizeof(config.ssid3));
+        strncpy(config.pw3,             doc["pw3"]                                  | "", sizeof(config.pw3));
       
         config.useMQTT                = doc["useMQTT"]                              | false;
-        strlcpy(config.mqtt_server,     doc["mqtt_server"]                          | "my.mqqtt.server.org", sizeof(config.mqtt_server));
-        strlcpy(config.mqtt_username,   doc["mqtt_username"]                        | "mqtt", sizeof(config.mqtt_username));
-        strlcpy(config.mqtt_password,   doc["mqtt_password"]                        | "", sizeof(config.mqtt_password));
-        strlcpy(config.mqtt_fallback,   doc["mqtt_fallback"]                        | "192.168.1.1", sizeof(config.mqtt_password));
-        strlcpy(config.mqtt_mainTopic,  doc["mqtt_mainTopic"]                       | "Senso", sizeof(config.mqtt_mainTopic));
+        strncpy(config.mqtt_server,     doc["mqtt_server"]                          | "my.mqqtt.server.org", sizeof(config.mqtt_server));
+        strncpy(config.mqtt_username,   doc["mqtt_username"]                        | "mqtt", sizeof(config.mqtt_username));
+        strncpy(config.mqtt_password,   doc["mqtt_password"]                        | "", sizeof(config.mqtt_password));
+        strncpy(config.mqtt_fallback,   doc["mqtt_fallback"]                        | "192.168.1.1", sizeof(config.mqtt_password));
+        strncpy(config.mqtt_mainTopic,  doc["mqtt_mainTopic"]                       | "Senso", sizeof(config.mqtt_mainTopic));
         config.sendMQTTimmediate =      doc["sendMQTTimmediate"]                    | true;
         
         config.useLCD                 = doc["useLCD"]                               | true;
@@ -197,8 +198,9 @@ void loadConfiguration(Settings &config) {
         config.useLog                 = doc["useLog"]                               | false;
         
         config.useNTP                 = doc["useNTP"]                               | true;
-        strlcpy(config.ntpServer,       doc["ntpServer"]                            | "us.pool.ntp.org", sizeof(config.ntpServer));
-        strlcpy(config.timeZone,        doc["timeZone"]                             | "MST7", sizeof(config.timeZone));
+        strncpy(config.ntpServer,       doc["ntpServer"]                            | "us.pool.ntp.org", sizeof(config.ntpServer));
+        strncpy(config.ntpFallback,     doc["ntpFallback"]                          | "us.pool.ntp.org", sizeof(config.ntpFallback));
+        strncpy(config.timeZone,        doc["timeZone"]                             | "MST7", sizeof(config.timeZone));
         config.rebootMinute           = doc["rebootMinute"]                         | -1;
       
         cfgFile.close();   // Close the file 

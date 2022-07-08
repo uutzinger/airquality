@@ -24,6 +24,7 @@ void onTelnetConnect(String ip) {
   Telnet.print(F("\nWelcome "));
   Telnet.print(Telnet.getIP());
   Telnet.print(F("? for help\r\n"));
+  yieldTime += yieldOS(); 
   // helpMenu();
 }
 
@@ -32,6 +33,7 @@ void onTelnetDisconnect(String ip) {
     R_printSerialTelnetLog(F("Telnet: "));
       printSerialTelnetLog(ip);
       printSerialTelnetLogln(F(" disconnected"));
+      yieldTime += yieldOS(); 
   }
   telnetConnected = false;
 }

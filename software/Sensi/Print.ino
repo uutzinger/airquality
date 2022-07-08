@@ -6,6 +6,7 @@
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/Print.h"
+#include "src/Telnet.h"
 #endif
 /******************************************************************************************************/
 // Printing Options for Serial, Telnet, Logfile
@@ -62,7 +63,7 @@ void printLog(char* str) {
     if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }  // we close log file regularly in main loop
     if (  logFile ) { 
       char buf[24];
-      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
+      snprintf_P(buf,sizeof(buf),PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
               (localTime->tm_mon+1), 
                localTime->tm_mday,
               (localTime->tm_year%100),
@@ -79,7 +80,7 @@ void printLogln(char* str) {
     if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }  // we close log file regularly in main loop
     if (  logFile ) { 
       char buf[24];
-      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
+      snprintf_P(buf,sizeof(buf),PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
               (localTime->tm_mon+1), 
                localTime->tm_mday,
               (localTime->tm_year%100),
@@ -97,7 +98,7 @@ void printLog(String str) {
     if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }  // we close log file regularly in main loop
     if (  logFile ) { 
       char buf[24];
-      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
+      snprintf_P(buf,sizeof(buf),PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
               (localTime->tm_mon+1), 
                localTime->tm_mday,
               (localTime->tm_year%100),
@@ -114,7 +115,7 @@ void printLogln(String str) {
     if ( !logFile ) { logFile = LittleFS.open("/Sensi.log", "a"); }  // we close log file regularly in main loop
     if (  logFile ) { 
       char buf[24];
-      sprintf_P(buf,PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
+      snprintf_P(buf,sizeof(buf),PSTR("%2d.%2d.%2d %2d:%2d:%2d "), 
               (localTime->tm_mon+1), 
                localTime->tm_mday,
               (localTime->tm_year%100),

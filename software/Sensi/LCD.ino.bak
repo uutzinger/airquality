@@ -809,17 +809,13 @@ bool updateLCD() {
   yieldTime += yieldOS(); 
 
   if (mySettings.debuglevel == 11) {              // if dbg, display the lines also on serial port
-    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; 
-    R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20); lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
-    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';   
-    printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
-    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';   
-    printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
-    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';   
-    printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20); lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
   }
 

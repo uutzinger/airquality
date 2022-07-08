@@ -50,12 +50,12 @@ void updateWebSocket() {
     }
     
     case CHECK_CONNECTION : { //---------------------
-      //if ((currentTime - lastWebSocket) >= intervalWiFi) {
-      //  lastWebSocket = currentTime;
+      if ((currentTime - lastWebSocket) >= intervalWiFi) {
+        lastWebSocket = currentTime;
         D_printSerialTelnet(F("D:U:WS:CC.."));
         webSocket.loop();
         if (webSocket.connectedClients(false) == 0) { ws_connected = false; }      
-      //}
+      }
       break;          
     }
           

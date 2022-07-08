@@ -53,5 +53,5 @@ uint8_t sps30_error_cnt = 0;                               // give a few retries
 SPS30_version v;                                           // version structure of sensor
 bool initializeSPS30(void);
 bool updateSPS30(void);
-void sps30JSON(char *payload);							   // convert readings to serialized JSON
+void sps30JSON(char *payload, size_t len);                 // convert readings to serialized JSON
 SPS30 sps30;                                               // the particle sensor

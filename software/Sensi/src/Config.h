@@ -72,6 +72,7 @@ struct Settings {
   char          timeZone[64];                              // The time zone according to second row in https://raw.githubusercontent.com/nayarsystems/posix_tz_db/master/zones.csv 
   bool          useBacklightNight;                         // backlight at night on/off
   bool          useBlinkNight;                             // blink the backlight at night on/off
+  char          ntpFallback[64];
 };
 
 Settings mySettings;                                       // the settings

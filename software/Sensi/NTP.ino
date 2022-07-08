@@ -26,7 +26,7 @@ void updateNTP() {
     case START_UP : { //---------------------
 
       D_printSerialTelnet(F("D:U:NTP:S.."));
-      if (mySettings.debuglevel == 3) { sprintf_P(tmpStr, PSTR("NTP: connecting to %s"), mySettings.ntpServer); R_printSerialTelnetLogln(tmpStr); }
+      if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: connecting to %s"), mySettings.ntpServer); R_printSerialTelnetLogln(tmpStr); }
 
       NTP.onNTPSyncEvent ([] (NTPEvent_t event) {
           ntpEvent = event;
@@ -43,9 +43,18 @@ void updateNTP() {
       if ( NTP.setInterval(NTP_INTERVAL) && NTP.setNTPTimeout(NTP_TIMEOUT) ) {
         if (NTP.begin (mySettings.ntpServer)) {
           stateNTP = CHECK_CONNECTION; // move on
-          if (mySettings.debuglevel  > 0) { R_printSerialTelnetLogln("NTP: client initialized"); }
-        } else { if (mySettings.debuglevel  > 0) { R_printSerialTelnetLogln(F("NTP: could not start client")); } }
-      } else { if (mySettings.debuglevel  > 0) { R_printSerialTelnetLogln(F("NTP: client setup error")); } }
+          ntp_onfallback = false;
+          if (mySettings.debuglevel  > 0) { 
+            R_printSerialTelnetLogln("NTP: client initialized"); 
+          }
+        } else { 
+          if (mySettings.debuglevel  > 0) { 
+            R_printSerialTelnetLogln(F("NTP: could not start client")); 
+          } 
+        }
+      } else { 
+        if (mySettings.debuglevel  > 0) { R_printSerialTelnetLogln(F("NTP: client setup error")); } 
+      }
       break;
     }
     
@@ -59,7 +68,11 @@ void updateNTP() {
       break;          
     }
 
-    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("NTP Error: invalid switch statement")); break;}}
+    default: {
+      if (mySettings.debuglevel > 0) { 
+        R_printSerialTelnetLogln(F("NTP Error: invalid switch statement")); }
+      break;
+    }
 
   } // end switch state
 } // end ntp
@@ -70,62 +83,110 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
           // got NTP time
           ntp_avail = true;
           timeSynced = true;
-          if (mySettings.debuglevel  == 3) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel  == 3) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          ntp_noresponseCount = 0;
           break;
         case partlySync:
           // partial sync
           ntp_avail = true;
           timeSynced = true;
-          if (mySettings.debuglevel  == 3) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel  == 3) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          ntp_noresponseCount = 0;
           break;
         case syncNotNeeded:
           // sync not needed
           ntp_avail = true;
           timeSynced = true;
-          if (mySettings.debuglevel  == 3) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel  == 3) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          ntp_noresponseCount = 0;
           break;
         case accuracyError:
           // accuracy error
           ntp_avail = true;
           timeSynced = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          ntp_noresponseCount = 0;
           break;
         case noResponse:
           // no response from NTP server
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          if (ntp_noresponseCount++ > 3) { 
+            if (ntp_onfallback) {
+              NTP.begin (mySettings.ntpServer); // try again with default pool 
+              ntp_onfallback = false;
+            } else {
+              NTP.begin (mySettings.ntpFallback); // try the fallback server
+              ntp_onfallback = true;
+            }
+            ntp_noresponseCount = 0;           
+          }
           break;
         case invalidAddress:
           // invalid server address
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           break;
         case invalidPort:
           // invalid port
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent));
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           break;
         case errorSending:
           // error sending ntp request
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           break;
         case responseError:
           // NTP response error
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) {
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           break;
         case syncError:
           // error applyting sync
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel   > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           break;
         case requestSent:
           // NTP request sent
-          if (mySettings.debuglevel  == 3) { sprintf_P(tmpStr, PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel  == 3) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           break;
+          
         default:
-          // unknown error
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("NTP Error: invalid switch statement")); }
           break;
     }
 }

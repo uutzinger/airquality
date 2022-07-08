@@ -36,7 +36,7 @@ unsigned long startMeasurementSGP30;
 volatile SensorStates stateSGP30 = IS_IDLE; 
 bool initializeSGP30(void);
 bool updateSGP30(void);
-void sgp30JSON(char *payload);                             // convert readings to serialized JSON
+void sgp30JSON(char *payload, size_t len);                  // convert readings to serialized JSON
 const char *SGP30errorString(SGP30ERR sgp30Error);          // create error messages
 uint8_t sgp30_error_cnt = 0;
 SGP30 sgp30;

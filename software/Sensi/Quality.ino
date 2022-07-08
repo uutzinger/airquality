@@ -23,12 +23,12 @@ bool checkCO2(float co2, char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if ( (co2 < 0.0) || co2 > 2.0e9 ) { // outside reasonable values
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else if (len == 1) {
-      if (co2 < 1000.)      { strcpy_P(message, normal1); }                  
-      else if (co2 < 2000.) { strcpy_P(message, threshold1); }
-      else if (co2 < 5000.) { strcpy_P(message, poor1); ok = false; } 
-      else                  { strcpy_P(message, excessive1); ok = false; }
+      if (co2 < 1000.)      { strncpy_P(message, normal1,    len); }                  
+      else if (co2 < 2000.) { strncpy_P(message, threshold1, len); }
+      else if (co2 < 5000.) { strncpy_P(message, poor1,      len); ok = false; } 
+      else                  { strncpy_P(message, excessive1, len); ok = false; }
   
     } else if (len <= 4) {
       if (co2 < 1000.)      { strncpy_P(message, normal4,    len); }
@@ -61,14 +61,14 @@ bool checkHumidity(float rH, char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if ((rH<0.0) || (rH>200.0)) { // outside reasonable values
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else if (len == 1) {
-      if ((rH >= 45.) && (rH <= 55.))     { strcpy_P(message, normal1); }
-      else if ((rH >= 25.) && (rH < 45.)) { strcpy_P(message, thresholdLow1); }
-      else if ((rH >= 55.) && (rH < 65.)) { strcpy_P(message, thresholdHigh1); }
-      else if ((rH >= 65.) && (rH < 80.)) { strcpy_P(message, high1); }
-      else if ((rH >  15.) && (rH < 25.)) { strcpy_P(message, low1); }
-      else                                { strcpy_P(message, excessive1); ok = false; }
+      if ((rH >= 45.) && (rH <= 55.))     { strncpy_P(message, normal1,        len); }
+      else if ((rH >= 25.) && (rH < 45.)) { strncpy_P(message, thresholdLow1,  len); }
+      else if ((rH >= 55.) && (rH < 65.)) { strncpy_P(message, thresholdHigh1, len); }
+      else if ((rH >= 65.) && (rH < 80.)) { strncpy_P(message, high1,          len); }
+      else if ((rH >  15.) && (rH < 25.)) { strncpy_P(message, low1,           len); }
+      else                                { strncpy_P(message, excessive1,     len); ok = false; }
       
     } else if (len <= 4) {
       if ((rH >= 45.) && (rH <= 55.))     { strncpy_P(message, normal4,        len); }
@@ -79,12 +79,12 @@ bool checkHumidity(float rH, char *message, int len) {
       else                                { strncpy_P(message, excessive4,     len); ok = false; }
   
     } else {
-      if ((rH >= 45.) && (rH <= 55.))     { strncpy_P(message, normalF,         len); }
-      else if ((rH >= 25.) && (rH < 45.)) { strncpy_P(message, thresholdLowF,   len); }
-      else if ((rH >= 55.) && (rH < 65.)) { strncpy_P(message, thresholdHighF,  len); }
-      else if ((rH >= 65.) && (rH < 80.)) { strncpy_P(message, highF,           len); }
-      else if ((rH >  15.) && (rH < 25.)) { strncpy_P(message, lowF,            len); }
-      else                                { strncpy_P(message, excessiveF,      len); ok = false; }
+      if ((rH >= 45.) && (rH <= 55.))     { strncpy_P(message, normalF,        len); }
+      else if ((rH >= 25.) && (rH < 45.)) { strncpy_P(message, thresholdLowF,  len); }
+      else if ((rH >= 55.) && (rH < 65.)) { strncpy_P(message, thresholdHighF, len); }
+      else if ((rH >= 65.) && (rH < 80.)) { strncpy_P(message, highF,          len); }
+      else if ((rH >  15.) && (rH < 25.)) { strncpy_P(message, lowF,           len); }
+      else                                { strncpy_P(message, excessiveF,     len); ok = false; }
     }
     message[len] = '\0';
   } else {
@@ -107,17 +107,17 @@ bool checkGasResistance(uint32_t res, char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if (res == 0) {
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else if (len == 1) {
-      if      (res > 250000) { strcpy_P(message, normal1); }
-      else if (res > 110000) { strcpy_P(message, threshold1); }
-      else if (res >  55000) { strcpy_P(message, poor1); }
-      else                   { strcpy_P(message, excessive1); ok = false; }
+      if      (res > 250000) { strncpy_P(message, normal1,    len); }
+      else if (res > 110000) { strncpy_P(message, threshold1, len); }
+      else if (res >  55000) { strncpy_P(message, poor1,      len); }
+      else                   { strncpy_P(message, excessive1, len); ok = false; }
     
     } else if (len <= 4) {
-      if      (res > 250000) { strncpy_P(message, normal4, len); }
+      if      (res > 250000) { strncpy_P(message, normal4,    len); }
       else if (res > 110000) { strncpy_P(message, threshold4, len); }
-      else if (res >  55000) { strncpy_P(message, poor4, len); }
+      else if (res >  55000) { strncpy_P(message, poor4,      len); }
       else                   { strncpy_P(message, excessive4, len); ok = false; }
     
     } else {
@@ -139,12 +139,12 @@ bool checkTVOC(float tVOC, char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if ( (tVOC<0.0) || (tVOC> 2.0e9) ) {
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else if (len == 1) {
-      if (tVOC < 220.)       { strcpy_P(message, normal1); }
-      else if (tVOC < 660.)  { strcpy_P(message, threshold1); }
-      else if (tVOC < 2200.) { strcpy_P(message, poor1); }
-      else                   { strcpy_P(message, excessive1); ok = false;}
+      if (tVOC < 220.)       { strncpy_P(message, normal1,    len); }
+      else if (tVOC < 660.)  { strncpy_P(message, threshold1, len); }
+      else if (tVOC < 2200.) { strncpy_P(message, poor1,      len); }
+      else                   { strncpy_P(message, excessive1, len); ok = false;}
   
     } else if (len <= 4) {
       if (tVOC < 220.)       { strncpy_P(message, normal4, len); }
@@ -173,12 +173,12 @@ bool checkPM2(float PM2, char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if ( (PM2 < 0.0) || (PM2 > 100000.0) ) {
-       strcpy_P(message, "?");
+       strcpy(message, "?");
     } else if (len == 1) {
-      if (PM2 < 10.0)      { strcpy_P(message, normal1); }
-      else if (PM2 < 25.0) { strcpy_P(message, threshold1); }
-      else if (PM2 < 65.0) { strcpy_P(message, poor1); }
-      else                 { strcpy_P(message, excessive1); ok = false; }
+      if (PM2 < 10.0)      { strncpy_P(message, normal1,    len); }
+      else if (PM2 < 25.0) { strncpy_P(message, threshold1, len); }
+      else if (PM2 < 65.0) { strncpy_P(message, poor1,      len); }
+      else                 { strncpy_P(message, excessive1, len); ok = false; }
   
     } else if (len <= 4) {
       if (PM2 < 10.0)      { strncpy_P(message, normal4,    len); }
@@ -205,12 +205,12 @@ bool checkPM10(float PM10, char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if ( (PM10 < 0.0) || (PM10 > 100000.0) ) {
-       strcpy_P(message, "?");
+       strcpy(message, "?");
     } else if (len == 1) {
-      if (PM10 < 20.0)       { strcpy_P(message, normal1); }
-      else if (PM10 < 50.0)  { strcpy_P(message, threshold1); }
-      else if (PM10 < 150.0) { strcpy_P(message, poor1); }
-      else                   { strcpy_P(message, excessive1);  ok = false; }
+      if (PM10 < 20.0)       { strncpy_P(message, normal1,    len); }
+      else if (PM10 < 50.0)  { strncpy_P(message, threshold1, len); }
+      else if (PM10 < 150.0) { strncpy_P(message, poor1,      len); }
+      else                   { strncpy_P(message, excessive1, len);  ok = false; }
   
     } else if (len <= 4) {
       if (PM10 < 20.0)       { strncpy_P(message, normal4,    len); }
@@ -235,12 +235,12 @@ bool checkPM(float PM2, float PM10,  char *message, int len) {
   bool ok = true;
   if (len > 0) {  
     if ( (PM10 < 0.0) || (PM10 > 100000.0) || (PM2 < 0.0) || (PM2 > 100000.0) ) {
-       strcpy_P(message, "?");
+       strcpy(message, "?");
     } else if (len == 1) {
-      if ((PM2 < 10.0) && (PM10 < 20.0))       { strcpy_P(message, normal1); }
-      else if ((PM2 < 25.0) && (PM10 < 50.0))  { strcpy_P(message, threshold1); }
-      else if ((PM2 < 65.0) && (PM10 < 150.0)) { strcpy_P(message, poor1); }
-      else                                     { strcpy_P(message, excessive1); ok = false; }
+      if ((PM2 < 10.0) && (PM10 < 20.0))       { strncpy_P(message, normal1,    len); }
+      else if ((PM2 < 25.0) && (PM10 < 50.0))  { strncpy_P(message, threshold1, len); }
+      else if ((PM2 < 65.0) && (PM10 < 150.0)) { strncpy_P(message, poor1,      len); }
+      else                                     { strncpy_P(message, excessive1, len); ok = false; }
   
     } else if (len <= 4) {   
       if      ((PM2 < 10.0) && (PM10 < 20.0))  { strncpy_P(message, normal4,    len); }
@@ -275,19 +275,19 @@ bool checkFever(float T, char *message, int len) {
   bool ok = true;
   if (len > 0) {
     if ( (T<-273.15) || (T>2000.0) ) {
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else if (len == 1) {
-      if (T < 35.0)       { strcpy_P(message, low1);            ok = false;}
-      else if (T <= 36.4) { strcpy_P(message, thresholdLow1);   ok = false;}
-      else if (T <  37.2) { strcpy_P(message, normal1); }
-      else if (T <  38.3) { strcpy_P(message, thresholdHigh1);  ok = false;}
-      else if (T <  41.5) { strcpy_P(message, fever1);          ok = false;}
-      else                { strcpy_P(message, excessiveFever1); ok = false;}
+      if (T < 35.0)       { strncpy_P(message, low1,            len); ok = false;}
+      else if (T <= 36.4) { strncpy_P(message, thresholdLow1,   len); ok = false;}
+      else if (T <  37.2) { strncpy_P(message, normal1,         len);            }
+      else if (T <  38.3) { strncpy_P(message, thresholdHigh1,  len); ok = false;}
+      else if (T <  41.5) { strncpy_P(message, fever1,          len); ok = false;}
+      else                { strncpy_P(message, excessiveFever1, len); ok = false;}
   
     } else if (len <= 4) {
       if (T < 35.0)       { strncpy_P(message, low4,            len); ok = false;}
       else if (T <= 36.4) { strncpy_P(message, thresholdLow4,   len); ok = false;}
-      else if (T <  37.2) { strncpy_P(message, normal4,         len); }
+      else if (T <  37.2) { strncpy_P(message, normal4,         len);            }
       else if (T <  38.3) { strncpy_P(message, thresholdHigh4,  len); ok = false;}
       else if (T <  41.5) { strncpy_P(message, fever4,          len); ok = false;}
       else                { strncpy_P(message, excessiveFever4, len); ok = false;}
@@ -295,14 +295,14 @@ bool checkFever(float T, char *message, int len) {
     } else {
       if (T < 35.0)       { strncpy_P(message, lowF,            len); ok = false;}
       else if (T <= 36.4) { strncpy_P(message, thresholdLowF,   len); ok = false;}
-      else if (T <  37.2) { strncpy_P(message, normalF,         len); }
-      else if (T <  38.3) { strncpy_P(message, thresholdHighF,  len); ok = false; }
+      else if (T <  37.2) { strncpy_P(message, normalF,         len);            }
+      else if (T <  38.3) { strncpy_P(message, thresholdHighF,  len); ok = false;}
       else if (T <  41.5) { strncpy_P(message, feverF,          len); ok = false;}
       else                { strncpy_P(message, excessiveFeverF, len); ok = false;}
     }
     message[len] = '\0';
   } else {
-      if (T <= 36.4)      { ok = false; }
+      if (T <= 36.4)       { ok = false; }
       else if (T >=  37.2) { ok = false; }
   }
   return ok;
@@ -316,13 +316,13 @@ bool checkAmbientTemperature(float T, char *message, int len) {
       // hottest temp on earth is 57C
       // sauna goes up to 90C
       // 20-25.5 normal
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else if (len == 1) {
-      if (T < 0.0)        { strcpy_P(message, cold1); }
-      else if (T <= 20.0) { strcpy_P(message, coldish1); }
-      else if (T <= 25.5) { strcpy_P(message, normal1); }
-      else if (T <= 40.0) { strcpy_P(message, warm1); }
-      else                { strcpy_P(message, hot1); }
+      if (T < 0.0)        { strncpy_P(message, cold1,    len); }
+      else if (T <= 20.0) { strncpy_P(message, coldish1, len); }
+      else if (T <= 25.5) { strncpy_P(message, normal1,  len); }
+      else if (T <= 40.0) { strncpy_P(message, warm1,    len); }
+      else                { strncpy_P(message, hot1,     len); }
   
     } else if (len <= 4) {
       if (T <= 0.0)       { strncpy_P(message, cold4,    len);  }
@@ -350,11 +350,11 @@ bool checkdP(float dP, char *message, int len) {
   if (len > 0) {
     if ( (dP<-10000.0) || (dP>10000.0) ){
       // maximum pressure for human being is 2500mbar
-      strcpy_P(message, "?");
+      strcpy(message, "?");
     } else  if (len == 1) {
-      if  (dP >= 5.0)      { strcpy_P(message, high1);  ok = false; }
-      else if (dP <= -5.0) { strcpy_P(message, low1);   ok = false; }
-      else                 { strcpy_P(message, normal1); }
+      if  (dP >= 5.0)      { strncpy_P(message, high1,   len); ok = false; }
+      else if (dP <= -5.0) { strncpy_P(message, low1,    len); ok = false; }
+      else                 { strncpy_P(message, normal1, len); }
   
     } else if (len <= 4) {
       if (dP >= 5.0)       { strncpy_P(message, high4,   len); ok = false; }
@@ -393,31 +393,31 @@ bool sensorsWarning(void) {
   }
   
   // Check Particle
-  if (sps30_avail    && mySettings.useSPS30)  { 
+  if (sps30_avail && mySettings.useSPS30)  { 
     if ( checkPM2(valSPS30.MassPM2, qualityMessage, 0) == false)            { ok = false; }
     if ( checkPM10(valSPS30.MassPM10, qualityMessage, 0) == false)          { ok = false; }
-  } // SPS30 Sensirion Particle Sensor State Machine
+  } 
 
   // Check tVOC
-  if (ccs811_avail   && mySettings.useCCS811) { 
+  if (ccs811_avail && mySettings.useCCS811) { 
     if ( checkTVOC(ccs811.getTVOC(), qualityMessage, 0) == false )          { ok = false; }
-  } else if (sgp30_avail    && mySettings.useSGP30) {
+  } else if (sgp30_avail && mySettings.useSGP30) {
     if ( checkTVOC(sgp30.TVOC, qualityMessage, 0) == false )                { ok = false; }
   }
 
   // Check Humidity
-  if (bme280_avail   && mySettings.useBME280) { 
+  if (bme280_avail && mySettings.useBME280) { 
     if ( checkHumidity(bme280_hum, qualityMessage, 0) == false)             { ok = false; }
-  } else if (bme680_avail   && mySettings.useBME680) { 
+  } else if (bme680_avail && mySettings.useBME680) { 
     if ( checkHumidity(bme680.humidity, qualityMessage, 0) == false)        { ok = false; }
   } else if (scd30_avail && mySettings.useSCD30)  { 
     if ( checkHumidity(scd30_hum, qualityMessage, 0) == false )             { ok = false; }
   }
 
   // Check dP
-  if (bme280_avail   && mySettings.useBME280) { 
+  if (bme280_avail && mySettings.useBME280) { 
     if ( checkdP((bme280_pressure-bme280_pressure24hrs)/100.0, qualityMessage, 0) == false) { ok = false; }
-  } else if (bme680_avail   && mySettings.useBME680) { 
+  } else if (bme680_avail && mySettings.useBME680) { 
     if ( checkdP((bme680.pressure-bme680_pressure24hrs)/100.0, qualityMessage, 0) == false){ ok = false; }
   }
 

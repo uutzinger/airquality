@@ -17,6 +17,9 @@ volatile WiFiStates stateNTP = IS_WAITING;                 // keeping track of n
 bool syncEventTriggered = false;                           // True if NTP client triggered a time event
 NTPEvent_t ntpEvent;                                       // Last triggered event
 
+unsigned int ntp_noresponseCount = 0;                      // how many times tried to connect
+bool ntp_onfallback = false;                               // using the fall back server?
+
 bool ntp_avail = false;                                    // True of NTP client communicted with NTP server
 bool timeSynced = false;                                   // True if successful sync occured
 bool updateDate = true;                                    // Ready to broadcast date (websocket and mqtt)

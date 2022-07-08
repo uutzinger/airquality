@@ -29,15 +29,15 @@ void initializeWiFi() {
     if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("WiFi: is available"));
       uint8_t mac[6]; 
       WiFi.macAddress(mac);
-      sprintf_P(tmpStr, PSTR("WiFi MAC: %02X:%02X:%02X:%02X:%02X:%02X"), mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]); 
+      snprintf_P(tmpStr, sizeof(tmpStr), PSTR("WiFi MAC: %02X:%02X:%02X:%02X:%02X:%02X"), mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]); 
       R_printSerialTelnetLogln(tmpStr); 
     }
     if (WiFi.status() == WL_CONNECTED) { WiFi.disconnect(); } // make sure we are not connected
     if (mySettings.useWiFi == true) {
       #if defined(SHORTHOSTNAME)
-      sprintf(hostName, mySettings.mqtt_mainTopic); // use the mqtt main topic as hostname
+      snprintf(hostName, sizeof(hostName), mySettings.mqtt_mainTopic); // use the mqtt main topic as hostname
       #else
-      sprintf(hostName, "esp8266-%06x", ESP.getChipId()); // create unique host name
+      snprintf(hostName, sizeof(hostName), "esp8266-%06x", ESP.getChipId()); // create unique host name
       #endif
       WiFi.hostname(hostName);
       WiFi.mode(WIFI_STA);
@@ -97,7 +97,7 @@ void updateWiFi() {
           if (mySettings.debuglevel == 3) { 
             R_printSerialTelnetLog(F("WiFi: connected to: ")); R_printSerialTelnetLogln(WiFi.SSID());
             IPAddress lip = WiFi.localIP();
-            sprintf_P(tmpStr, PSTR("Local IP: %d.%d.%d.%d"), lip[0], lip[1], lip[2], lip[3]); 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Local IP: %d.%d.%d.%d"), lip[0], lip[1], lip[2], lip[3]); 
             R_printSerialTelnetLogln(tmpStr); 
           }
           wifi_connected = true;
@@ -134,7 +134,7 @@ void updateWiFi() {
             IPAddress ip = WiFi.localIP(); // uint8_t first_octet, uint8_t second_octet, uint8_t third_octet, uint8_t fourth_octet
             R_printSerialTelnetLog(F("WiFi: remains connected to: ")); 
             printSerialTelnetLog(WiFi.SSID());
-            sprintf_P(tmpStr, PSTR(" with IP address %hu.%hu.%hu.%hu\r\n"), ip[0], ip[1], ip[2], ip[3]); 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR(" with IP address %hu.%hu.%hu.%hu"), ip[0], ip[1], ip[2], ip[3]); 
             printSerialTelnetLogln(tmpStr); 
           }
           wifi_connected = true;

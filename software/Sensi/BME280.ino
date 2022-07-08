@@ -39,7 +39,7 @@ bool initializeBME280() {
     bme280.settings.humidOverSample = bme280_HumOversampleSlow;
   }
   
-  if (mySettings.debuglevel >0) { sprintf_P(tmpStr, PSTR("BM[E/P]280: interval: %lu"), intervalBME280); printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel >0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BM[E/P]280: interval: %lu"), intervalBME280); printSerialTelnetLogln(tmpStr); }
   
   uint8_t chipID=bme280.beginI2C(*bme280_port);
   if (chipID == 0x58) {
@@ -184,7 +184,7 @@ bool updateBME280() {
         bme280_hum = -1.0;
         bme280_ah =-1.0;
       }
-      if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("BM[E/P]280: T, P read in %ldms"), (millis()-startMeasurementBME280)); R_printSerialTelnetLogln(tmpStr); }
+      if (mySettings.debuglevel >= 2) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BM[E/P]280: T, P read in %ldms"), (millis()-startMeasurementBME280)); R_printSerialTelnetLogln(tmpStr); }
       bme280NewData = true;
       bme280NewDataWS = true;
       lastBME280 = currentTime;
@@ -256,7 +256,7 @@ bool updateBME280() {
   return success;
 }
 
-void bme280JSON(char *payload){
+void bme280JSON(char *payload, size_t len){
   //{"bme280":{ "avail":true, "p":123.4, "pavg":1234.5, "rH":123.4,"aH":123.4,"T":-25.0,"dp_airquality":"normal", "rh_airquality":"normal"}}
   // about 150 Ccharacters
   char qualityMessage1[16];
@@ -271,7 +271,7 @@ void bme280JSON(char *payload){
     strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
     strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
   }  
-  sprintf_P(payload, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme280_avail ? "true" : "false", 
                        bme280_avail ? bme280_pressure/100.0 : -1.0, 
                        bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 

@@ -47,6 +47,6 @@ float alphaBME680;                                         // poorman's low pass
 volatile SensorStates stateBME680 = IS_IDLE;               // sensor state
 bool initializeBME680(void);
 bool updateBME680(void);
-void bme680JSON(char *payload);                            // convert readings to serialized JSON
-uint8_t bme680_error_cnt = 0;                                 // give a few retiries if error data length occurs while reading sensor values
+void bme680JSON(char *payload, size_t len);                // convert readings to serialized JSON
+uint8_t bme680_error_cnt = 0;                              // give a few retiries if error data length occurs while reading sensor values
 Adafruit_BME680 bme680;                                    // the pressure airquality sensor

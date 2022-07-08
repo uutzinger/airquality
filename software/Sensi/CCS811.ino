@@ -53,7 +53,7 @@ bool initializeCCS811(){
   else if ( ccs811Mode == 2 ) { intervalCCS811 = 10000; } 
   else if ( ccs811Mode == 3 ) { intervalCCS811 = 60000; } 
   else                        { intervalCCS811 =   250; }
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: Interval: %lu"), intervalCCS811); R_printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: Interval: %lu"), intervalCCS811); R_printSerialTelnetLogln(tmpStr); }
 
   pinMode(CCS811_WAKE, OUTPUT); // CCS811 not Wake Pin
   pinMode(CCS811interruptPin, INPUT_PULLUP); // CCS811 not Interrupt Pin
@@ -68,37 +68,37 @@ bool initializeCCS811(){
   
   css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error opening port - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+    if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: error opening port - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
     stateCCS811 = HAS_ERROR;
     errorRecCCS811 = currentTime + 5000;
     return(false);
   }
   
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, "CCS811: begin - %s", ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), "CCS811: begin - %s", ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
   css811Ret = ccs811.setDriveMode(ccs811Mode);
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error setting drive mode - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+    if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: error setting drive mode - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
     stateCCS811 = HAS_ERROR;
     errorRecCCS811 = currentTime + 5000;
     return(false);
   }
   
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: mode request set - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: mode request set - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
   css811Ret = ccs811.enableInterrupts(); // Configure and enable the interrupt line, then print error status
   if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) {
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error enable interrupts - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+    if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: error enable interrupts - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
     stateCCS811 = HAS_ERROR;
     errorRecCCS811 = currentTime + 5000;
     return(false);
   }
   
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: interrupt configuation - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: interrupt configuation - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
   if (mySettings.baselineCCS811_valid == 0xF0) {
     css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
     if (css811Ret == CCS811Core::CCS811_Stat_SUCCESS) { 
       if (mySettings.debuglevel > 0) { printSerialTelnetLog(F("CCS811: baseline programmed")); }
     } else {
-      if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("CCS811: error writing baseline - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
+      if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: error writing baseline - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
       stateCCS811 = HAS_ERROR;
       errorRecCCS811 = currentTime + 5000;
       return(false);
@@ -150,7 +150,7 @@ bool updateCCS811() {
         stateCCS811 = HAS_ERROR;
         errorRecCCS811 = currentTime + 5000;
       } else {
-        if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("CCS811: eCO2, tVOC read in %ldms"), (millis()-startMeasurementCCS811)); R_printSerialTelnetLogln(tmpStr); }
+        if (mySettings.debuglevel >= 2) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: eCO2, tVOC read in %ldms"), (millis()-startMeasurementCCS811)); R_printSerialTelnetLogln(tmpStr); }
         ccs811NewData=true;
         ccs811NewDataWS=true;
         uint8_t error = ccs811.getErrorRegister();
@@ -171,7 +171,7 @@ bool updateCCS811() {
           tmpTime = millis();
           mySettings.baselineCCS811 = ccs811.getBaseline();
           lastCCS811Baseline = currentTime;
-          if (mySettings.debuglevel == 10) { sprintf_P(tmpStr, PSTR("CCS811: baseline obtained in: %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel == 10) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: baseline obtained in: %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
         }
         
         if ((currentTime - lastCCS811Humidity) > intervalCCS811Humidity ) {
@@ -180,7 +180,7 @@ bool updateCCS811() {
           if (bme680_avail && mySettings.useBME680) {
             tmpTime = millis();
             ccs811.setEnvironmentalData(bme680.humidity, bme680.temperature);
-            if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("CCS811: humidity and temperature compensation updated in %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
+            if (mySettings.debuglevel >= 2) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: humidity and temperature compensation updated in %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
           }
         }
         
@@ -302,7 +302,7 @@ bool updateCCS811() {
   return success;
 }
 
-void ccs811JSON(char *payload){
+void ccs811JSON(char *payload, size_t len){
   //
   char qualityMessage1[16];
   char qualityMessage2[16];
@@ -313,7 +313,7 @@ void ccs811JSON(char *payload){
     strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
     strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   }
-  sprintf_P(payload, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        ccs811_avail ? "true" : "false", 
                        ccs811_avail ? ccs811.getCO2() : 0, 
                        ccs811_avail ? ccs811.getTVOC() : 0, 

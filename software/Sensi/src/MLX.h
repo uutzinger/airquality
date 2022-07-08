@@ -29,5 +29,5 @@ unsigned long  startMeasurementMLX;
 volatile SensorStates stateMLX = IS_IDLE;                  // sensor state
 bool initializeMLX(void);
 bool updateMLX(void);
-void mlxJSON(char *payload);							   // convert readings to serialized JSON
+void mlxJSON(char *payload, size_t len);	               // convert readings to serialized JSON
 IRTherm therm;                                             // the IR thermal sensor

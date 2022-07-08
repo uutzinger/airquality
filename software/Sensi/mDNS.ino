@@ -16,7 +16,9 @@ void updateMDNS() {
       // just wait...
       if ((currentTime - lastMDNS) >= intervalWiFi) {
         D_printSerialTelnet(F("D:U:mDNS:IW.."));
-        if ((mySettings.debuglevel == 3) && mySettings.usemDNS) { R_printSerialTelnetLogln(F("MDNS: waiting for network to come up")); }          
+        if ((mySettings.debuglevel == 3) && mySettings.usemDNS) { 
+          R_printSerialTelnetLogln(F("MDNS: waiting for network to come up")); 
+        }          
         lastMDNS = currentTime;
       }
       break;
@@ -30,7 +32,12 @@ void updateMDNS() {
         // by default OTA service is starting mDNS, if OTA is enabled we need to skip begin and update
         if (!mySettings.useOTA) {
           D_printSerialTelnet(F("D:S:mDNS:HN.."));
-          if (MDNS.begin(hostName) == false) { if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("MDNS: error setting up MDNS responder")); R_printSerialTelnetLogln(tmpStr); } }
+          if (MDNS.begin(hostName) == false) { 
+            if (mySettings.debuglevel > 0) { 
+              snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MDNS: error setting up MDNS responder")); 
+              R_printSerialTelnetLogln(tmpStr);
+            } 
+          }
         }
 
         D_printSerialTelnet(F("D:S:mDNS:R.."));
@@ -40,9 +47,17 @@ void updateMDNS() {
           // mDNS announce service for website
           if ( mySettings.useHTTP == true) {
             D_printSerialTelnet(F("D:S:mDNS:HTTP.."));
-            if (!MDNS.addService("http", "tcp", 80)) { if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: could not add service for tcp 80")); } }
+            if (!MDNS.addService("http", "tcp", 80)) { 
+              if (mySettings.debuglevel > 0) { 
+                R_printSerialTelnetLogln(F("MDNS: could not add service for tcp 80")); 
+                } 
+              }
             D_printSerialTelnet(F("D:S:mDNS:WS.."));
-            if (!MDNS.addService("ws", "tcp", 81))   { if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: could not add service for ws 81")); } }
+            if (!MDNS.addService("ws", "tcp", 81)) { 
+              if (mySettings.debuglevel > 0) { 
+                R_printSerialTelnetLogln(F("MDNS: could not add service for ws 81")); 
+              }
+            }
           }
 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: initialized")); }
@@ -78,11 +93,18 @@ void updateMDNS() {
 
     case CHECK_CONNECTION : { //---------------------
       D_printSerialTelnet(F("D:S:mDNS:CC.."));
-      if (mySettings.useOTA == false) { MDNS.update(); }       // Update MDNS but only if OTA is not enabled, OTA update also updates mDNS by default
+      if (mySettings.useOTA == false) { // Update MDNS but only if OTA is not enabled, OTA update also updates mDNS by default 
+        MDNS.update(); 
+      }
       break;          
     }
 
-   default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("mDNS Error: invalid switch statement\r\n")); break;}}
+    default: {
+      if (mySettings.debuglevel > 0) { 
+        R_printSerialTelnetLogln(F("mDNS Error: invalid switch statement")); 
+      break;
+      }
+    }
 
   } // switch
 } // update mDNS

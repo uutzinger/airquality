@@ -1,4 +1,19 @@
 /******************************************************************************************************/
+// Debug Print Configurations
+/******************************************************************************************************/
+#if defined DEBUG
+  #define D_printSerialTelnet(X)      printSerialTelnet(X)                                // debug output to serial and telnet
+  #define D_printSerialTelnetln(X)    printSerialTelnetln(X)                              // debug output to serial and telnet
+  #define R_printSerialTelnetLog(X)   printSerialTelnetLogln(); printSerialTelnetLog(X)   // regular output
+  #define R_printSerialTelnetLogln(X) printSerialTelnetLogln(); printSerialTelnetLogln(X) // regular output with /r/n appended
+#else
+  #define D_printSerialTelnet(X)                                                          // no debug output
+  #define D_printSerialTelnetln(X)                                                        // no debug output
+  #define R_printSerialTelnetLog(X)   printSerialTelnetLog(X)                             // regular output
+  #define R_printSerialTelnetLogln(X) printSerialTelnetLogln(X)                           // regular output with /r/n appended
+#endif
+
+/******************************************************************************************************/
 // Hardware Pin Configuration
 /******************************************************************************************************/
 #define SCD30_RDY D8                                       // normal low, active high pin indicating data ready from SCD30 sensor (raising)
@@ -57,7 +72,7 @@ unsigned long tmpTime;                                     // temporary variable
 long          myDelay;                                     // main loop delay, automatically computed
 long          myDelayMin = 1000;                           // minium delay over the last couple seconds, if less than 0, ESP8266 can not keep up with
 float         myDelayAvg = 0;                              // average delay over the last couplle seconds
-unsigned long myLoop;                                      // main loop execution time, automatically computed
+unsigned long myLoop = 0;                                  // main loop execution time, automatically computed
 unsigned long myLoopMin;                                   // main loop recent shortest execution time, automatically computed
 unsigned long myLoopMax;                                   // main loop recent maximumal execution time, automatically computed
 unsigned long myLoopMaxAllTime=0;                          // main loop all time maximum execution time, automatically computed
@@ -69,6 +84,7 @@ unsigned long yieldTime = 0;
 unsigned long yieldTimeMin = 1000;
 unsigned long yieldTimeMax = 0;
 unsigned long yieldTimeMaxAllTime=0;
+int           delayRuns = 0;                               // how often to call delay in loop delay section
 
 bool          scheduleReboot = false;                      // is it time to reboot the ESP?
 bool          rebootNow = false;                           // immediate reboot was requested
@@ -158,9 +174,9 @@ bool ntpFirstTime  = true;
 bool time_avail    = false;                                // do not display time until time is established
 
 // i2c speed
-#define I2C_FAST    400000                                 // Fast   400 000
-#define I2C_REGULAR 100000                                 // Normal 100 000
-#define I2C_SLOW     50000                                 // Slow    50 000
+#define I2C_FAST    100000                                 // Fast   400,000 but can also downgrade to regular
+#define I2C_REGULAR 100000                                 // Normal 100,000
+#define I2C_SLOW     50000                                 // Slow    50,000
 
 // i2c clock stretch limit
 #define I2C_DEFAULTSTRETCH    230                          // Normal 230 micro seconds
@@ -178,7 +194,7 @@ unsigned long lastTmp = 0;
 #define SERIALMAXRATE 500                                  // milli secs between serial command inputs
 
 //
-char tmpStr[128];                                          // Buffer for formatting text that will be sent to USB serial or telnet
+char tmpStr[256];                                          // Buffer for formatting text that will be sent to USB serial or telnet
 
 //https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
 const char singleSeparator[] PROGMEM      = {"--------------------------------------------------------------------------------"};
@@ -203,7 +219,7 @@ unsigned long lastLogFile; // last time we checked logfile size or closes the lo
 // Support Functions
 /******************************************************************************************************/
 #include <Wire.h>
-bool checkI2C(uint8_t address, TwoWire *myWire);                   // is device attached at this address?
+bool checkI2C(uint8_t address, TwoWire *myWire);                // is device attached at this address?
 void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed, uint32_t i2cStretch);
 void serialTrigger(const char* mess, int timeout);              // delays until user input
 bool inputHandle(void);                                         // hanldes user input
@@ -212,10 +228,10 @@ void printSettings(void);                                       // lists program
 void defaultSettings(void);                                     // converts settings back to default. need to save to EEPROM to retain
 void printSensors(void);                                        // lists current sensor values
 void printState(void);                                          // lists states of system devices and sensors
-void timeJSON(char *payload);                                   // provide time
-void dateJSON(char *payload);                                   // provide date
-void systemJSON(char *payload);                                 // provide system stats
-void ipJSON(char *payload);                                     // provide ip
-void hostnameJSON(char *payload);                               // provide hostname
-void max30JSON(char *payload);                                  // provide max data, temporarily
-unsigned long maxyieldOS(void);                                             // execute yield or delay
+void timeJSON(char *payload, size_t len);                       // provide time
+void dateJSON(char *payload, size_t len);                       // provide date
+void systemJSON(char *payload, size_t len);                     // provide system stats
+void ipJSON(char *payload, size_t len);                         // provide ip
+void hostnameJSON(char *payload, size_t len);                   // provide hostname
+void max30JSON(char *payload, size_t len);                      // provide max data, temporarily
+unsigned long maxyieldOS(void);                                 // execute yield or delay

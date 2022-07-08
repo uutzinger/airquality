@@ -39,9 +39,9 @@ void onerrorOTA(ota_error_t error);
 void updateMDNS(void);
 
 //https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
-const char mStarting[] PROGMEM      = {"Starting up                "};
-const char mMonitoring[] PROGMEM    = {"Monitoring connection      "};
-const char mScanning[] PROGMEM      = {"Scanning for known network "};
-const char mConnecting[] PROGMEM    = {"Connecting                 "};
-const char mWaiting[] PROGMEM       = {"Waiting                    "};
-const char mNotEnabled[] PROGMEM    = {"Not Enabled                "};
+const char mStarting[]   PROGMEM = {"Starting up                "};
+const char mMonitoring[] PROGMEM = {"Monitoring connection      "};
+const char mScanning[]   PROGMEM = {"Scanning for known network "};
+const char mConnecting[] PROGMEM = {"Connecting                 "};
+const char mWaiting[]    PROGMEM = {"Waiting                    "};
+const char mNotEnabled[] PROGMEM = {"Not Enabled                "};

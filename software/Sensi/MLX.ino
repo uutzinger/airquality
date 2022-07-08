@@ -10,6 +10,7 @@
 #include "src/MLX.h"
 #include "src/Sensi.h"
 #include "src/Config.h"
+#include "src/Quality.h"
 #endif
 
 bool initializeMLX(){
@@ -17,20 +18,28 @@ bool initializeMLX(){
   switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
   
   if (therm.begin(0x5A, *mlx_port) == true) { 
-    therm.setUnit(TEMP_C); // Set the library's units to Centigrade
+    therm.setUnit(TEMP_C);                    // Set the library's units to Centigrade
     therm.setEmissivity(emissivity);
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("MLX: Emissivity: %f"), therm.readEmissivity()); R_printSerialTelnetLogln(tmpStr); }
+    if (mySettings.debuglevel > 0) { 
+      snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: Emissivity: %f"), therm.readEmissivity()); 
+      R_printSerialTelnetLogln(tmpStr); 
+    }
     stateMLX = IS_MEASURING;      
   } else {
-    if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: sensor not detected. Please check wiring")); }
+    if (mySettings.debuglevel > 0) { 
+      R_printSerialTelnetLogln(F("MLX: sensor not detected. Please check wiring")); 
+    }
     stateMLX = HAS_ERROR;
     errorRecMLX = currentTime + 5000;
     return(false);
   }
+
   sleepTimeMLX = intervalMLX - timeToStableMLX - 50;
   if (mySettings.debuglevel > 0) {
-    sprintf_P(tmpStr, PSTR("MLX: sleep time is %lums"),   sleepTimeMLX); printSerialTelnetLogln(tmpStr);
-    sprintf_P(tmpStr, PSTR("MLX: interval time is %lums"), intervalMLX); printSerialTelnetLogln(tmpStr); 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: sleep time is %lums"),   sleepTimeMLX); 
+    printSerialTelnetLogln(tmpStr);
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: interval time is %lums"), intervalMLX); 
+    printSerialTelnetLogln(tmpStr); 
   }
 
   if (mySettings.tempOffset_MLX_valid == 0xF0) {
@@ -41,7 +50,7 @@ bool initializeMLX(){
   }
 
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("MLX: initialized")); }
-  delay(50); lastYield = millis();
+  delay(50);
 
   return(true);
 }
@@ -60,11 +69,17 @@ bool updateMLX() {
         switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
         startMeasurementMLX = millis();
         if (therm.read()) {
-          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("MLX: T read in %ldms"), (millis()-startMeasurementMLX)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel >= 2) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: T read in %ldms"), (millis()-startMeasurementMLX)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           lastMLX = currentTime;
           // check if temperature is in valid range
           if ( (therm.object() < -273.15) || ( therm.ambient() < -273.15) ) { 
-            if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("MLX: data range error, %u"), mlx_error_cnt); R_printSerialTelnetLogln(tmpStr); }
+            if (mySettings.debuglevel > 0) { 
+              snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: data range error, %u"), mlx_error_cnt); 
+              R_printSerialTelnetLogln(tmpStr); 
+            }
             if (mlx_error_cnt++ > 3) { // allow 3 retries on i2c bus until ERROR state or sensor is triggered
               stateMLX = HAS_ERROR;
               errorRecMLX = currentTime + 5000;
@@ -85,7 +100,8 @@ bool updateMLX() {
           // read error
           lastMLX = currentTime;
           if (mySettings.debuglevel > 0) { 
-            sprintf_P(tmpStr, PSTR("MLX: read error, %u"), mlx_error_cnt); R_printSerialTelnetLogln(tmpStr);          
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: read error, %u"), mlx_error_cnt); 
+            R_printSerialTelnetLogln(tmpStr);          
           }
           if (mlx_error_cnt++ > 3) { // allow 3 retires on i2c bus until ERROR state of sensor is triggered
             stateMLX = HAS_ERROR;
@@ -147,7 +163,7 @@ bool updateMLX() {
   return success;
 }
 
-void mlxJSON(char *payload){
+void mlxJSON(char *payload, size_t len){
   char qualityMessage1[16];
   char qualityMessage2[16];
   if (therm_avail) { 
@@ -157,7 +173,7 @@ void mlxJSON(char *payload){
     strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
     strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   }  
-  sprintf_P(payload, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.1f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.1f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        therm_avail ? "true" : "false", 
                        therm_avail ? therm.object()+mlxOffset : -999., 
                        therm_avail ? therm.ambient() : -999., 

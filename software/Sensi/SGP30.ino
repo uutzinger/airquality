@@ -45,7 +45,10 @@ bool initializeSGP30() {
   
   if (fastMode) { intervalSGP30 = intervalSGP30Fast;}
   else          { intervalSGP30 = intervalSGP30Slow;}
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: Interval: %lu"), intervalSGP30); R_printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30: Interval: %lu"), intervalSGP30); 
+    R_printSerialTelnetLogln(tmpStr); 
+  }
   switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
   if (sgp30.begin(*sgp30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: No SGP30 Detected. Check connections")); }
@@ -67,7 +70,7 @@ bool initializeSGP30() {
   }
   
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: initialized")); }
-  delay(50); lastYield = millis();
+  delay(50);
   return(true);
 }
 
@@ -114,10 +117,13 @@ bool updateSGP30() {
         switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
         sgp30Error = sgp30.getBaseline(); // this has 10ms delay
         if (sgp30Error != SGP30_SUCCESS) {
-           if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error obtaining baseline: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
-           stateSGP30 = HAS_ERROR;
-           errorRecSGP30 = currentTime + 5000;
-           break;
+          if (mySettings.debuglevel > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30: error obtaining baseline: %s"), SGP30errorString(sgp30Error)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          stateSGP30 = HAS_ERROR;
+          errorRecSGP30 = currentTime + 5000;
+          break;
         } else {
           if (mySettings.debuglevel == 6) { R_printSerialTelnetLogln(F("SGP30: obtaining internal baseline")); }
           lastSGP30Baseline= millis();
@@ -130,12 +136,18 @@ bool updateSGP30() {
         startMeasurementSGP30 = millis();
         sgp30Error = sgp30.measureAirQuality();
         if (sgp30Error != SGP30_SUCCESS) {
-          if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SGP30: error measuring eCO2 & tVOC: %s"), SGP30errorString(sgp30Error)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30: error measuring eCO2 & tVOC: %s"), SGP30errorString(sgp30Error)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           stateSGP30 = HAS_ERROR;
           errorRecSGP30 = currentTime + 5000;
           break;
         } else {
-          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SGP30: eCO2 & tVOC read in %ldms"), (millis()-startMeasurementSGP30)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel >= 2) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30: eCO2 & tVOC read in %ldms"), (millis()-startMeasurementSGP30)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           sgp30NewData = true;
           sgp30NewDataWS = true;
           sgp30_error_cnt = 0;
@@ -176,14 +188,19 @@ bool updateSGP30() {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30 Error: invalid switch statement")); break;}}
+    default: {
+      if (mySettings.debuglevel > 0) { 
+        R_printSerialTelnetLogln(F("SGP30 Error: invalid switch statement"));
+      } 
+      break;
+    }
     
   } // switch state
 
   return(success);
 }
 
-void sgp30JSON(char *payload){
+void sgp30JSON(char *payload, size_t len){
   char qualityMessage1[16];
   char qualityMessage2[16];
   if (sgp30_avail) { 
@@ -193,7 +210,7 @@ void sgp30JSON(char *payload){
     strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
     strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
   } 
-  sprintf(payload, PSTR("{ \"sgp30\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"sgp30\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        sgp30_avail ? "true" : "false", 
                        sgp30_avail ? sgp30.CO2 : 0, 
                        sgp30_avail ? sgp30.TVOC : 0,

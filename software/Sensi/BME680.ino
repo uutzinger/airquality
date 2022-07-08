@@ -63,7 +63,7 @@ bool initializeBME680() {
       unsigned long tmpInterval = endTimeBME680 - tmpTime;
       if (tmpInterval > intervalBME680) {intervalBME680 = tmpInterval;}
       stateBME680 = IS_BUSY; 
-      if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
+      if (mySettings.debuglevel == 9) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
 
       // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
       // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
@@ -77,7 +77,7 @@ bool initializeBME680() {
       alphaBME680 = -y + sqrt( y*y + 2.*y );                               // is quite small e.g. 1e-6
     }
 
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("BME680: interval: %lu"), intervalBME680); printSerialTelnetLog(tmpStr); }
+    if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680: interval: %lu"), intervalBME680); printSerialTelnetLog(tmpStr); }
 
   } else {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME680: sensor not detected, please check wiring")); }
@@ -128,7 +128,7 @@ bool updateBME680() {
             float     y =  w_c*w_c/2.;                                           // small angle approximation
             alphaBME680 = -y + sqrt( y*y + 2.*y );                               // is quite small e.g. 1e-6
           }
-          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel == 9) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr); }
         }
       }
       break;
@@ -181,7 +181,7 @@ bool updateBME680() {
         if (bme680_pressure24hrs == 0.0) {bme680_pressure24hrs = bme680.pressure; } 
         else {bme680_pressure24hrs = (1.0-alphaBME680) * bme680_pressure24hrs + alphaBME680* bme680.pressure; }
         mySettings.avgP = bme680_pressure24hrs;
-        if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("BME680: T, rH, P read in %ldms"), (millis()-startMeasurementBME680)); R_printSerialTelnetLogln(tmpStr); }
+        if (mySettings.debuglevel >= 2) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680: T, rH, P read in %ldms"), (millis()-startMeasurementBME680)); R_printSerialTelnetLogln(tmpStr); }
         bme680NewData = true;
         bme680NewDataWS = true;
 
@@ -251,7 +251,7 @@ bool updateBME680() {
           }
           stateBME680 = IS_BUSY; 
   
-          if (mySettings.debuglevel == 9) { sprintf_P(tmpStr, PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel == 9) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680: reading started. Completes in %ldms"), tmpInterval); R_printSerialTelnetLogln(tmpStr); }
         }
   
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: re-initialized")); }
@@ -266,7 +266,7 @@ bool updateBME680() {
   return success;
 }
 
-void bme680JSON(char *payload){
+void bme680JSON(char *payload, size_t len){
   // {"bme680":{"avail":true, "p":1234.5, "rH":12.3, "ah":123.4, "T":-25.1, "resistance":1234, "rH_airquality":"normal", "resistance_airquality":"normal"}}
   char qualityMessage1[16];
   char qualityMessage2[16];
@@ -283,7 +283,7 @@ void bme680JSON(char *payload){
     strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
     strncpy(qualityMessage4, "not available", sizeof(qualityMessage4));
   }  
-  sprintf_P(payload, PSTR("{ \"bme680\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"bme680\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme680_avail ? "true" : "false", 
                        bme680_avail ? bme680.pressure/100.0 : -1., 
                        bme680_avail ? bme680_pressure24hrs/100.0 : -1.0, 

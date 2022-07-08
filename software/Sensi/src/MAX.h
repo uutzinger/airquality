@@ -12,3 +12,7 @@ TwoWire *max_port =0;                                      // pointer to the i2c
 uint8_t max_i2c[2];                                        // the pins for the i2c port, set during initialization
 unsigned long lastMAX;                                     // last time we interacted with sensor
 volatile SensorStates stateMAX = IS_IDLE;                  // sensor state
+
+#define max_i2cspeed               I2C_FAST             
+#define max_i2cClockStretchLimit   I2C_LONGSTRETCH       // because its on shared bus
+//#define sgp30_i2cClockStretchLimit   I2C_DEFAULTSTRETCH

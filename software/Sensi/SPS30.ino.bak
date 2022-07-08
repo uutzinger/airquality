@@ -38,11 +38,7 @@ bool initializeSPS30() {
   if (fastMode == true) { intervalSPS30 = intervalSPS30Fast; }
   else                  { intervalSPS30 = intervalSPS30Slow; }
 
-  if (mySettings.debuglevel > 0) { 
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: Interval: %lums"),intervalSPS30);
-    R_printSerialTelnetLogln(tmpStr); 
-  }
-
+  if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: Interval: %lums"),intervalSPS30); R_printSerialTelnetLogln(tmpStr); }
   switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
 
   if (sps30.begin(sps30_port) == false) {
@@ -87,7 +83,7 @@ bool initializeSPS30() {
     if (ret == SPS30_ERR_OK) {
       printSerialTelnetLog("SPS30: serial number : ");
       if(strlen(buf) > 0) { printSerialTelnetLog(buf); printSerialTelnetLog(F("\r\n")); }
-      else { printSerialTelnetLogln(F("not available")); }
+      else { printSerialTelnetLog(F("not available\r\n")); }
     } else { printSerialTelnetLogln(F("SPS30: could not obtain serial number")); }
 
     ret = sps30.GetProductName(buf, 32);
@@ -100,27 +96,20 @@ bool initializeSPS30() {
   
   ret = sps30.GetVersion(&v);
   if (ret != SPS30_ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
-    if (mySettings.debuglevel > 0 ) { printSerialTelnetLogln("SPS30: error when reading version information"); } 
+    if (mySettings.debuglevel > 0 ) { printSerialTelnetLog("SPS30: error when reading version information\r\n"); } 
     v.major = 1;  // is reasonable minimal version
     v.minor = 0;  // is not reasonable
   }
   if (mySettings.debuglevel > 0 ) {
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: firmware level: %hu.%hu"),v.major,v.minor);             
-    printSerialTelnetLogln(tmpStr);
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: hardware level: %hu"),    v.HW_version);                
-    printSerialTelnetLogln(tmpStr);
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: SHDLC protocol: %hu.%hu"),v.SHDLC_major,v.SHDLC_minor); 
-    printSerialTelnetLogln(tmpStr);
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: library level : %hu.%hu"),v.DRV_major,v.DRV_minor);     
-    printSerialTelnetLogln(tmpStr);
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: firmware level: %hu.%hu"),v.major,v.minor);             printSerialTelnetLogln(tmpStr);
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: hardware level: %hu"),    v.HW_version);                printSerialTelnetLogln(tmpStr);
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: SHDLC protocol: %hu.%hu"),v.SHDLC_major,v.SHDLC_minor); printSerialTelnetLogln(tmpStr);
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: library level : %hu.%hu"),v.DRV_major,v.DRV_minor);     printSerialTelnetLogln(tmpStr);
   }
   
   ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
   if (ret == SPS30_ERR_OK) {
-    if (mySettings.debuglevel > 0) { 
-      snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current Auto Clean interval: %us"), autoCleanIntervalSPS30); 
-      printSerialTelnetLogln(tmpStr); 
-    }
+    if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current Auto Clean interval: %us"), autoCleanIntervalSPS30); printSerialTelnetLogln(tmpStr); }
   } else { 
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: coulnd not obtain autoclean information")); }
   }
@@ -196,14 +185,10 @@ bool updateSPS30() {
         switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);               
-        if (mySettings.debuglevel >= 2)  { 
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: PM read in %ims"), millis() - tmpTime); 
-          R_printSerialTelnetLogln(tmpStr); 
-        }
+        if (mySettings.debuglevel >= 2)  { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: PM read in %ims"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
         if (ret == SPS30_ERR_DATALENGTH || valSPS30.MassPM1 == 0) { 
           if (mySettings.debuglevel > 0) { 
-            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error data length or zero reading, %u"), sps_error_cnt); 
-            R_printSerialTelnetLogln(tmpStr); 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error data length or zero reading, %u"), sps_error_cnt); R_printSerialTelnetLogln(tmpStr); 
           }
           if (sps_error_cnt++ > 3) { // i2c error recovery with retries, this will not initiate reset
             stateSPS30 = HAS_ERROR; 
@@ -213,10 +198,7 @@ bool updateSPS30() {
           lastSPS30 = currentTime; 
           break; // remains in same state and try again in about a second
         } else if (ret != SPS30_ERR_OK) {
-          if (mySettings.debuglevel > 0) { 
-            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error reading values: %hu"), ret); 
-            R_printSerialTelnetLogln(tmpStr); 
-          }
+          if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error reading values: %hu"), ret); R_printSerialTelnetLogln(tmpStr); }
           stateSPS30 = HAS_ERROR; // got to recovery
           errorRecSPS30 = currentTime + 5000;
           break;
@@ -230,15 +212,10 @@ bool updateSPS30() {
         else if (totalParticles < 200.) { timeToStableSPS30 = 16000; } // hard coded from data sheet
         else                            { timeToStableSPS30 =  8000; } // hard coded from data sheet
         timeSPS30Stable = currentTime +  timeToStableSPS30;
-        if (mySettings.debuglevel == 5) { 
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: total particles - %f"), totalParticles); 
-          R_printSerialTelnetLogln(tmpStr); 
-        }
+        if (mySettings.debuglevel == 5) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: total particles - %f"), totalParticles); R_printSerialTelnetLogln(tmpStr); }
         if (mySettings.debuglevel == 5) {
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current time: %lu"), currentTime); 
-          printSerialTelnetLogln(tmpStr);
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: time when stable: %lu"), timeSPS30Stable); 
-          printSerialTelnetLogln(tmpStr);
+          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current time: %lu"), currentTime); printSerialTelnetLogln(tmpStr);
+          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: time when stable: %lu"), timeSPS30Stable); printSerialTelnetLogln(tmpStr);
         }
         stateSPS30 = WAIT_STABLE;            
       }
@@ -247,24 +224,18 @@ bool updateSPS30() {
 
     case WAIT_STABLE: { //--------------------- system is stable, read data
       /**if (mySettings.debuglevel == 5) {
-        R_printSerialTelnetLogln("SPS30: wait until stable");
-        snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current time: %lu"),currentTime); R_printSerialTelnetLogln(tmpStr);
-        snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: time when stable: %lu"), timeSPS30Stable); R_printSerialTelnetLogln(tmpStr);
-      *}*/
+        R_printSerialTelnetLog("SPS30: wait until stable\r\n");
+        snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current time: %lu\r\n"),currentTime); R_printSerialTelnetLog(tmpStr);
+        snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: time when stable: %lu\r\n"), timeSPS30Stable); R_printSerialTelnetLog(tmpStr);
+      }**/
       if (currentTime >= timeSPS30Stable) {
         D_printSerialTelnet(F("D:U:SPS30:WS.."));
         switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         tmpTime = millis();
         ret = sps30.GetValues(&valSPS30);
-        if (mySettings.debuglevel >= 2) { 
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: values read in %ldms"), millis() - tmpTime); 
-          R_printSerialTelnetLogln(tmpStr); 
-        }
+        if (mySettings.debuglevel >= 2) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: values read in %ldms"), millis() - tmpTime); R_printSerialTelnetLogln(tmpStr); }
         if (ret == SPS30_ERR_DATALENGTH || valSPS30.MassPM1 == 0.0) { 
-          if (mySettings.debuglevel > 0) { 
-            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error data length while reading values or zero reading, %u"), sps_error_cnt); 
-            R_printSerialTelnetLogln(tmpStr); 
-          }
+          if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error data length while reading values or zero reading, %u"), sps_error_cnt); R_printSerialTelnetLogln(tmpStr); }
           // we will allow this to happen 3 times in a row until we throw an error
           if ( sps_error_cnt++ > 3 ) { 
             stateSPS30 = HAS_ERROR; 
@@ -275,10 +246,7 @@ bool updateSPS30() {
           timeSPS30Stable = currentTime + 1000;  
           break; // remain in same state and try again in a second
         } else if (ret != SPS30_ERR_OK) {
-          if (mySettings.debuglevel > 0) { 
-            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error reading values: error x%hu"), ret); 
-            R_printSerialTelnetLogln(tmpStr); 
-          }
+          if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: error reading values: error x%hu"), ret); R_printSerialTelnetLogln(tmpStr); }
           stateSPS30 = HAS_ERROR;
           errorRecSPS30 = currentTime + 5000;
           break;
@@ -322,12 +290,9 @@ bool updateSPS30() {
       if ((fastMode) || (v.major<2) ) { // fastmode or no sleep function
         timeSPS30Stable = (unsigned long) (lastSPS30 + intervalSPS30); 
         if (mySettings.debuglevel == 5) {
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: lastSPS30: %lu"), lastSPS30);
-          R_printSerialTelnetLogln(tmpStr);
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current time:: %lu"), currentTime);
-          printSerialTelnetLogln(tmpStr);
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: time when stable: %lu"), timeSPS30Stable); 
-          printSerialTelnetLogln(tmpStr);
+          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: lastSPS30: %lu"), lastSPS30);            R_printSerialTelnetLogln(tmpStr);
+          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: current time:: %lu"), currentTime);        printSerialTelnetLogln(tmpStr);
+          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: time when stable: %lu"), timeSPS30Stable); printSerialTelnetLogln(tmpStr);
           printSerialTelnetLogln(F("SPS30: going to wait until stable"));
         }
         stateSPS30 = WAIT_STABLE;             
@@ -445,12 +410,7 @@ bool updateSPS30() {
       break;
     }
 
-    default: {
-      if (mySettings.debuglevel > 0) { 
-        R_printSerialTelnetLogln(F("SPS30 Error: invalid switch statement"));
-      } 
-      break;
-    }
+    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30 Error: invalid switch statement")); break;}}
 
   } // end cases
 

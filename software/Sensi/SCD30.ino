@@ -23,7 +23,8 @@
 void ICACHE_RAM_ATTR handleSCD30Interrupt() {              // Interrupt service routine when data ready is signaled
   stateSCD30 = DATA_AVAILABLE;                             // advance the sensor state
   if (mySettings.debuglevel == 4) {                        // for debugging, usually no Serial.print in ISR
-    sprintf_P(tmpStr, PSTR("SCD30: interrupt occured")); R_printSerialTelnetLogln(tmpStr);  
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: interrupt occured")); 
+    R_printSerialTelnetLogln(tmpStr);  
   }
 }
 
@@ -34,7 +35,10 @@ bool initializeSCD30() {
     
   if (fastMode) { intervalSCD30 = intervalSCD30Fast; }      // set fast or slow mode
   else          { intervalSCD30 = intervalSCD30Slow; }
-  if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SCD30: Interval: %lu"), intervalSCD30); R_printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel > 0) { 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: Interval: %lu"), intervalSCD30); 
+    R_printSerialTelnetLogln(tmpStr); 
+  }
 
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SCD30: configuring interrupt")); }
   pinMode(SCD30interruptPin , INPUT);                      // interrupt scd30
@@ -45,7 +49,10 @@ bool initializeSCD30() {
     scd30.setAutoSelfCalibration(true); 
     if (mySettings.tempOffset_SCD30_valid == 0xF0) { scd30.setTemperatureOffset(mySettings.tempOffset_SCD30); }
     mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
-    if (mySettings.debuglevel > 0) { sprintf_P(tmpStr, PSTR("SCD30: current temp offset: %fC"),mySettings.tempOffset_SCD30); printSerialTelnetLogln(tmpStr); }
+    if (mySettings.debuglevel > 0) { 
+      snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: current temp offset: %fC"),mySettings.tempOffset_SCD30); 
+      printSerialTelnetLogln(tmpStr); 
+    }
     stateSCD30 = IS_BUSY;
   } else {
     stateSCD30 = HAS_ERROR;
@@ -89,7 +96,10 @@ bool updateSCD30 () {
           scd30_temp = scd30.getTemperature();
           scd30_hum  = scd30.getHumidity();
           lastSCD30  = currentTime;
-          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SCD30: CO2, rH, T read in %ldms"), (millis()-startMeasurementSCD30)); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel >= 2) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: CO2, rH, T read in %ldms"), (millis()-startMeasurementSCD30)); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
           scd30NewData = true;
           scd30NewDataWS = true;
         } else {
@@ -126,7 +136,10 @@ bool updateSCD30 () {
       scd30NewData = true;
       scd30NewDataWS = true;
       stateSCD30 = IS_IDLE; 
-      if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SCD30: CO2, rH, T read in %ldms"), (millis()-startMeasurementSCD30)); R_printSerialTelnetLogln(tmpStr); }
+      if (mySettings.debuglevel >= 2) { 
+        snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: CO2, rH, T read in %ldms"), (millis()-startMeasurementSCD30)); 
+        R_printSerialTelnetLogln(tmpStr); 
+      }
       break;
     }
     
@@ -155,14 +168,19 @@ bool updateSCD30 () {
           switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
           scd30.setAmbientPressure(uint16_t(bme680.pressure/100.0));  // update with value from pressure sensor, needs to be mbar
           lastPressureSCD30 = currentTime;
-          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SCD30: pressure updated to %fmbar"), bme680.pressure/100.0); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel >= 2) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: pressure updated to %fmbar"), bme680.pressure/100.0);
+            R_printSerialTelnetLogln(tmpStr); 
+          }
        }
       } else if ((bme280_avail && mySettings.useBME280)) {
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
           switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
           scd30.setAmbientPressure(uint16_t(bme280_pressure/100.0));  // pressure is in Pa and scd30 needs mBar
           lastPressureSCD30 = currentTime;
-          if (mySettings.debuglevel >= 2) { sprintf_P(tmpStr, PSTR("SCD30: pressure updated to %fmbar"), bme280_pressure/100.0); R_printSerialTelnetLogln(tmpStr); }
+          if (mySettings.debuglevel >= 2) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: pressure updated to %fmbar"), bme280_pressure/100.0); 
+            R_printSerialTelnetLogln(tmpStr); }
         }
       }
       break;        
@@ -196,14 +214,19 @@ bool updateSCD30 () {
       break;
     }
 
-    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30 Error: invalid switch statement")); break;}}
+    default: {
+      if (mySettings.debuglevel > 0) { 
+        R_printSerialTelnetLogln(F("SCD30 Error: invalid switch statement"));
+      } 
+      break;
+    }
     
   } // switch state
 
   return success;
 }
 
-void scd30JSON(char *payload){
+void scd30JSON(char *payload, size_t len){
   char qualityMessage1[16];
   char qualityMessage2[16];
   char qualityMessage3[16];
@@ -216,7 +239,7 @@ void scd30JSON(char *payload){
     strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
     strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
   } 
-  sprintf_P(payload, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %4.1f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %4.1f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        scd30_avail ? "true" : "false", 
                        scd30_avail ? scd30_ppm : 0, 
                        scd30_avail ? scd30_hum : -1.0,

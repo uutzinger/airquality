@@ -25,12 +25,12 @@ void onendOTA() {
 }
 
 void onprogressOTA(unsigned int progress, unsigned int total) {
-  if (mySettings.debuglevel > 1) { sprintf_P(tmpStr, PSTR("OTA: progress: %u%%\r"),(progress / (total / 100))); printSerialTelnetLog(tmpStr); } 
+  if (mySettings.debuglevel > 1) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("OTA: progress: %u%%\r"),(progress / (total / 100))); printSerialTelnetLog(tmpStr); } 
 }
 
 void onerrorOTA(ota_error_t error) {
   if (mySettings.debuglevel > 0) {
-    sprintf_P(tmpStr, PSTR("OTA: error[%u]: "), error); 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("OTA: error[%u]: "), error); 
     R_printSerialTelnetLog(tmpStr);
     if      (error == OTA_AUTH_ERROR)    { printSerialTelnetLogln(F("Auth Failed")); }
     else if (error == OTA_BEGIN_ERROR)   { printSerialTelnetLogln(F("Begin Failed")); }
@@ -83,7 +83,12 @@ void updateOTA() {
       break;          
     }
 
-    default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("OTA Error: invalid switch statement")); break;}}
+    default: {
+      if (mySettings.debuglevel > 0) { 
+        R_printSerialTelnetLogln(F("OTA Error: invalid switch statement"));
+      } 
+      break;
+    }
 
   } // end switch
 } // end update OTA

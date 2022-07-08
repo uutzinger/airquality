@@ -12,8 +12,8 @@ bool sendMQTTonce = true;                                  // send system consta
 unsigned long intervalMQTT = intervalMQTTFast;             // automatically set during setup
 unsigned long lastMQTTPublish;                             // last tie we published mqtt data
 unsigned long lastMQTT;                                    // last time we checked if mqtt is connected
-volatile WiFiStates stateMQTT       = IS_WAITING;          // keeping track of MQTT state
+volatile WiFiStates stateMQTT = IS_WAITING;                // keeping track of MQTT state
 void updateMQTT(void);
 void updateMQTTMessage(void);
-void updateMQTTpayload(char *payload);
+void updateMQTTpayload(char *payload, size_t len);
 void mqttCallback(char* topic, uint8_t* payload, unsigned int len);
