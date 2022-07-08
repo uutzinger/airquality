@@ -122,7 +122,7 @@
 /******************************************************************************************************/
 // Build Configuration
 /******************************************************************************************************/
-#define ver "2.0.1"
+#define VER "2.0.2"
 // Debug
 // -----
 #undef DEBUG // disable "crash" DEBUG output for production
@@ -2009,8 +2009,11 @@ bool inputHandle() {
 } // end Input
 
 void helpMenu() {  
+    printSerialTelnetLogln();
   R_printSerialTelnetLogln(FPSTR(doubleSeparator));                                                                 yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| Sensi, 2020-2022, Urs Utzinger                                          ver|"));    yieldTime += yieldOS(); 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Sensi, 2020-2022, Urs Utzinger                                             %s"),  FPSTR(VER)); 
+    printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
+    // printSerialTelnetLogln(F("| Sensi, 2020-2022, Urs Utzinger                                               |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(FPSTR(doubleSeparator));                                                                 yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("Supports........................................................................"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("........................................................................LCD 20x4"));  yieldTime += yieldOS(); 
