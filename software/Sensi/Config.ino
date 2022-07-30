@@ -156,19 +156,19 @@ void loadConfiguration(Settings &config) {
         config.tempOffset_MLX         = doc["tempOffset_MLX"]                       | 0.0;
       
         config.useWiFi                = doc["useWiFi"]                              | true;
-        strncpy(config.ssid1,           doc["ssid1"]                                | "MEDDEV", sizeof(config.ssid1));
-        strncpy(config.pw1,             doc["pw1"]                                  | "", sizeof(config.pw1));
-        strncpy(config.ssid2,           doc["ssid2"]                                | "UAGUest", sizeof(config.ssid2));
-        strncpy(config.pw2,             doc["pw2"]                                  | "", sizeof(config.pw3));
-        strncpy(config.ssid3,           doc["ssid3"]                                | "MuchoCoolioG", sizeof(config.ssid3));
-        strncpy(config.pw3,             doc["pw3"]                                  | "", sizeof(config.pw3));
+        strlcpy(config.ssid1,           doc["ssid1"]                                | "MEDDEV", sizeof(config.ssid1));
+        strlcpy(config.pw1,             doc["pw1"]                                  | "", sizeof(config.pw1));
+        strlcpy(config.ssid2,           doc["ssid2"]                                | "UAGUest", sizeof(config.ssid2));
+        strlcpy(config.pw2,             doc["pw2"]                                  | "", sizeof(config.pw3));
+        strlcpy(config.ssid3,           doc["ssid3"]                                | "MuchoCoolioG", sizeof(config.ssid3));
+        strlcpy(config.pw3,             doc["pw3"]                                  | "", sizeof(config.pw3));
       
         config.useMQTT                = doc["useMQTT"]                              | false;
-        strncpy(config.mqtt_server,     doc["mqtt_server"]                          | "my.mqqtt.server.org", sizeof(config.mqtt_server));
-        strncpy(config.mqtt_username,   doc["mqtt_username"]                        | "mqtt", sizeof(config.mqtt_username));
-        strncpy(config.mqtt_password,   doc["mqtt_password"]                        | "", sizeof(config.mqtt_password));
-        strncpy(config.mqtt_fallback,   doc["mqtt_fallback"]                        | "192.168.1.1", sizeof(config.mqtt_password));
-        strncpy(config.mqtt_mainTopic,  doc["mqtt_mainTopic"]                       | "Senso", sizeof(config.mqtt_mainTopic));
+        strlcpy(config.mqtt_server,     doc["mqtt_server"]                          | "my.mqqtt.server.org", sizeof(config.mqtt_server));
+        strlcpy(config.mqtt_username,   doc["mqtt_username"]                        | "mqtt", sizeof(config.mqtt_username));
+        strlcpy(config.mqtt_password,   doc["mqtt_password"]                        | "", sizeof(config.mqtt_password));
+        strlcpy(config.mqtt_fallback,   doc["mqtt_fallback"]                        | "192.168.1.1", sizeof(config.mqtt_password));
+        strlcpy(config.mqtt_mainTopic,  doc["mqtt_mainTopic"]                       | "Senso", sizeof(config.mqtt_mainTopic));
         config.sendMQTTimmediate =      doc["sendMQTTimmediate"]                    | true;
         
         config.useLCD                 = doc["useLCD"]                               | true;
@@ -198,9 +198,9 @@ void loadConfiguration(Settings &config) {
         config.useLog                 = doc["useLog"]                               | false;
         
         config.useNTP                 = doc["useNTP"]                               | true;
-        strncpy(config.ntpServer,       doc["ntpServer"]                            | "us.pool.ntp.org", sizeof(config.ntpServer));
-        strncpy(config.ntpFallback,     doc["ntpFallback"]                          | "us.pool.ntp.org", sizeof(config.ntpFallback));
-        strncpy(config.timeZone,        doc["timeZone"]                             | "MST7", sizeof(config.timeZone));
+        strlcpy(config.ntpServer,       doc["ntpServer"]                            | "us.pool.ntp.org", sizeof(config.ntpServer));
+        strlcpy(config.ntpFallback,     doc["ntpFallback"]                          | "us.pool.ntp.org", sizeof(config.ntpFallback));
+        strlcpy(config.timeZone,        doc["timeZone"]                             | "MST7", sizeof(config.timeZone));
         config.rebootMinute           = doc["rebootMinute"]                         | -1;
       
         cfgFile.close();   // Close the file 

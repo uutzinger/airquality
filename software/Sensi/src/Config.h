@@ -8,7 +8,7 @@
 #define EEPROM_SIZE 2048                                   // make sure this value is larger than the space required by the settings below and lowwer than the max Settings of the microcontroller
 //#define intervalSettingsJSON 604800000                   // 7 days
 #define intervalSettings 43200000                          // 12 hrs, min write interval is 6,650,000 for 20 year liftime: 100,000/20yrs/365days = 13 writes per day
-int eepromAddress = 0;                                     // 
+const unsigned int eepromAddress = 0;                      // 
 unsigned long lastSaveSettings;                            // last time we updated EEPROM, should occur every couple days
 unsigned long lastSaveSettingsJSON;                        // last time we updated JSON, should occur every couple days
 // ========================================================// The EEPROM section

@@ -196,8 +196,8 @@ SGP30ERR SGP30::getFeatureSetVersion(void)
   _i2cPort->beginTransmission(_SGP30Address);
   _i2cPort->write(get_feature_set_version, 2); //command to get feature version
   _i2cPort->endTransmission();
-  //Hang out while measurement is taken. datasheet says 1-2ms
-  delay(2);
+  //Hang out while data is obtained. datasheet says 1-2ms
+  delayMicroseconds(2000);
   uint8_t toRead;
   //Comes back in 3 bytes, data(MSB) / data(LSB) / Checksum
   toRead = _i2cPort->requestFrom(_SGP30Address, (uint8_t)3);

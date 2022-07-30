@@ -6,21 +6,22 @@
 #include "src/WiFi.h"
 #include "src/HTTP.h"
 #endif
-//
-// https://www.mischianti.org/2020/05/24/rest-server-on-esp8266-and-esp32-get-and-json-formatter-part-2/
-// https://tttapa.github.io/ESP8266/Chap16%20-%20Data%20Logging.html
-// https://gist.github.com/maditnerd/c08c50c8eb2bb841bfd993f4f2beee7b
-// https://github.com/Links2004/arduinoWebSockets
+//Example web applications
+//  https://www.mischianti.org/2020/05/24/rest-server-on-esp8266-and-esp32-get-and-json-formatter-part-2/
+//  https://tttapa.github.io/ESP8266/Chap16%20-%20Data%20Logging.html
+//  https://gist.github.com/maditnerd/c08c50c8eb2bb841bfd993f4f2beee7b
+//  https://github.com/Links2004/arduinoWebSockets
+//  https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
 //
 //Working with JSON:
-// https://en.wikipedia.org/wiki/JSON
-// https://circuits4you.com/2019/01/11/nodemcu-esp8266-arduino-json-parsing-example/
+//  https://en.wikipedia.org/wiki/JSON
+//  https://circuits4you.com/2019/01/11/nodemcu-esp8266-arduino-json-parsing-example/
 //
 //Creating Webcontent on ESP
-// GET & POST https://randomnerdtutorials.com/esp8266-nodemcu-http-get-post-arduino/
-// JSON & autoupdate https://circuits4you.com/2019/03/22/esp8266-weather-station-arduino/
-// JSON & tabulated data https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
-// Simple autorefresh https://circuits4you.com/2018/02/04/esp8266-ajax-update-part-of-web-page-without-refreshing/
+//  GET & POST https://randomnerdtutorials.com/esp8266-nodemcu-http-get-post-arduino/
+//  JSON & autoupdate https://circuits4you.com/2019/03/22/esp8266-weather-station-arduino/
+//  JSON & tabulated data https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
+//  Simple autorefresh https://circuits4you.com/2018/02/04/esp8266-ajax-update-part-of-web-page-without-refreshing/
 
 
 void updateHTTP() {

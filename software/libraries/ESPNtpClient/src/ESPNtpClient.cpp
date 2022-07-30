@@ -593,7 +593,7 @@ void NTPClient::getTime () {
     err_t result;
     static uint dnsErrors = 0;
     
-    result = WiFi.hostByName (getNtpServerName (), ntpServerIPAddress);
+    result = WiFi.hostByName(getNtpServerName(), ntpServerIPAddress);
     if (!result) {
         DEBUGLOGE ("HostByName error");
         dnsErrors++;

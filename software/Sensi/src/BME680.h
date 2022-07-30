@@ -42,6 +42,7 @@ unsigned long  lastBME680;                                 // last time we inter
 unsigned long  endTimeBME680;                              // when data will be available
 unsigned long  errorRecBME680;
 unsigned long  startMeasurementBME680;
+unsigned long  bme680_lastError;
 float bme680_pressure24hrs = 0.0;                          // average pressure last 24hrs
 float alphaBME680;                                         // poorman's low pass filter for f_cutoff = 1 day
 volatile SensorStates stateBME680 = IS_IDLE;               // sensor state

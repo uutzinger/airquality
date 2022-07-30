@@ -26,3 +26,8 @@ void printSerialTelnetLogln(char* str);                         // Serial.printl
 void printSerialTelnetLog(String str);                          // Serial.print to serial, telnet and logfile
 void printSerialTelnetLogln(String str);                        // Serial.println to serial, telnet and logfile
 void printSerialTelnetLogln();                                  // Serial.println to serial, telnet and logfile
+void printSerialLog(char* str);                                 // Serial.print to serial and logfile
+void printSerialLogln(char* str);                               // Serial.println to serial and logfile
+void printSerialLog(String str);                                // Serial.print to serial and logfile
+void printSerialLogln(String str);                              // Serial.println to serial and logfile
+void printSerialLogln();                                        // Serial.println to serial and logfile

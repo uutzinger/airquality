@@ -33,6 +33,7 @@ void updateMDNS() {
         if (!mySettings.useOTA) {
           D_printSerialTelnet(F("D:S:mDNS:HN.."));
           if (MDNS.begin(hostName) == false) { 
+            mDNS_lastError = currentTime;
             if (mySettings.debuglevel > 0) { 
               snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MDNS: error setting up MDNS responder")); 
               R_printSerialTelnetLogln(tmpStr);
@@ -48,12 +49,14 @@ void updateMDNS() {
           if ( mySettings.useHTTP == true) {
             D_printSerialTelnet(F("D:S:mDNS:HTTP.."));
             if (!MDNS.addService("http", "tcp", 80)) { 
+              mDNS_lastError = currentTime;
               if (mySettings.debuglevel > 0) { 
                 R_printSerialTelnetLogln(F("MDNS: could not add service for tcp 80")); 
                 } 
               }
             D_printSerialTelnet(F("D:S:mDNS:WS.."));
             if (!MDNS.addService("ws", "tcp", 81)) { 
+              mDNS_lastError = currentTime;
               if (mySettings.debuglevel > 0) { 
                 R_printSerialTelnetLogln(F("MDNS: could not add service for ws 81")); 
               }

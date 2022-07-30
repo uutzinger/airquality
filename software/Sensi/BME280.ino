@@ -151,7 +151,7 @@ bool updateBME280() {
         switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
         // check if measurement is actually completed, if not wait some longer
         if (bme280.isMeasuring() == true) { 
-          if ((currentTime - lastBME280) >= 2 * bme280_measuretime)
+          if ((currentTime - lastBME280) >= INTERVAL_TIMEOUT_FACTOR * bme280_measuretime)
             if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BM[E/P]280: failed to complete reading")); }
             stateBME280 = HAS_ERROR;
             errorRecBME280 = currentTime + 5000;
@@ -205,13 +205,13 @@ bool updateBME280() {
     case HAS_ERROR : {
       if (currentTime > errorRecBME280) {      
         D_printSerialTelnet(F("D:U:BME280:E.."));
-        if (bme280_error_cnt++ > 3) { 
+        if (bme280_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           bme280_avail = false;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reinitialization attempts exceeded, BME280: no longer available.")); }
           break; 
-        } // give up after 3 tries
-  
+        } // give up after ERROR_COUNT tries
+        bme280_lastError = currentTime;
         switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
         bme280.reset();
         bme280.settings.commInterface = I2C_MODE;
@@ -267,9 +267,9 @@ void bme280JSON(char *payload, size_t len){
     checkHumidity(bme280_hum, qualityMessage2, 15);
     checkAmbientTemperature(bme280_temp, qualityMessage3, 15);
   } else {
-    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
-    strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+    strcpy(qualityMessage3, "not available");
   }  
   snprintf_P(payload, len, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme280_avail ? "true" : "false", 

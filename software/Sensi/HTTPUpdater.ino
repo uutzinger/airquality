@@ -1,7 +1,6 @@
 /******************************************************************************************************/
 // HTTP Updae Server / Upload Code
 /******************************************************************************************************/
-// https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
 #include "VSC.h"
 #ifdef EDITVSC
 #include "src/WiFi.h"

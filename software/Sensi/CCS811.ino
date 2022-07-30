@@ -26,7 +26,7 @@ void ICACHE_RAM_ATTR handleCCS811Interrupt() {             // interrupt service 
       stateCCS811 = IS_WAKINGUP;                           // update the sensor state
       lastCCS811Interrupt = millis();
     }
-    if (mySettings.debuglevel == 10) { R_printSerialTelnetLogln(F("CCS811: interrupt occured")); } // usually no serial in ISR
+    // if (mySettings.debuglevel == 10) { R_printSerialTelnetLogln(F("CCS811: interrupt occured")); } // usually no serial in ISR
 }
 
 /******************************************************************************************************/
@@ -201,7 +201,7 @@ bool updateCCS811() {
       // We want to continue ideling as we are waiting for interrupt      
       // However if interrupt timed out, we obtain data manually
       D_printSerialTelnet(F("D:U:CCS811:I.."));
-      if ( (currentTime - lastCCS811) > 2*intervalCCS811 ) { 
+      if ( (currentTime - lastCCS811) > INTERVAL_TIMEOUT_FACTOR*intervalCCS811 ) { 
         D_printSerialTelnet(F("D:U:CCS811:T.."));
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: interrupt timeout occured")); }
         switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
@@ -248,13 +248,14 @@ bool updateCCS811() {
     case HAS_ERROR : { //-----------------------
       if (currentTime > errorRecCCS811) {
         D_printSerialTelnet(F("D:U:CCS811:E.."));
-        if (ccs811_error_cnt++ > 3) { 
+        if (ccs811_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           ccs811_avail = false; 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: reinitialization attempts exceeded, CCS811: no longer available.")); }
           break;
-        } // give up after 3 tries
-  
+        } // give up after ERROR_COUNT tries
+        ccs811_lastError;
+
         // trying to recover sensor, reinitialize it
         digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
         delayMicroseconds(100); // wakeup takes 50 microseconds      
@@ -310,8 +311,8 @@ void ccs811JSON(char *payload, size_t len){
     checkCO2(float(ccs811.getCO2()), qualityMessage1, 15); 
     checkTVOC(float(ccs811.getTVOC()), qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
   }
   snprintf_P(payload, len, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
                        ccs811_avail ? "true" : "false", 

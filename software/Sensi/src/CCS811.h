@@ -41,6 +41,7 @@ unsigned long intervalCCS811Humidity;                      // update the humidit
 unsigned long intervalCCS811;                              // to check if interrupt timed out
 unsigned long errorRecCCS811;
 unsigned long startMeasurementCCS811;
+unsigned long ccs811_lastError;
 uint8_t ccs811Mode;                                        // operation mode, see above 
 uint8_t ccs811_error_cnt =0;
 const uint8_t CCS811interruptPin = CCS811_INT;                // CCS811 not Interrupt Pin

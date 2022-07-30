@@ -388,12 +388,13 @@ bool updateSPS30() {
     case HAS_ERROR : { //--------------------  trying to recover sensor
       if (currentTime > errorRecSPS30) {
         D_printSerialTelnet(F("D:U:SPS30:E.."));
-        if (sps30_error_cnt++ > 3) { 
+        if (sps30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           sps30_avail = false; 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: reinitialization attempts exceeded, SPS30: no longer available.")); }
           break;
-        } // give up after 3 tries
+        } // give up after ERROR_COUNT tries
+        sps30_lastError = currentTime;
         switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
         sps30.EnableDebugging(SPS30Debug);
         if (sps30.begin(sps30_port) == false) {
@@ -464,8 +465,8 @@ void sps30JSON(char *payload, size_t len) {
     checkPM2(valSPS30.MassPM2, qualityMessage1, 15); 
     checkPM10(valSPS30.MassPM10, qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
   } 
   snprintf_P(payload, len, PSTR("{ \"sps30\": { \"avail\": %s, \"PM1\": %4.1f, \"PM2\": %4.1f, \"PM4\": %4.1f, \"PM10\": %4.1f, \"nPM0\": %4.1f, \"nPM1\": %4.1f, \"nPM2\": %4.1f, \"nPM4\": %4.1f, \"nPM10\": %4.1f, \"PartSize\": %4.1f, \"PM2_airquality\": \"%s\", \"PM10_airquality\": \"%s\"}}"), 
                        sps30_avail ? "true" : "false", 

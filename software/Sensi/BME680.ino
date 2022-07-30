@@ -194,13 +194,13 @@ bool updateBME680() {
     case HAS_ERROR : {
       if (currentTime > errorRecBME680) {
         D_printSerialTelnet(F("D:U:BME680:E.."));
-        if (bme680_error_cnt++ > 3) { 
+        if (bme680_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           bme680_avail = false;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME680: reinitialization attempts exceeded, BME680: no longer available.")); }
           break; 
-        } // give up after 3 tries
-  
+        } // give up after ERROR_COUNT tries
+        bme680_lastError = currentTime;
         switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
         if (bme680.begin(0x77, true) == true) { 
           if (fastMode == true) { 
@@ -278,10 +278,10 @@ void bme680JSON(char *payload, size_t len){
     checkGasResistance(bme680.gas_resistance, qualityMessage3, 15); 
     checkAmbientTemperature(bme680.temperature, qualityMessage4, 15); 
   } else {
-    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
-    strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
-    strncpy(qualityMessage4, "not available", sizeof(qualityMessage4));
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+    strcpy(qualityMessage3, "not available");
+    strcpy(qualityMessage4, "not available");
   }  
   snprintf_P(payload, len, PSTR("{ \"bme680\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme680_avail ? "true" : "false", 

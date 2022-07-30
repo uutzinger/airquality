@@ -33,7 +33,9 @@ unsigned long intervalSGP30 = 1000;                        // populated during s
 unsigned long warmupSGP30;                                 // populated during setup
 unsigned long errorRecSGP30;
 unsigned long startMeasurementSGP30;
-volatile SensorStates stateSGP30 = IS_IDLE; 
+unsigned long sgp30_lastError;
+enum SGP30SensorStates{SGP30_IS_IDLE = 0, SGP30_IS_MEASURING, SGP30_WAITING_FOR_MEASUREMENT, SGP30_WAITING_FOR_BASELINE, SGP30_HAS_ERROR};
+volatile SGP30SensorStates stateSGP30 = SGP30_IS_IDLE; 
 bool initializeSGP30(void);
 bool updateSGP30(void);
 void sgp30JSON(char *payload, size_t len);                  // convert readings to serialized JSON

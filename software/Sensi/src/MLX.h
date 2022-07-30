@@ -26,6 +26,7 @@ unsigned long errorRecMLX;
 uint8_t mlx_error_cnt = 0;                                 //
 uint8_t therm_error_cnt = 0;                               //
 unsigned long  startMeasurementMLX;
+unsigned long  mlx_lastError;
 volatile SensorStates stateMLX = IS_IDLE;                  // sensor state
 bool initializeMLX(void);
 bool updateMLX(void);

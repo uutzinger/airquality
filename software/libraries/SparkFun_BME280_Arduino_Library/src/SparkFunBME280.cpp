@@ -63,7 +63,7 @@ BME280::BME280( void )
 //****************************************************************************//
 uint8_t BME280::begin()
 {
-	delay(2);  //Make sure sensor had enough time to turn on. BME280 requires 2ms to start up.
+	delayMicroseconds(2000);  //Make sure sensor had enough time to turn on. BME280 requires 2ms to start up.
 
 	//Check the settings structure values to determine how to setup the device
 	switch (settings.commInterface)

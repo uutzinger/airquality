@@ -2,13 +2,25 @@
 // Debug Print Configurations
 /******************************************************************************************************/
 #if defined DEBUG
+  #define D_printSerial(X)            printSerial(X)                                      // debug output
+  #define D_printSerialln(X)          printSerialln(X)                                    // debug output
   #define D_printSerialTelnet(X)      printSerialTelnet(X)                                // debug output to serial and telnet
   #define D_printSerialTelnetln(X)    printSerialTelnetln(X)                              // debug output to serial and telnet
-  #define R_printSerialTelnetLog(X)   printSerialTelnetLogln(); printSerialTelnetLog(X)   // regular output
+  #define R_printSerial(X)            printSerialln(); printSerial(X)                     // regular output, with /r/n prepended
+  #define R_printSerialln(X)          printSerialln(); printSerialln(X)                   // regular output, with /r/n appended and prepended
+  #define R_printSerialLog(X)         printSerialLogln(); printSerialLog(X)               // regular output, with /r/n prepended
+  #define R_printSerialLogln(X)       printSerialLogln(); printSerialLogln(X)             // regular output, with /r/n appended and prepended
+  #define R_printSerialTelnetLog(X)   printSerialTelnetLogln(); printSerialTelnetLog(X)   // regular output, with /r/n prepended
   #define R_printSerialTelnetLogln(X) printSerialTelnetLogln(); printSerialTelnetLogln(X) // regular output with /r/n appended
 #else
+  #define D_printSerial(X)                                                                // no debug output
+  #define D_printSerialln(X)                                                              // no debug output
   #define D_printSerialTelnet(X)                                                          // no debug output
   #define D_printSerialTelnetln(X)                                                        // no debug output
+  #define R_printSerial(X)            printSerial(X)                                      // regular output
+  #define R_printSerialln(X)          printSerialln(X)                                    // regular output with /r/n appended
+  #define R_printSerialLog(X)         printSerialLog(X)                                   // regular output
+  #define R_printSerialLogln(X)       printSerialLogln(X)                                 // regular output with /r/n appended
   #define R_printSerialTelnetLog(X)   printSerialTelnetLog(X)                             // regular output
   #define R_printSerialTelnetLogln(X) printSerialTelnetLogln(X)                           // regular output with /r/n appended
 #endif
@@ -45,6 +57,7 @@ enum SensorStates{IS_IDLE = 0, IS_MEASURING, IS_BUSY, DATA_AVAILABLE, GET_BASELI
                                                            // IS_MEASURING   the sensor is creating data autonomously
                                                            // IS_BUSY        the sensor is producing data and will not respond to commands
                                                            // DATA_AVAILABLE new data is available in sensor registers
+                                                           // GET_BASELINE   the sensor is creating baseline
                                                            // IS_SLEEPING    the sensor or parts of the sensot are in sleep mode
                                                            // IS_WAKINGUP    the sensor is getting out of sleep mode
                                                            // WAIT_STABLE    readings are not stable yet    
@@ -78,8 +91,7 @@ unsigned long myLoopMax;                                   // main loop recent m
 unsigned long myLoopMaxAllTime=0;                          // main loop all time maximum execution time, automatically computed
 float         myLoopAvg = 0;                               // average delay over the last couple seconds
 float         myLoopMaxAvg = 0;                            // average max loop delay over the last couple seconds
-unsigned long startYield = 0;                              // keep record of time for Yield interval
-unsigned long lastYield = 0;                               // keep record of time for Yield interval
+unsigned long lastYield = 0;                               // keep record of time of last Yield event
 unsigned long yieldTime = 0;
 unsigned long yieldTimeMin = 1000;
 unsigned long yieldTimeMax = 0;

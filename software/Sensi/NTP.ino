@@ -1,6 +1,6 @@
-//******************************************************************************************************//
+/******************************************************************************************************/
 // Network Time Protocol
-//******************************************************************************************************//
+/******************************************************************************************************/
 #include "VSC.h"
 #ifdef EDITVSC
 #include "src/NTP.h"
@@ -121,8 +121,9 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
           break;
         case noResponse:
           // no response from NTP server
+          ntp_lastError = currentTime;
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { 
+          if (mySettings.debuglevel   == 3) { 
             snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
             R_printSerialTelnetLogln(tmpStr); 
           }
@@ -139,22 +140,25 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
           break;
         case invalidAddress:
           // invalid server address
+          ntp_lastError = currentTime;
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { 
+          if (mySettings.debuglevel   == 3) { 
             snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
             R_printSerialTelnetLogln(tmpStr); 
           }
           break;
         case invalidPort:
           // invalid port
+          ntp_lastError = currentTime;
           ntp_avail = false;
-          if (mySettings.debuglevel   > 0) { 
+          if (mySettings.debuglevel   == 3) { 
             snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent));
             R_printSerialTelnetLogln(tmpStr); 
           }
           break;
         case errorSending:
           // error sending ntp request
+          ntp_lastError = currentTime;
           ntp_avail = false;
           if (mySettings.debuglevel   > 0) { 
             snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
@@ -163,6 +167,7 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
           break;
         case responseError:
           // NTP response error
+          ntp_lastError = currentTime;
           ntp_avail = false;
           if (mySettings.debuglevel   > 0) {
             snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 
@@ -171,6 +176,7 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
           break;
         case syncError:
           // error applyting sync
+          ntp_lastError = currentTime;
           ntp_avail = false;
           if (mySettings.debuglevel   > 0) { 
             snprintf_P(tmpStr, sizeof(tmpStr), PSTR("NTP: %s"), NTP.ntpEvent2str(ntpEvent)); 

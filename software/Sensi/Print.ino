@@ -186,3 +186,28 @@ void printSerialTelnetLogln() {
   printLogln();
   printSerialln();
 }
+
+void printSerialLog(char* str) {
+  printLog(str);
+  printSerial(str);
+}
+
+void printSerialLog(String str) {
+  printLog(str);
+  printSerial(str);
+}
+
+void printSerialLogln(char* str) {
+  printLogln(str);
+  printSerialln(str);
+}
+
+void printSerialLogln(String str) {
+  printLogln(str);
+  printSerialln(str);
+}
+
+void printSerialLogln() {
+  printLogln();
+  printSerialln();
+}

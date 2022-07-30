@@ -128,12 +128,13 @@ bool updateMLX() {
     case HAS_ERROR : { // ----------------------
       if (currentTime > errorRecMLX) {
         D_printSerialTelnet(F("D:U:MLX:E.."));
-        if (therm_error_cnt++ > 3) { 
+        if (therm_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           therm_avail = false;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: reinitialization attempts exceeded, MLX: no longer available.")); }
           break; 
-        } // give up after 3 tries
+        } // give up after ERROR_COUNT tries
+        mlx_lastError = currentTime;
         // trying to recover sensor
         switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
         if (therm.begin(0x5A, *mlx_port) == true) { 
@@ -170,8 +171,8 @@ void mlxJSON(char *payload, size_t len){
     checkFever(therm.object()+mlxOffset+fhDelta, qualityMessage1, 15);
     checkAmbientTemperature(therm.ambient(), qualityMessage2, 15);
   } else {
-    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
   }  
   snprintf_P(payload, len, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.1f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        therm_avail ? "true" : "false", 

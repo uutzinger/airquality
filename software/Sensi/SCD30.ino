@@ -22,10 +22,10 @@
 
 void ICACHE_RAM_ATTR handleSCD30Interrupt() {              // Interrupt service routine when data ready is signaled
   stateSCD30 = DATA_AVAILABLE;                             // advance the sensor state
-  if (mySettings.debuglevel == 4) {                        // for debugging, usually no Serial.print in ISR
+  /* if (mySettings.debuglevel == 4) {                        // for debugging, usually no Serial.print in ISR
     snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: interrupt occured")); 
     R_printSerialTelnetLogln(tmpStr);  
-  }
+  } */
 }
 
 /******************************************************************************************************/
@@ -144,11 +144,10 @@ bool updateSCD30 () {
     }
     
     case IS_IDLE : { // used when RDY pin is used with ISR
-
       D_printSerialTelnet(F("D:U:SCD30:I.."));
       // wait for intrrupt to occur, 
-      // backup: if interrupt timed out, obtain data manually
-      if ( (currentTime - lastSCD30) > (2*intervalSCD30) ) {
+      // if interrupt timed out, obtain data manually
+      if ( (currentTime - lastSCD30) > (INTERVAL_TIMEOUT_FACTOR*intervalSCD30) ) {
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: interrupt timeout occured")); }
         switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
         if (scd30.dataAvailable()) { 
@@ -189,13 +188,14 @@ bool updateSCD30 () {
     case HAS_ERROR : {
       if (currentTime > errorRecSCD30) {      
         D_printSerialTelnet(F("D:U:SCD30:E.."));
-        if (scd30_error_cnt++ > 3) { 
+        if (scd30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           scd30_avail = false; 
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: reinitialization attempts exceeded, SCD30: no longer available.")); }
           break;
-        } // give up after 3 tries
+        } // give up after ERROR_COUNT tries
         // trying to recover sensor
+        scd30_lastError = currentTime;
         switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
         if (scd30.begin(*scd30_port, true)) { 
           scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
@@ -235,9 +235,9 @@ void scd30JSON(char *payload, size_t len){
     checkHumidity(scd30_hum, qualityMessage2, 15);
     checkAmbientTemperature(scd30_temp, qualityMessage3, 15);
   } else {
-    strncpy(qualityMessage1, "not available", sizeof(qualityMessage1));
-    strncpy(qualityMessage2, "not available", sizeof(qualityMessage2));
-    strncpy(qualityMessage3, "not available", sizeof(qualityMessage3));
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+    strcpy(qualityMessage3, "not available");
   } 
   snprintf_P(payload, len, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %4.1f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        scd30_avail ? "true" : "false", 

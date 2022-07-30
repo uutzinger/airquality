@@ -304,7 +304,7 @@ bool SCD30::readMeasurement()
   if (_i2cPort->endTransmission() != 0)
     return (0); // Sensor did not ACK
 
-  delay(3);
+  delayMicroseconds(3000);
 
   const uint8_t receivedBytes = _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)18);
   bool error = false;
@@ -398,7 +398,7 @@ bool SCD30::getSettingValue(uint16_t registerAddress, uint16_t *val)
   if (_i2cPort->endTransmission() != 0)
     return (false); // Sensor did not ACK
 
-  delay(3);
+  delayMicroseconds(3000);
 
   _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)3); // Request data and CRC
   if (_i2cPort->available())
@@ -431,7 +431,7 @@ uint16_t SCD30::readRegister(uint16_t registerAddress)
   if (_i2cPort->endTransmission() != 0)
     return (0); // Sensor did not ACK
 
-  delay(3);
+  delayMicroseconds(3000);
 
   _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)2);
   if (_i2cPort->available())

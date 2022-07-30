@@ -16,6 +16,7 @@ volatile WiFiStates stateNTP = IS_WAITING;                 // keeping track of n
 
 bool syncEventTriggered = false;                           // True if NTP client triggered a time event
 NTPEvent_t ntpEvent;                                       // Last triggered event
+unsigned long  ntp_lastError;
 
 unsigned int ntp_noresponseCount = 0;                      // how many times tried to connect
 bool ntp_onfallback = false;                               // using the fall back server?

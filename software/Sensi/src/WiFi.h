@@ -23,6 +23,7 @@ bool otaInProgress = false;                                // stop handling any 
 unsigned long lastWiFi;                                    // last time we checked if we are connected
 unsigned long lastMDNS;                                    // last time we checked if mqtt is connected
 unsigned long lastOTA;                                     // last time we checked if mqtt is connected
+unsigned long mDNS_lastError;
 
 unsigned long prevActualTime = 0;//
 volatile WiFiStates stateWiFi       = START_UP;            // keeping track of WiFi state
