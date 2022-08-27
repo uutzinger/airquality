@@ -253,14 +253,14 @@ void bme68xJSON(char *payload, size_t len){
     strcpy(qualityMessage3, "not available");
     strcpy(qualityMessage4, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"bme68x\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"bme68x\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"resistance\": %6.0f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
                        bme68x_avail ? "true" : "false", 
                        bme68x_avail ? bme68x.pressure/100.0 : -1., 
                        bme68x_avail ? bme68x_pressure24hrs/100.0 : -1.0, 
                        bme68x_avail ? bme68x.humidity : -1., 
                        bme68x_avail ? bme68x_ah : -1.0, 
                        bme68x_avail ? bme68x.temperature: -999., 
-                       bme68x_avail ? bme68x.gas_resistance : -1,
+                       bme68x_avail ? bme68x.gas_resistance : -1.,
                        qualityMessage1, 
                        qualityMessage2,
                        qualityMessage3,
@@ -284,14 +284,14 @@ void bme68xJSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage3, "not available");
     strcpy(qualityMessage4, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"resistance\": %d, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"resistance\": %6.0f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
                        bme68x_avail ? "true" : "false", 
                        bme68x_avail ? bme68x.pressure/100.0 : -1., 
                        bme68x_avail ? bme68x_pressure24hrs/100.0 : -1.0, 
                        bme68x_avail ? bme68x.humidity : -1., 
                        bme68x_avail ? bme68x_ah : -1.0, 
                        bme68x_avail ? bme68x.temperature: -999., 
-                       bme68x_avail ? bme68x.gas_resistance : -1,
+                       bme68x_avail ? bme68x.gas_resistance : -1.,
                        qualityMessage1, 
                        qualityMessage2,
                        qualityMessage3,

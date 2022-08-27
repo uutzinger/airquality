@@ -102,11 +102,18 @@ void updateMQTTMessage() {
 
   if ( (currentTime - lastMQTTPublish) > intervalMQTT ) { // wait for interval time, sending lots of MQTT messages breaks the software
     lastMQTTPublish = currentTime;
-    
+
     // --------------------- this sends new data to mqtt server as soon as its available ----------------
     if (mySettings.sendMQTTimmediate) {
       
       char MQTTpayloadStr[512]; 
+
+      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/system"),mySettings.mqtt_mainTopic);
+      systemJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+      mqtt_sent = true;
+      yieldTime += yieldOS(); 
+          
       if (scd30NewData)  {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/scd30"),mySettings.mqtt_mainTopic);
         scd30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
@@ -207,13 +214,13 @@ void updateMQTTMessage() {
         sendMQTTonce = false;  // do not update interval information again
         yieldTime += yieldOS(); 
       }
-      
-      if (currentTime - lastMQTTPublish > intervalMQTTSlow) { // update sensor status every mninute
+
+      if (currentTime - lastMQTTStatusPublish > intervalMQTTSlow) { // update sensor status every mninute
         snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status/sensors"),mySettings.mqtt_mainTopic);
         snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_avail\":%d,\"lcd_avail\":%d,\"ccs811_avail\":%d,\"sgp30_avail\":%d,\"scd30_avail\":%d,\"sps30_avail\":%d,\"bme68x_avail\":%d,\"bme280_avail\":%d,\"ntp_avail\":%d}"),
                   therm_avail, lcd_avail, ccs811_avail, sgp30_avail, scd30_avail, sps30_avail, bme68x_avail, bme280_avail, ntp_avail);
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-        lastMQTTPublish = currentTime;
+        lastMQTTStatusPublish = currentTime;
         mqtt_sent = true;
         yieldTime += yieldOS(); 
       }

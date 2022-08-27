@@ -140,7 +140,7 @@
 /******************************************************************************************************/
 // Build Configuration
 /******************************************************************************************************/
-#define VER "2.1.0"
+#define VER "2.1.1"
 // Debug
 // -----
 #undef DEBUG     // disable "crash" DEBUG output for production
@@ -625,6 +625,7 @@ void setup() {
   lastMDNS            = currentTime;
   lastHTTP            = currentTime;
   lastMQTTPublish     = currentTime;
+  lastMQTTStatusPublish = currentTime;
   lastBlink           = currentTime;
   lastTelnet          = currentTime;
   lastBaseline        = currentTime;
@@ -1321,19 +1322,21 @@ void dateJSONMQTT(char *payLoad, size_t len) {
 }
 
 void systemJSON(char *payLoad, size_t len) {
-  snprintf_P(payLoad, len, PSTR("{ \"system\": {\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptime\": %d}}"),
+  snprintf_P(payLoad, len, PSTR("{ \"system\": {\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptimeavg\": %d, \"maxlooptime\": %d}"),
   ESP.getFreeHeap(),
   ESP.getHeapFragmentation(),      
   ESP.getMaxFreeBlockSize(),
-  (int)myLoopMaxAvg);
+  (int)myLoopMaxAvg,
+  (int)myLoopMax);
 }
 
 void systemJSONMQTT(char *payLoad, size_t len) {
-  snprintf_P(payLoad, len, PSTR("{\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptime\": %d}"),
+  snprintf_P(payLoad, len, PSTR("{\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptimeavg\": %d, \"maxlooptime\": %d}"),
   ESP.getFreeHeap(),
   ESP.getHeapFragmentation(),      
   ESP.getMaxFreeBlockSize(),
-  (int)myLoopMaxAvg);
+  (int)myLoopMaxAvg,
+  (int)myLoopMax);
 }
 
 void ipJSON(char *payLoad, size_t len) {
@@ -2325,7 +2328,7 @@ void printSensors() {
 
   if (bme68x_avail && mySettings.useBME68x) {
     char qualityMessage[16];
-    snprintf_P(tmpStr, sizeof(tmpStr),PSTR("BME68x T:%+5.1f[C] P:%5.1f[mbar] P_ave:%5.1f[mbar] rH:%4.1f[%%] aH:%4.1f[g/m^3] \r\nGas resistance:%d[Ohm]"), bme68x.temperature, bme68x.pressure/100., bme68x_pressure24hrs/100., bme68x.humidity, bme68x_ah, bme68x.gas_resistance);  
+    snprintf_P(tmpStr, sizeof(tmpStr),PSTR("BME68x T:%+5.1f[C] P:%5.1f[mbar] P_ave:%5.1f[mbar] rH:%4.1f[%%] aH:%4.1f[g/m^3] \r\nGas resistance:%6.0f[Ohm]"), bme68x.temperature, bme68x.pressure/100., bme68x_pressure24hrs/100., bme68x.humidity, bme68x_ah, bme68x.gas_resistance);  
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
     checkAmbientTemperature(bme68x.temperature,qualityMessage, 15);
     snprintf_P(tmpStr, sizeof(tmpStr),PSTR("Temperature is %s, "),qualityMessage); 
@@ -2704,7 +2707,7 @@ void printProfile() {
                     maxUpdateTime, AllmaxUpdateTime, maxUpdatemDNS, AllmaxUpdatemDNS, maxUpdateHTTPUPDATER, AllmaxUpdateHTTPUPDATER, maxUpdateHTTP, AllmaxUpdateHTTP, maxUpdateMQTT, AllmaxUpdateMQTT, 
                     maxUpdateWS, AllmaxUpdateWS, maxUpdateNTP, AllmaxUpdateNTP, maxUpdateOTA, AllmaxUpdateOTA, maxUpdateWifi, AllmaxUpdateWifi);         
   printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
-  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("mDNS last error: %dminmin"), (currentTime - mDNS_lastError)/60000); 
+  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("mDNS last error: %dmin"), (currentTime - mDNS_lastError)/60000); 
   printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
 
   snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30:        %4u %4u SGP30:  %4u %4u CCS811:  %4u %4u SPS30:   %4u %4u\r\nBME280:       %4u %4u BME68x: %4u %4u MLX:     %4u %4u MAX:     %4u %4u"), maxUpdateSCD30, AllmaxUpdateSCD30, 

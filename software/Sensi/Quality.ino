@@ -93,7 +93,7 @@ bool checkHumidity(float rH, char *message, int len) {
   return ok;
 }
 
-bool checkGasResistance(uint32_t res, char *message, int len) {
+bool checkGasResistance(float res, char *message, int len) {
   // The airquality index caculation of the Bosch sensor is proprietary and only available as precompiled library.
   // Direct assessment of resistance and association to airquality is not well documented.
   // 521177 - 431331 - good ?
@@ -106,29 +106,29 @@ bool checkGasResistance(uint32_t res, char *message, int len) {
 
   bool ok = true;
   if (len > 0) {  
-    if (res == 0) {
+    if (res == 0.) {
       strcpy(message, "?");
     } else if (len == 1) {
-      if      (res > 250000) { strncpy_P(message, normal1,    len); }
-      else if (res > 110000) { strncpy_P(message, threshold1, len); }
-      else if (res >  55000) { strncpy_P(message, poor1,      len); }
-      else                   { strncpy_P(message, excessive1, len); ok = false; }
+      if      (res > 250000.) { strncpy_P(message, normal1,    len); }
+      else if (res > 110000.) { strncpy_P(message, threshold1, len); }
+      else if (res >  55000.) { strncpy_P(message, poor1,      len); }
+      else                    { strncpy_P(message, excessive1, len); ok = false; }
     
     } else if (len <= 4) {
-      if      (res > 250000) { strncpy_P(message, normal4,    len); }
-      else if (res > 110000) { strncpy_P(message, threshold4, len); }
-      else if (res >  55000) { strncpy_P(message, poor4,      len); }
-      else                   { strncpy_P(message, excessive4, len); ok = false; }
+      if      (res > 250000.) { strncpy_P(message, normal4,    len); }
+      else if (res > 110000.) { strncpy_P(message, threshold4, len); }
+      else if (res >  55000.) { strncpy_P(message, poor4,      len); }
+      else                    { strncpy_P(message, excessive4, len); ok = false; }
     
     } else {
-      if      (res > 250000) { strncpy_P(message, normalF,    len ); }
-      else if (res > 110000) { strncpy_P(message, thresholdF, len ); }
-      else if (res >  55000) { strncpy_P(message, poorF,      len ); }
-      else                   { strncpy_P(message, excessiveF, len );  ok = false; }
+      if      (res > 250000.) { strncpy_P(message, normalF,    len ); }
+      else if (res > 110000.) { strncpy_P(message, thresholdF, len ); }
+      else if (res >  55000.) { strncpy_P(message, poorF,      len ); }
+      else                    { strncpy_P(message, excessiveF, len );  ok = false; }
     }
     message[len] = '\0';
   } else {
-    if (res <= 55000) { ok = false; }    
+    if (res <= 55000.) { ok = false; }    
   }
   return ok;
 }

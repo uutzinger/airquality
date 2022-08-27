@@ -91,7 +91,7 @@ bool updateSinglePageLCDwTime() {
     mydP   = (bme68x.pressure - bme68x_pressure24hrs)/100.0;
     myTemp = bme68x.temperature;
     myP    = bme68x.pressure/100.0;   
-    myGAS  = float(bme68x.gas_resistance);
+    myGAS  = bme68x.gas_resistance;
   } else if (bme280_avail && mySettings.useBME280) { 
     mydP   = (bme280_pressure - bme280_pressure24hrs)/100.0;
     myTemp = bme280_temp;
@@ -697,7 +697,7 @@ bool updateLCD() {
     snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%+5.1fC"),bme68x.temperature);
     strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6); // No Null char
   
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%5.1f"),(float(bme68x.gas_resistance)/1000.0));
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%5.1f"),(bme68x.gas_resistance/1000.0));
     strncpy(&lcdDisplay[IAQ_Y][IAQ_X], lcdbuf, 5); // No Null char
   
     checkGasResistance(bme68x.gas_resistance, qualityMessage, 1);
