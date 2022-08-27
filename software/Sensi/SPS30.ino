@@ -483,3 +483,29 @@ void sps30JSON(char *payload, size_t len) {
                        qualityMessage1, 
                        qualityMessage2);
 }
+
+void sps30JSONMQTT(char *payload, size_t len) {
+  char qualityMessage1[16];
+  char qualityMessage2[16];
+  if (sps30_avail) { 
+    checkPM2(valSPS30.MassPM2, qualityMessage1, 15); 
+    checkPM10(valSPS30.MassPM10, qualityMessage2, 15);
+  } else {
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+  } 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"PM1\": %4.1f, \"PM2\": %4.1f, \"PM4\": %4.1f, \"PM10\": %4.1f, \"nPM0\": %4.1f, \"nPM1\": %4.1f, \"nPM2\": %4.1f, \"nPM4\": %4.1f, \"nPM10\": %4.1f, \"PartSize\": %4.1f, \"PM2_airquality\": \"%s\", \"PM10_airquality\": \"%s\"}"), 
+                       sps30_avail ? "true" : "false", 
+                       sps30_avail ? valSPS30.MassPM1 : -1.,
+                       sps30_avail ? valSPS30.MassPM2 : -1.,
+                       sps30_avail ? valSPS30.MassPM4 : -1.,
+                       sps30_avail ? valSPS30.MassPM10 : -1.,
+                       sps30_avail ? valSPS30.NumPM0 : -1.,
+                       sps30_avail ? valSPS30.NumPM1 : -1.,
+                       sps30_avail ? valSPS30.NumPM2 : -1.,
+                       sps30_avail ? valSPS30.NumPM4 : -1.,
+                       sps30_avail ? valSPS30.NumPM10 : -1.,
+                       sps30_avail ? valSPS30.PartSize : -1.,
+                       qualityMessage1, 
+                       qualityMessage2);
+}

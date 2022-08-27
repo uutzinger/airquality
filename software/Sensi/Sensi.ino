@@ -5,14 +5,14 @@
 // Supported Hardware:
 //  - ESP8266 micro controller.                     Using 2.x and 3.x Arduino Libary  
 //                                                  https://github.com/esp8266/Arduino
-//  - SPS30 Senserion particle,                     Paul Van Haastrecht library, modified to accept faulty version information, replaced byte with uint8_t, 
+//  - SPS30 Sensirion particle,                     Paul Van Haastrecht library, modified to accept faulty version information, replaced byte with uint8_t, 
 //                                                  https://github.com/uutzinger/sps30.git
 //  - SCD30 Senserion CO2,                          Sparkfun library, using interrupt from data ready pin, replaced byte with uint8_t, 
 //                                                  https://github.com/uutzinger/SparkFun_SCD30_Arduino_Library.git
 //  - SGP30 Senserion VOC, eCO2,                    Sparkfun library, replaced byte with uint8_t, 
 //                                                  https://github.com/uutzinger/SparkFun_SGP30_Arduino_Library.git
-//  - BME680 Bosch Temp, Humidity, Pressure, VOC,   Adafruit library, modifed include file to allow setting wire interface
-//                                                  https://github.com/adafruit/Adafruit_BME680.git
+//  - BME68x Bosch Temp, Humidity, Pressure, VOC,   Bosch Arduino library, 
+//                                                  https://github.com/BoschSensortec/Bosch-BME68x-Library
 //  - BM[E/P]280 Bosch Temp, [Humidity,] Pressure   Sparkfun library, replaced byte with uint8_t, 
 //                                                  https://github.com/uutzinger/SparkFun_BME280_Arduino_Library.git
 //  - CCS811 Airquality eCO2 tVOC,                  Sparkfun library, using interrupt from data ready pin
@@ -99,7 +99,7 @@
 //  Some drivers were modified to allow for user specified i2c port instead of standard "Wire" port:
 //  SPS30, library was modified to function with devices that have faulty version information; the content of the readoperation 
 //  is available regradless wheter CRC error occured. Short delay calls between sendiong data request command and obtaining data 
-//  have been changed to use delaymicroseconds to avoid switching to oeprating system.
+//  have been changed to use delaymicroseconds to avoid ESP oprating system to update WiFi and OS during delay function calls.
 //
 // yieldOS:
 //  Throughout the program yieldOS functions were placed. It measures the time since the last call to the function and executes 
@@ -113,10 +113,11 @@
 // This software is provided as is, no warranty on its proper operation is implied. Use it at your own risk.
 // Urs Utzinger
 // Sometime:       MAX pulseox software (requires proximit detection and rewritting signal processing library)
-// Sometime:       Configuration of system through website UI
+// Sometime:       Configuration of system through website
 // Sometime:       Support for TFT display
 // Sometime:       Website auto adjusting to available sensors
-// Sometime:       Add support for xxx4x sensors from Senirion.
+// Sometime:       Add support for xxx4x sensors from Sensirion.
+// 2022 August:    Switch BME78x to Bosch driver, updated MQTT
 // 2022 July:      Updated character array functions to avoid buffer overflow when copying 
 //                 character arrays (strncpy, snprintf*, strlcpy). 
 //                 Updated SGP30 to avoid delay in device driver.
@@ -262,7 +263,8 @@ ESP8266HTTPUpdateServer httpUpdater;                       // Code update server
 #include "src/SPS30.h"  // --- SPS30; Senserion Particle Sensor,  likely most accurate sensor for PM2. PM110 might not be accurate though.
 #include "src/SGP30.h"  // --- SGP30; Senserion TVOC, eCO2, accuracy is not known
 #include "src/CCS811.h" // --- CCS811; Airquality CO2 tVOC, traditional make comunity sensor
-#include "src/BME680.h" // --- BME680; Bosch Temp, Humidity, Pressure, VOC, more features than 280 sensor, dont need both 280 and 680
+//#include "src/BME680.h" // --- BME680; Bosch Temp, Humidity, Pressure, VOC, more features than 280 sensor
+#include "src/BME68x.h" // --- BME68x; Bosch Temp, Humidity, Pressure, VOC, more features than 280 sensor
 #include "src/BME280.h" // --- BME280; Bosch Temp, Humidity, Pressure, there is BME and BMP version.  One is lacking hymidity sensor.
 #include "src/MLX.h"    // --- MLX contact less tempreture sensor, Thermal sensor for forehead readings. Likely not accurate.
 #include "src/MAX.h"    // --- MAX30105; pulseoximeter, Not implemented yet
@@ -313,7 +315,7 @@ void setup() {
   //mySettings.useSGP30  = true;         //
   //mySettings.useMAX30  = true;         //
   //mySettings.useMLX    = true;         //
-  //mySettings.useBME680 = true;         //
+  //mySettings.useBME68x = true;         //
   //mySettings.useBME280 = false;        //
   //mySettings.useCCS811 = true;         //
   //mySettings.consumerLCD = true;       //
@@ -393,7 +395,7 @@ void setup() {
   if (mySettings.useSPS30          > 0) { mySettings.useSPS30          = true; } else { mySettings.useSPS30            = false; }
   if (mySettings.useMAX30          > 0) { mySettings.useMAX30          = true; } else { mySettings.useMAX30            = false; }
   if (mySettings.useMLX            > 0) { mySettings.useMLX            = true; } else { mySettings.useMLX              = false; }
-  if (mySettings.useBME680         > 0) { mySettings.useBME680         = true; } else { mySettings.useBME680           = false; }
+  if (mySettings.useBME68x         > 0) { mySettings.useBME68x         = true; } else { mySettings.useBME68x           = false; }
   if (mySettings.useBME280         > 0) { mySettings.useBME280         = true; } else { mySettings.useBME280           = false; }
   if (mySettings.useCCS811         > 0) { mySettings.useCCS811         = true; } else { mySettings.useCCS811           = false; }
   if (mySettings.sendMQTTimmediate > 0) { mySettings.sendMQTTimmediate = true; } else { mySettings.sendMQTTimmediate   = false; }
@@ -468,8 +470,8 @@ void setup() {
               bme280_avail  = true;  // Bosch Temp, Humidity, Pressure
               bme280_port   = &myWire; bme280_i2c[0] = portArray[i]; bme280_i2c[1] = portArray[j];
             } else if (address == 0x77) {
-              bme680_avail  = true;  // Bosch Temp, Humidity, Pressure, VOC
-              bme680_port   = &myWire; bme680_i2c[0] = portArray[i]; bme680_i2c[1] = portArray[j];
+              bme68x_avail  = true;  // Bosch Temp, Humidity, Pressure, VOC
+              bme68x_port   = &myWire; bme68x_i2c[0] = portArray[i]; bme68x_i2c[1] = portArray[j];
             } else {
               snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Found unknonw device - %d!"),address); 
               R_printSerialLog(tmpStr);
@@ -497,7 +499,7 @@ void setup() {
   R_printSerialLogln(tmpStr);
   if (bme280_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BM[E/P]280 T, P[,rH] available: %d SDA %d SCL %d"), uint32_t(bme280_port), bme280_i2c[0], bme280_i2c[1]); } else { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BM[E/P]280 T, P[,rH] not available")); }  
   R_printSerialLogln(tmpStr);
-  if (bme680_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680 T, rH, P tVOC available: %d SDA %d SCL %d"), uint32_t(bme680_port), bme680_i2c[0], bme680_i2c[1]); } else { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680 T, rH, P tVOC not available")); }  
+  if (bme68x_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x T, rH, P tVOC available: %d SDA %d SCL %d"), uint32_t(bme68x_port), bme68x_i2c[0], bme68x_i2c[1]); } else { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x T, rH, P tVOC not available")); }  
   R_printSerialLogln(tmpStr);
 
   /******************************************************************************************************/
@@ -524,9 +526,6 @@ void setup() {
   /******************************************************************************************************/
   // Initialize all devices
   /******************************************************************************************************/
-  // Adafruit hack for BME680:
-  if (bme680_avail) { bme680.setWire(bme680_port); }
-
   if (lcd_avail && mySettings.useLCD)       { if (initializeLCD()    == false) { lcd_avail = false;    } } else { lcd_avail    = false; }  // Initialize LCD Screen
   D_printSerial(F("DBG:INI: LCD.."));
   if (scd30_avail && mySettings.useSCD30)   { if (initializeSCD30()  == false) { scd30_avail = false;  } } else { scd30_avail  = false; }  // Initialize SCD30 CO2 sensor
@@ -537,8 +536,8 @@ void setup() {
   D_printSerial(F("DBG:INI: CCS811.."));
   if (sps30_avail && mySettings.useSPS30)   { if (initializeSPS30()  == false) { sps30_avail = false;  } } else { sps30_avail  = false; }  // SPS30 Initialize Particle Sensor
   D_printSerial(F("DBG:INI: SPS30.."));
-  if (bme680_avail && mySettings.useBME680) { if (initializeBME680() == false) { bme680_avail = false; } } else { bme680_avail = false; }  // Initialize BME680
-  D_printSerial(F("DBG:INI: BME680.."));
+  if (bme68x_avail && mySettings.useBME68x) { if (initializeBME68x() == false) { bme68x_avail = false; } } else { bme68x_avail = false; }  // Initialize BME68x
+  D_printSerial(F("DBG:INI: BME68x.."));
   if (bme280_avail && mySettings.useBME280) { if (initializeBME280() == false) { bme280_avail = false; } } else { bme280_avail = false; }  // Initialize BME280
   D_printSerial(F("DBG:INI: BME280.."));
   if (therm_avail && mySettings.useMLX)     { if (initializeMLX()    == false) { therm_avail = false;  } } else { therm_avail  = false; }  // Initialize MLX Sensor
@@ -558,7 +557,7 @@ void setup() {
   // how often do we reset the cpu usage time counters for the subroutines?
   intervalSYS                                     = intervalWiFi;
   if (intervalBME280 > intervalSYS) { intervalSYS = intervalBME280; }
-  if (intervalBME680 > intervalSYS) { intervalSYS = intervalBME680; }
+  if (intervalBME68x > intervalSYS) { intervalSYS = intervalBME68x; }
   if (intervalCCS811 > intervalSYS) { intervalSYS = intervalCCS811; }
   if (intervalLCD    > intervalSYS) { intervalSYS = intervalLCD;    }
   if (intervalMAX30  > intervalSYS) { intervalSYS = intervalMAX30;  }
@@ -615,7 +614,7 @@ void setup() {
   lastSCD30Busy       = currentTime;
   lastSPS30           = currentTime;
   lastBME280          = currentTime;
-  lastBME680          = currentTime;
+  lastBME68x          = currentTime;
   lastSGP30           = currentTime;
   lastSGP30Humidity   = currentTime;
   lastSGP30Baseline   = currentTime;
@@ -663,21 +662,36 @@ void loop() {
       actualTime = time(NULL);
       localTime = localtime(&actualTime);        // convert to localtime with daylight saving time
       time_avail = true;
+
+      // every minute, broadcast time
+      if (localTime->tm_min != lastMin) {
+        timeNewDataWS = true; // broadcast date on websocket
+        timeNewData = true;   // broadcast date on mqtt
+        lastMin = localTime->tm_min;
+      }
       
-      // every minute, broadcast time, window to occur is 0..29 secs
       // we need to give window because some service routines of ESP might block execution for several seconds
       // and we can not guarantee that we reach this code at the exactly specified second
+      /*
       if (localTime->tm_sec < 30) {
         if (updateTime == true) {
-          timeNewDataWS = true; //brodcast time on websocket 
-          timeNewData = true;   //brodcast time on mqtt
-          updateTime = false;
+          timeNewDataWS = true; // brodcast time on websocket 
+          timeNewData = true;   // brodcast time on mqtt
+          updateTime = false;   // lets wait with setting new time
         } 
       } else {
         if (updateTime == false) { updateTime = true; }
       }
+      */
 
+      if (localTime->tm_yday != lastYearDay) {
+        dateNewDataWS = true; // broadcast date on websocket
+        dateNewData = true;   // broadcast date on mqtt
+        lastYearDay = localTime->tm_yday;
+      }
+      
       // at midnight update date, window to occur is one minute
+      /*
       if (localTime->tm_hour == 0) {
         if (localTime->tm_min == 0) {
           if (updateDate == true) {
@@ -686,7 +700,8 @@ void loop() {
             updateDate =  false;
           }
         } else if ( (localTime->tm_min >= 1) && (updateDate==false) ) { updateDate = true; }
-      }       
+      } 
+      */      
 
       deltaUpdate = millis() - startUpdate; // this code segment took delta ms
       if (maxUpdateTime    < deltaUpdate) { maxUpdateTime = deltaUpdate; } // current max updatetime for this code segment
@@ -825,13 +840,13 @@ void loop() {
       if (AllmaxUpdateBME280 < deltaUpdate) { AllmaxUpdateBME280 = deltaUpdate; }
       yieldTime += yieldOS(); 
     } 
-    if (bme680_avail   && mySettings.useBME680)                       { 
-      D_printSerialTelnet(F("D:U:BME680.."));
+    if (bme68x_avail   && mySettings.useBME68x)                       { 
+      D_printSerialTelnet(F("D:U:BME68x.."));
       startUpdate = millis();
-      if (updateBME680() == false) {scheduleReboot = true;}  //<<<<< BME680, Hum, Press, Temp, Gasresistance
+      if (updateBME68x() == false) {scheduleReboot = true;}  //<<<<< BME68x, Hum, Press, Temp, Gasresistance
       deltaUpdate = millis() - startUpdate;
-      if (maxUpdateBME680    < deltaUpdate) { maxUpdateBME680 = deltaUpdate; }
-      if (AllmaxUpdateBME680 < deltaUpdate) { AllmaxUpdateBME680 = deltaUpdate; }      
+      if (maxUpdateBME68x    < deltaUpdate) { maxUpdateBME68x = deltaUpdate; }
+      if (AllmaxUpdateBME68x < deltaUpdate) { AllmaxUpdateBME68x = deltaUpdate; }      
       yieldTime += yieldOS(); 
     }
     if (therm_avail    && mySettings.useMLX)                          { 
@@ -954,7 +969,7 @@ void loop() {
       yieldTimeMin = yieldTimeMax = 0;
       myDelayMin = intervalSYS; myLoopMin = intervalSYS; myLoopMax = 0;      
       maxUpdateTime = maxUpdateWifi = maxUpdateOTA =  maxUpdateNTP = maxUpdateMQTT = maxUpdateHTTP = maxUpdateHTTPUPDATER = maxUpdatemDNS = 0;
-      maxUpdateSCD30 = maxUpdateSGP30 =  maxUpdateCCS811 = maxUpdateSPS30 = maxUpdateBME280 = maxUpdateBME680 = maxUpdateMLX = maxUpdateMAX = 0;
+      maxUpdateSCD30 = maxUpdateSGP30 =  maxUpdateCCS811 = maxUpdateSPS30 = maxUpdateBME280 = maxUpdateBME68x = maxUpdateMLX = maxUpdateMAX = 0;
       maxUpdateMQTTMESSAGE = maxUpdateWSMESSAGE = maxUpdateLCD = maxUpdateINPUT = maxUpdateRT = maxUpdateEEPROM = maxUpdateBASE = maxUpdateBLINK = maxUpdateREBOOT = maxUpdateALLGOOD = 0;
       //maxUpdateJS
     }
@@ -1170,7 +1185,7 @@ void loop() {
     if (rebootNow) {
       bool rebootok = true;
       if (bme280_avail   && mySettings.useBME280){ if  ( (stateBME280 == DATA_AVAILABLE) || (stateBME280 == IS_BUSY)        ) {rebootok = false;} }
-      if (bme680_avail   && mySettings.useBME680){ if  ( (stateBME680 == DATA_AVAILABLE) || (stateBME680 == IS_BUSY)        ) {rebootok = false;} }
+      if (bme68x_avail   && mySettings.useBME68x){ if  ( (stateBME68x == DATA_AVAILABLE) || (stateBME68x == IS_BUSY)        ) {rebootok = false;} }
       if (ccs811_avail   && mySettings.useCCS811){ if  ( (stateCCS811 == IS_WAKINGUP)    || (stateCCS811 == DATA_AVAILABLE) ) {rebootok = false;} }
       // if (therm_avail && mySettings.useMLX)   { }
       if (scd30_avail    && mySettings.useSCD30) { if  ( (stateSCD30  == DATA_AVAILABLE) || (stateSCD30  == IS_BUSY)        ) {rebootok = false;} }
@@ -1243,7 +1258,7 @@ void switchI2C(TwoWire *myPort, int sdaPin, int sclPin, uint32_t i2cSpeed, uint3
   myPort->setClock(i2cSpeed);
   myPort->setClockStretchLimit(i2cStretch);
   yieldI2C(); // repalced with function defined at beginning of this document
-}  
+}
 
 // Boot helper
 // Prints message and waits until timeout or user send character on serial terminal
@@ -1281,6 +1296,16 @@ void timeJSON(char *payLoad, size_t len) {
   tv.tv_usec); 
 }
 
+void timeJSONMQTT(char *payLoad, size_t len) {
+  timeval tv;
+  gettimeofday (&tv, NULL);
+  snprintf_P(payLoad, len, PSTR("{ \"hour\": %d, \"minute\": %d, \"second\": %d, \"microsecond\": %06ld}"),
+  localTime->tm_hour,
+  localTime->tm_min,
+  localTime->tm_sec,
+  tv.tv_usec); 
+}
+
 void dateJSON(char *payLoad, size_t len) {
   snprintf_P(payLoad, len, PSTR("{ \"date\": { \"day\": %d, \"month\": %d, \"year\": %d}}"),
   localTime->tm_mday,
@@ -1288,8 +1313,23 @@ void dateJSON(char *payLoad, size_t len) {
   localTime->tm_year+1900); 
 }
 
+void dateJSONMQTT(char *payLoad, size_t len) {
+  snprintf_P(payLoad, len, PSTR("{ \"day\": %d, \"month\": %d, \"year\": %d}"),
+  localTime->tm_mday,
+  localTime->tm_mon+1,
+  localTime->tm_year+1900); 
+}
+
 void systemJSON(char *payLoad, size_t len) {
   snprintf_P(payLoad, len, PSTR("{ \"system\": {\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptime\": %d}}"),
+  ESP.getFreeHeap(),
+  ESP.getHeapFragmentation(),      
+  ESP.getMaxFreeBlockSize(),
+  (int)myLoopMaxAvg);
+}
+
+void systemJSONMQTT(char *payLoad, size_t len) {
+  snprintf_P(payLoad, len, PSTR("{\"freeheap\": %d, \"heapfragmentation\": %d, \"maxfreeblock\": %d, \"maxlooptime\": %d}"),
   ESP.getFreeHeap(),
   ESP.getHeapFragmentation(),      
   ESP.getMaxFreeBlockSize(),
@@ -1309,6 +1349,15 @@ void hostnameJSON(char *payLoad, size_t len) {
 void max30JSON(char *payLoad, size_t len) {
   // Not Implemented Yet
   snprintf_P(payLoad, len, PSTR("{ \"max30\": {\"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\"}}"), 
+                       max_avail ? "true" : "false", 
+                       -1.0,
+                       -1.0,
+                       "n.a.");  
+}
+
+void max30JSONMQTT(char *payLoad, size_t len) {
+  // Not Implemented Yet
+  snprintf_P(payLoad, len, PSTR("{ \"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\"}"), 
                        max_avail ? "true" : "false", 
                        -1.0,
                        -1.0,
@@ -1696,8 +1745,11 @@ bool inputHandle() {
 
     else if (command[0] == 'P') {                                          // SSIDs, passwords, servers      
       if (strlen(value) > 0) { // we have a value
-        tmpI = strtol(value,&pEnd,10); // which SSID or PW or Server do we want to change
-        strlcpy(text,pEnd,sizeof(text));
+        strlcpy(text,value+1,sizeof(text));
+        value[1] = '\0';
+        tmpI = strtol(value,NULL,10);
+        // tmpI = strtol(value,&pEnd,10); // which SSID or PW or Server do we want to change
+        // strlcpy(text,pEnd,sizeof(text));
         if (strlen(text) >= 0) {
           switch (tmpI) {
             case 1: // SSID 1
@@ -1879,8 +1931,8 @@ bool inputHandle() {
               if (mySettings.useMLX==true)   {      R_printSerialTelnetLogln(F("MLX is used"));     }      else { R_printSerialTelnetLogln(F("MLX is not used")); }
               break;
             case 12:
-              mySettings.useBME680 = !bool(mySettings.useBME680);
-              if (mySettings.useBME680==true) {     R_printSerialTelnetLogln(F("BME680 is used"));  }      else { R_printSerialTelnetLogln(F("BME680 is not used")); }
+              mySettings.useBME68x = !bool(mySettings.useBME68x);
+              if (mySettings.useBME68x==true) {     R_printSerialTelnetLogln(F("BME68x is used"));  }      else { R_printSerialTelnetLogln(F("BME68x is not used")); }
               break;
             case 13:
               mySettings.useBME280 = !bool(mySettings.useBME280);
@@ -1962,7 +2014,7 @@ bool inputHandle() {
       bme280JSON(payLoad, sizeof(payLoad));   printSerialTelnetLog(payLoad); 
       snprintf_P(tmpStr, sizeof(tmpStr), PSTR(" len: %u"), strlen(payLoad));   printSerialTelnetLogln(tmpStr);
       yieldTime += yieldOS(); 
-      bme680JSON(payLoad, sizeof(payLoad));   printSerialTelnetLog(payLoad); 
+      bme68xJSON(payLoad, sizeof(payLoad));   printSerialTelnetLog(payLoad); 
       snprintf_P(tmpStr, sizeof(tmpStr), PSTR(" len: %u"), strlen(payLoad));   printSerialTelnetLogln(tmpStr);
       yieldTime += yieldOS(); 
       ccs811JSON(payLoad, sizeof(payLoad));   printSerialTelnetLog(payLoad); 
@@ -1989,7 +2041,7 @@ bool inputHandle() {
     //{"time":{"hour":0,"minute":0,"second":15}} len: 42
     //{"date":{"day":1,"month":1,"year":1970}} len: 40
     //{"bme280":{"avail":false,"p": 0.0,"pavg": 0.0,"rH": 0.0,"aH": 0.0,"T":  0.0,"dp_airquality":"Normal","rH_airquality":"Excessive","T_airquality":"Cold"}} len: 152
-    //{"bme680":{"avail":true,"p":927.4,"pavg":927.4,"rH":32.3,"aH": 8.3,"T": 26.6,"resistance":0,"dp_airquality":"Normal","rH_airquality":"Threshold Low","resistance_airquality":"?","T_airquality":"Hot"}} len: 199
+    //{"bme68x":{"avail":true,"p":927.4,"pavg":927.4,"rH":32.3,"aH": 8.3,"T": 26.6,"resistance":0,"dp_airquality":"Normal","rH_airquality":"Threshold Low","resistance_airquality":"?","T_airquality":"Hot"}} len: 199
     //{"ccs811":{"avail":true,"eCO2":0,"tVOC":0,"eCO2_airquality":"Normal","tVOC_airquality":"Normal"}} len: 97
     //{"mlx":{"avail":true,"To": 26.4,"Ta": 27.0,"fever":"Low ","T_airquality":"Hot"}} len: 80
     //{"scd30":{"avail":true,"CO2":0,"rH":-1.0,"aH":-1.0,"T":-999.0,"CO2_airquality":"Normal","rH_airquality":"?","T_airquality":"?"}} len: 128
@@ -2042,7 +2094,7 @@ void helpMenu() {
     printSerialTelnetLogln(F("........................................................SPS30 Senserion Particle"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F(".............................................................SCD30 Senserion CO2"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("......................................................SGP30 Senserion tVOC, eCO2"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("..........................BME680/280 Bosch Temperature, Humidity, Pressure, tVOC"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("..........................BME68x/280 Bosch Temperature, Humidity, Pressure, tVOC"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("...................................................CCS811 eCO2 tVOC, Air Quality"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("..........................................MLX90614 Melex Temperature Contactless"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("==General===============================|======================================="));  yieldTime += yieldOS(); 
@@ -2085,7 +2137,7 @@ void helpMenu() {
     printSerialTelnetLogln(F("| x: 9 mDNS on/off                      | x: 21 Telnet on/off                  |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| x: 10 MAX30 on/off                    | x: 22 HTTP Updater on/off            |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| x: 11 MLX on/off                      | x: 23 Logfile on/off                 |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| x: 12 BME680 on/off                   |                                      |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| x: 12 BME68x on/off                   |                                      |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| x: 13 BME280 on/off                   | x: 99 Reset/Reboot                   |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("|---------------------------------------|--------------------------------------|"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| You will need to x99 to initialize the sensor                                |"));  yieldTime += yieldOS(); 
@@ -2093,7 +2145,7 @@ void helpMenu() {
     printSerialTelnetLogln(F("| l: 0 ALL off                          | l: 6 SGP30 max level                 |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| l: 1 Errors only                      | l: 7 MAX30 max level                 |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| l: 2 Minimal                          | l: 8 MLX max level                   |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| l: 3 WiFi max level                   | l: 9 BME680/280 max level            |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| l: 3 WiFi max level                   | l: 9 BME68x/280 max level            |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| l: 4 SCD30 max level                  | l: 10 CCS811 max level               |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| l: 5 SPS30 max level                  | l: 11 LCD max level                  |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| l: 99 continous                       |                                      |"));  yieldTime += yieldOS(); 
@@ -2191,7 +2243,7 @@ void printSettings() {
   printSerialTelnetLogln(tmpStr);  yieldTime += yieldOS(); 
   snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: .......................... %s"),  (mySettings.useMLX)    ? FPSTR(mON) : FPSTR(mOFF)); 
   printSerialTelnetLogln(tmpStr);  yieldTime += yieldOS(); 
-  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680: ....................... %s"),  (mySettings.useBME680) ? FPSTR(mON) : FPSTR(mOFF)); 
+  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x: ....................... %s"),  (mySettings.useBME68x) ? FPSTR(mON) : FPSTR(mOFF)); 
   printSerialTelnetLogln(tmpStr);  yieldTime += yieldOS(); 
   snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME280: ....................... %s"),  (mySettings.useBME280) ? FPSTR(mON) : FPSTR(mOFF)); 
   printSerialTelnetLogln(tmpStr);  yieldTime += yieldOS(); 
@@ -2271,28 +2323,28 @@ void printSensors() {
   }
   printSerialTelnetLogln(FPSTR(singleSeparator)); yieldTime += yieldOS(); 
 
-  if (bme680_avail && mySettings.useBME680) {
+  if (bme68x_avail && mySettings.useBME68x) {
     char qualityMessage[16];
-    snprintf_P(tmpStr, sizeof(tmpStr),PSTR("BME680 T:%+5.1f[C] P:%5.1f[mbar] P_ave:%5.1f[mbar] rH:%4.1f[%%] aH:%4.1f[g/m^3] \r\nGas resistance:%d[Ohm]"), bme680.temperature, bme680.pressure/100., bme680_pressure24hrs/100., bme680.humidity, bme680_ah, bme680.gas_resistance);  
+    snprintf_P(tmpStr, sizeof(tmpStr),PSTR("BME68x T:%+5.1f[C] P:%5.1f[mbar] P_ave:%5.1f[mbar] rH:%4.1f[%%] aH:%4.1f[g/m^3] \r\nGas resistance:%d[Ohm]"), bme68x.temperature, bme68x.pressure/100., bme68x_pressure24hrs/100., bme68x.humidity, bme68x_ah, bme68x.gas_resistance);  
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
-    checkAmbientTemperature(bme680.temperature,qualityMessage, 15);
+    checkAmbientTemperature(bme68x.temperature,qualityMessage, 15);
     snprintf_P(tmpStr, sizeof(tmpStr),PSTR("Temperature is %s, "),qualityMessage); 
     printSerialTelnetLog(tmpStr); yieldTime += yieldOS(); 
-    checkdP((bme680.pressure - bme680_pressure24hrs)/100.0,qualityMessage,15),
+    checkdP((bme68x.pressure - bme68x_pressure24hrs)/100.0,qualityMessage,15),
     snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Change in pressure is %s, "),qualityMessage); 
     printSerialTelnetLog(tmpStr); yieldTime += yieldOS(); 
-    checkHumidity(bme680.humidity,qualityMessage,15);
+    checkHumidity(bme68x.humidity,qualityMessage,15);
     snprintf_P(tmpStr, sizeof(tmpStr),PSTR("Humidity is %s"),qualityMessage); 
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
-    checkGasResistance(bme680.gas_resistance,qualityMessage,15);
+    checkGasResistance(bme68x.gas_resistance,qualityMessage,15);
     snprintf_P(tmpStr, sizeof(tmpStr),PSTR("Gas resistance is %s"),qualityMessage); 
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680 interval: %d Port: %d SDA %d SCL %d Speed %d CLKStretch %d"), intervalBME680, uint32_t(bme680_port), bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit); 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x interval: %d Port: %d SDA %d SCL %d Speed %d CLKStretch %d"), intervalBME68x, uint32_t(bme68x_port), bme68x_i2c[0], bme68x_i2c[1], bme68x_i2cspeed, bme68x_i2cClockStretchLimit); 
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680 last error: %dmin"), (currentTime - bme680_lastError)/60000); 
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x last error: %dmin"), (currentTime - bme68x_lastError)/60000); 
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
   } else {
-    printSerialTelnetLogln(F("BME680: not available")); yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("BME68x: not available")); yieldTime += yieldOS(); 
   }
   printSerialTelnetLogln(FPSTR(singleSeparator)); yieldTime += yieldOS(); 
 
@@ -2602,7 +2654,7 @@ void printState() {
   printSerialTelnetLogln(F("Intervals:"));
   if (mySettings.useBME280 && bme280_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME280   %8lus "),    intervalBME280/1000);  } else { strcpy(tmpStr, ("BME280        n.a. ")); } 
   printSerialTelnetLog(tmpStr);  yieldTime += yieldOS(); 
-  if (mySettings.useBME680 && bme680_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680   %5lus "),    intervalBME680/1000);  } else { strcpy(tmpStr, ("BME680     n.a. ")); }    
+  if (mySettings.useBME68x && bme68x_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x   %5lus "),    intervalBME68x/1000);  } else { strcpy(tmpStr, ("BME68x     n.a. ")); }    
   printSerialTelnetLog(tmpStr);  yieldTime += yieldOS(); 
   if (mySettings.useCCS811 && ccs811_avail) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811   %5lus"),     intervalCCS811/1000);  } else { strcpy(tmpStr, ("CCS811     n.a."));  } 
   printSerialTelnetLogln(tmpStr);  yieldTime += yieldOS(); 
@@ -2655,8 +2707,8 @@ void printProfile() {
   snprintf_P(tmpStr, sizeof(tmpStr), PSTR("mDNS last error: %dminmin"), (currentTime - mDNS_lastError)/60000); 
   printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
 
-  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30:        %4u %4u SGP30:  %4u %4u CCS811:  %4u %4u SPS30:   %4u %4u\r\nBME280:       %4u %4u BME680: %4u %4u MLX:     %4u %4u MAX:     %4u %4u"), maxUpdateSCD30, AllmaxUpdateSCD30, 
-                    maxUpdateSGP30, AllmaxUpdateSGP30, maxUpdateCCS811, AllmaxUpdateCCS811, maxUpdateSPS30, AllmaxUpdateSPS30, maxUpdateBME280, AllmaxUpdateBME280, maxUpdateBME680, AllmaxUpdateBME680, maxUpdateMLX, AllmaxUpdateMLX, maxUpdateMAX, AllmaxUpdateMAX);
+  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30:        %4u %4u SGP30:  %4u %4u CCS811:  %4u %4u SPS30:   %4u %4u\r\nBME280:       %4u %4u BME68x: %4u %4u MLX:     %4u %4u MAX:     %4u %4u"), maxUpdateSCD30, AllmaxUpdateSCD30, 
+                    maxUpdateSGP30, AllmaxUpdateSGP30, maxUpdateCCS811, AllmaxUpdateCCS811, maxUpdateSPS30, AllmaxUpdateSPS30, maxUpdateBME280, AllmaxUpdateBME280, maxUpdateBME68x, AllmaxUpdateBME68x, maxUpdateMLX, AllmaxUpdateMLX, maxUpdateMAX, AllmaxUpdateMAX);
   printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
 
   snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MQTTmsg:      %4u %4u WSmsg:  %4u %4u LCD:     %4u %4u Input:   %4u %4u\r\nRunTime:      %4u %4u EEPROM: %4u %4u"), maxUpdateMQTTMESSAGE, AllmaxUpdateMQTTMESSAGE, maxUpdateWSMESSAGE, AllmaxUpdateWSMESSAGE, 
@@ -2712,7 +2764,7 @@ void defaultSettings() {
   mySettings.useSGP30                      = true;
   mySettings.useMAX30                      = true;
   mySettings.useMLX                        = true;
-  mySettings.useBME680                     = true;
+  mySettings.useBME68x                     = true;
   mySettings.useBME280                     = true;
   mySettings.useCCS811                     = true;
   mySettings.consumerLCD                   = true;

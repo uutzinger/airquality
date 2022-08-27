@@ -13,7 +13,7 @@
 #include "VSC.h"
 #ifdef EDITVSC
 #include "src/SGP30.h"
-#include "src/BME680.h"
+#include "src/BME68x.h"
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/Quality.h"
@@ -102,13 +102,13 @@ bool updateSGP30() {
       // if its time, start update humidity to improve eCO2
       if ((currentTime - lastSGP30Humidity) > intervalSGP30Humidity) {
         D_printSerialTelnet(F("D:U:SGP:H.."));
-        if (bme680_avail && mySettings.useBME680) {
+        if (bme68x_avail && mySettings.useBME68x) {
           switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
           // Humidity correction, 8.8 bit number
           // 0x0F80 = 15.5 g/m^3
           // 0x0001 = 1/256 g/m^3
           // 0xFFFF = 256 +256/256 g/m^3
-          if (bme680_ah > 0.) { sgp30.setHumidity(uint16_t(bme680_ah * 256.0 + 0.5)); }
+          if (bme68x_ah > 0.) { sgp30.setHumidity(uint16_t(bme68x_ah * 256.0 + 0.5)); }
           if (mySettings.debuglevel >= 2) { R_printSerialTelnetLogln(F("SGP30: humidity updated for eCO2")); }
         } else if (scd30_avail && mySettings.useSCD30) {
             if (scd30_ah > 0.) { sgp30.setHumidity(uint16_t(scd30_ah * 256.0 + 0.5)); }
@@ -245,6 +245,24 @@ void sgp30JSON(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
   } 
   snprintf_P(payload, len, PSTR("{ \"sgp30\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
+                       sgp30_avail ? "true" : "false", 
+                       sgp30_avail ? sgp30.CO2 : 0, 
+                       sgp30_avail ? sgp30.TVOC : 0,
+                       qualityMessage1, 
+                       qualityMessage2);
+}
+
+void sgp30JSONMQTT(char *payload, size_t len){
+  char qualityMessage1[16];
+  char qualityMessage2[16];
+  if (sgp30_avail) { 
+    checkCO2(float(sgp30.CO2), qualityMessage1, 15); 
+    checkTVOC(float(sgp30.TVOC), qualityMessage2, 15);
+  } else {
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+  } 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}"), 
                        sgp30_avail ? "true" : "false", 
                        sgp30_avail ? sgp30.CO2 : 0, 
                        sgp30_avail ? sgp30.TVOC : 0,

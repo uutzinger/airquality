@@ -13,7 +13,7 @@
 #include "VSC.h"
 #ifdef EDITVSC
 #include "src/SCD30.h"
-#include "src/BME680.h"
+#include "src/BME68x.h"
 #include "src/BME280.h"
 #include "src/Config.h"
 #include "src/Sensi.h"
@@ -162,13 +162,13 @@ bool updateSCD30 () {
       }
 
       // update pressure if available
-      if (bme680_avail && mySettings.useBME680) { // update pressure settings
+      if (bme68x_avail && mySettings.useBME68x) { // update pressure settings
         if ((currentTime - lastPressureSCD30) >= intervalPressureSCD30) {
-          switchI2C(bme680_port, bme680_i2c[0], bme680_i2c[1], bme680_i2cspeed, bme680_i2cClockStretchLimit);
-          scd30.setAmbientPressure(uint16_t(bme680.pressure/100.0));  // update with value from pressure sensor, needs to be mbar
+          switchI2C(bme68x_port, bme68x_i2c[0], bme68x_i2c[1], bme68x_i2cspeed, bme68x_i2cClockStretchLimit);
+          scd30.setAmbientPressure(uint16_t(bme68x.pressure/100.0));  // update with value from pressure sensor, needs to be mbar
           lastPressureSCD30 = currentTime;
           if (mySettings.debuglevel >= 2) { 
-            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: pressure updated to %fmbar"), bme680.pressure/100.0);
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: pressure updated to %fmbar"), bme68x.pressure/100.0);
             R_printSerialTelnetLogln(tmpStr); 
           }
        }
@@ -239,7 +239,31 @@ void scd30JSON(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
     strcpy(qualityMessage3, "not available");
   } 
-  snprintf_P(payload, len, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %4.1f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+                       scd30_avail ? "true" : "false", 
+                       scd30_avail ? scd30_ppm : 0, 
+                       scd30_avail ? scd30_hum : -1.0,
+                       scd30_avail ? scd30_ah : -1.0,
+                       scd30_avail ? scd30_temp : -999.0,
+                       qualityMessage1, 
+                       qualityMessage2,
+                       qualityMessage3);
+}
+
+void scd30JSONMQTT(char *payload, size_t len){
+  char qualityMessage1[16];
+  char qualityMessage2[16];
+  char qualityMessage3[16];
+  if (scd30_avail) { 
+    checkCO2(float(scd30_ppm), qualityMessage1, 15); 
+    checkHumidity(scd30_hum, qualityMessage2, 15);
+    checkAmbientTemperature(scd30_temp, qualityMessage3, 15);
+  } else {
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+    strcpy(qualityMessage3, "not available");
+  } 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
                        scd30_avail ? "true" : "false", 
                        scd30_avail ? scd30_ppm : 0, 
                        scd30_avail ? scd30_hum : -1.0,

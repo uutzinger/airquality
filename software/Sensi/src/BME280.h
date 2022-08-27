@@ -65,5 +65,6 @@ volatile SensorStates stateBME280 = IS_IDLE;               // sensor state
 bool initializeBME280(void);
 bool updateBME280(void);
 void bme280JSON(char *payload, size_t len);				   // convert readings to serialized JSON
+void bme280JSONMQTT(char *payload, size_t len);			   // convert readings to serialized JSON
 uint8_t bme280_error_cnt = 0;                              // give a few retiries if error data length occurs while reading sensor values
 BME280 bme280;                                             // the pressure sensor

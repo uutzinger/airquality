@@ -4,8 +4,8 @@
 #include <PubSubClient.h>                                  // MQTT publishing
 
 #define MQTT_PORT         1883                             // default mqtt port
-#define intervalMQTTFast   500                             // check for MQTT conenction and incoming data every 500ms
-#define intervalMQTTSlow  5000                             //                                             every 5 secs
+#define intervalMQTTFast   500                             // MQTT pulbish and conenction checking every  0.5 secs
+#define intervalMQTTSlow 60000                             //                                      every 60.0 secs
 bool mqtt_connected = false;                               // is mqtt server connected?
 bool mqtt_sent = false;                                    // did we publish data?
 bool sendMQTTonce = true;                                  // send system constants to broker at beginning

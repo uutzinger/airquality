@@ -27,6 +27,9 @@ bool updateDate = true;                                    // Ready to broadcast
 bool updateTime = true;                                    // Ready to broadcast time (websocket and mqtt) 
 bool ntpSetupError = false;
 
+int lastYearDay = 400;                                      // keep track of date change, initialize with out of range values
+int lastMin = 61;                                           // keep track of time change, intialize with out of range values
+
 void updateNTP(void);
 
 /*

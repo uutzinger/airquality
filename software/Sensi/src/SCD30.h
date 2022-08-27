@@ -41,5 +41,6 @@ bool initializeSCD30(void);
 bool updateSCD30(void);
 void ICACHE_RAM_ATTR handleSCD30Interrupt(void);           // Interrupt service routine when data ready is signaled
 void scd30JSON(char *payload);                             // convert readings to serialized JSON
+void scd30JSONMQTT(char *payload);                         // convert readings to serialized JSON
 uint8_t scd30_error_cnt = 0;
 SCD30 scd30;                                               // the sensor

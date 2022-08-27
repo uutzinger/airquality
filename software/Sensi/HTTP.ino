@@ -45,7 +45,7 @@ void updateHTTP() {
         D_printSerialTelnet(F("D:U:HTTP:S.."));
         httpServer.on("/",         handleRoot);          //Which routine to handle at root location. This is display page
         httpServer.on("/bme280",   handleBME280);
-        httpServer.on("/bme680",   handleBME680);
+        httpServer.on("/bme68x",   handleBME68x);
         httpServer.on("/ccs811",   handleCCS811);
         httpServer.on("/max",      handleMAX30); // crashed here
         httpServer.on("/mlx",      handleMLX);
@@ -178,12 +178,12 @@ void handleBME280() {
   yieldTime += yieldOS(); 
 }
 
-// { "bme680": { "avail": false, "p": 1234.0, "pavg": 1234.0, "rH":100.0, "aH": 123.0, "T": 123.0, "resistance": 123123, "dp_airquality": "1234567890123456", "rH_airquality": "1234567890123456", "resistance_airquality": "1234567890123456","T_airquality": "1234567890123456"}}
-void handleBME680() {
+// { "bme68x": { "avail": false, "p": 1234.0, "pavg": 1234.0, "rH":100.0, "aH": 123.0, "T": 123.0, "resistance": 123123, "dp_airquality": "1234567890123456", "rH_airquality": "1234567890123456", "resistance_airquality": "1234567890123456","T_airquality": "1234567890123456"}}
+void handleBME68x() {
   char HTTPpayloadStr[288]; 
-  bme680JSON(HTTPpayloadStr, sizeof(HTTPpayloadStr));
+  bme68xJSON(HTTPpayloadStr, sizeof(HTTPpayloadStr));
   httpServer.send(200, "text/json", HTTPpayloadStr);
-  if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("HTTP: BME680 request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
+  if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("HTTP: BME68x request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
   yieldTime += yieldOS(); 
 }
 

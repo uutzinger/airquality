@@ -96,7 +96,7 @@ bool initializeCCS811(){
   if (mySettings.baselineCCS811_valid == 0xF0) {
     css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
     if (css811Ret == CCS811Core::CCS811_Stat_SUCCESS) { 
-      if (mySettings.debuglevel > 0) { printSerialTelnetLog(F("CCS811: baseline programmed")); }
+      if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("CCS811: baseline programmed")); }
     } else {
       if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: error writing baseline - %s"), ccs811.statusString(css811Ret)); printSerialTelnetLogln(tmpStr); }
       stateCCS811 = HAS_ERROR;
@@ -177,9 +177,9 @@ bool updateCCS811() {
         if ((currentTime - lastCCS811Humidity) > intervalCCS811Humidity ) {
           D_printSerialTelnet(F("D:U:CCS811:H.."));
           lastCCS811Humidity = currentTime;
-          if (bme680_avail && mySettings.useBME680) {
+          if (bme68x_avail && mySettings.useBME68x) {
             tmpTime = millis();
-            ccs811.setEnvironmentalData(bme680.humidity, bme680.temperature);
+            ccs811.setEnvironmentalData(bme68x.humidity, bme68x.temperature);
             if (mySettings.debuglevel >= 2) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: humidity and temperature compensation updated in %ldms"), (millis()-tmpTime)); R_printSerialTelnetLogln(tmpStr); }
           }
         }
@@ -315,6 +315,25 @@ void ccs811JSON(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
   }
   snprintf_P(payload, len, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
+                       ccs811_avail ? "true" : "false", 
+                       ccs811_avail ? ccs811.getCO2() : 0, 
+                       ccs811_avail ? ccs811.getTVOC() : 0, 
+                       qualityMessage1, 
+                       qualityMessage2);
+}
+
+void ccs811JSONMQTT(char *payload, size_t len){
+  //
+  char qualityMessage1[16];
+  char qualityMessage2[16];
+  if (ccs811_avail) { 
+    checkCO2(float(ccs811.getCO2()), qualityMessage1, 15); 
+    checkTVOC(float(ccs811.getTVOC()), qualityMessage2, 15);
+  } else {
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+  }
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}"), 
                        ccs811_avail ? "true" : "false", 
                        ccs811_avail ? ccs811.getCO2() : 0, 
                        ccs811_avail ? ccs811.getTVOC() : 0, 

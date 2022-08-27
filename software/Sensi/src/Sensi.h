@@ -117,7 +117,7 @@ unsigned long maxUpdateSGP30 = 0;
 unsigned long maxUpdateCCS811 = 0;
 unsigned long maxUpdateSPS30 = 0;
 unsigned long maxUpdateBME280 = 0; 
-unsigned long maxUpdateBME680 = 0; 
+unsigned long maxUpdateBME68x = 0; 
 unsigned long maxUpdateMLX = 0; 
 unsigned long maxUpdateMAX = 0;
 unsigned long maxUpdateMQTTMESSAGE = 0; 
@@ -148,7 +148,7 @@ unsigned long AllmaxUpdateSGP30 = 0;
 unsigned long AllmaxUpdateCCS811 = 0;
 unsigned long AllmaxUpdateSPS30 = 0;
 unsigned long AllmaxUpdateBME280 = 0; 
-unsigned long AllmaxUpdateBME680 = 0; 
+unsigned long AllmaxUpdateBME68x = 0; 
 unsigned long AllmaxUpdateMLX = 0; 
 unsigned long AllmaxUpdateMAX = 0;
 unsigned long AllmaxUpdateMQTTMESSAGE = 0; 
@@ -241,9 +241,13 @@ void defaultSettings(void);                                     // converts sett
 void printSensors(void);                                        // lists current sensor values
 void printState(void);                                          // lists states of system devices and sensors
 void timeJSON(char *payload, size_t len);                       // provide time
+void timeJSONMQTT(char *payload, size_t len);                   // provide time
 void dateJSON(char *payload, size_t len);                       // provide date
+void dateJSONMQTT(char *payload, size_t len);                   // provide date
 void systemJSON(char *payload, size_t len);                     // provide system stats
+void systemJSONMQTT(char *payload, size_t len);                 // provide system stats
 void ipJSON(char *payload, size_t len);                         // provide ip
 void hostnameJSON(char *payload, size_t len);                   // provide hostname
 void max30JSON(char *payload, size_t len);                      // provide max data, temporarily
+void max30JSONMQTT(char *payload, size_t len);                  // provide max data, temporarily
 unsigned long maxyieldOS(void);                                 // execute yield or delay

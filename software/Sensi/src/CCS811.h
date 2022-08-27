@@ -51,4 +51,5 @@ bool updateCCS811(void);                                   //
 void ICACHE_RAM_ATTR handleCCS811Interrupt(void);          // interrupt service routine to handle data ready signal
 //CCS811Core::CCS811_Status_e ccs811Error                  // Error structure
 void ccs811JSON(char *payload, size_t len);			       // convert readings to serialzied JSON
+void ccs811JSONMQTT(char *payload, size_t len);			   // convert readings to serialzied JSON
 CCS811 ccs811(0X5B);                                       // the sensor, if alternative address is used, the address pin will need to be set to high

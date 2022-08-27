@@ -21,7 +21,7 @@ bool initializeMLX(){
     therm.setUnit(TEMP_C);                    // Set the library's units to Centigrade
     therm.setEmissivity(emissivity);
     if (mySettings.debuglevel > 0) { 
-      snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: Emissivity: %f"), therm.readEmissivity()); 
+      snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: emissivity: %f"), therm.readEmissivity()); 
       R_printSerialTelnetLogln(tmpStr); 
     }
     stateMLX = IS_MEASURING;      
@@ -174,7 +174,25 @@ void mlxJSON(char *payload, size_t len){
     strcpy(qualityMessage1, "not available");
     strcpy(qualityMessage2, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.1f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.2f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+                       therm_avail ? "true" : "false", 
+                       therm_avail ? therm.object()+mlxOffset : -999., 
+                       therm_avail ? therm.ambient() : -999., 
+                       qualityMessage1, 
+                       qualityMessage2);
+}
+
+void mlxJSONMQTT(char *payload, size_t len){
+  char qualityMessage1[16];
+  char qualityMessage2[16];
+  if (therm_avail) { 
+    checkFever(therm.object()+mlxOffset+fhDelta, qualityMessage1, 15);
+    checkAmbientTemperature(therm.ambient(), qualityMessage2, 15);
+  } else {
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+  }  
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.2f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}"), 
                        therm_avail ? "true" : "false", 
                        therm_avail ? therm.object()+mlxOffset : -999., 
                        therm_avail ? therm.ambient() : -999., 

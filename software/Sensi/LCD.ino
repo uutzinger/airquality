@@ -82,16 +82,16 @@ bool updateSinglePageLCDwTime() {
     if (ccs811_avail && mySettings.useCCS811) { // scd30 not running use eCO2
       myCO2 = float(ccs811.getCO2());
     }
-    if (bme680_avail && mySettings.useBME680) { 
-      myHum = bme680.humidity; 
+    if (bme68x_avail && mySettings.useBME68x) { 
+      myHum = bme68x.humidity; 
     } 
   }
       
-  if (bme680_avail && mySettings.useBME680) { // =Pressure Temp =====================================
-    mydP   = (bme680.pressure - bme680_pressure24hrs)/100.0;
-    myTemp = bme680.temperature;
-    myP    = bme680.pressure/100.0;   
-    myGAS  = float(bme680.gas_resistance);
+  if (bme68x_avail && mySettings.useBME68x) { // =Pressure Temp =====================================
+    mydP   = (bme68x.pressure - bme68x_pressure24hrs)/100.0;
+    myTemp = bme68x.temperature;
+    myP    = bme68x.pressure/100.0;   
+    myGAS  = float(bme68x.gas_resistance);
   } else if (bme280_avail && mySettings.useBME280) { 
     mydP   = (bme280_pressure - bme280_pressure24hrs)/100.0;
     myTemp = bme280_temp;
@@ -226,7 +226,7 @@ bool updateSinglePageLCDwTime() {
     strncpy(&lcdDisplay[0][1], myNaN, 1); // without Null char
   }
 
-  // 680 gas resistance
+  // 68x gas resistance
   if (myGAS >= 0.) {
     snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3dk"), myround(myGAS/1000.));
     strncpy(&lcdDisplay[2][5], lcdbuf, 4); // without Null char
@@ -323,9 +323,9 @@ bool updateSinglePageLCD() {
     myCO2  = float(scd30_ppm);
   }
     
-  if (bme680_avail && mySettings.useBME680) { // ====================================================
-    mydP   = (bme680.pressure - bme680_pressure24hrs)/100.0;
-    myTemp = bme680.temperature;
+  if (bme68x_avail && mySettings.useBME68x) { // ====================================================
+    mydP   = (bme68x.pressure - bme68x_pressure24hrs)/100.0;
+    myTemp = bme68x.temperature;
   }
 
   if (bme280_avail && mySettings.useBME280) { // ====================================================
@@ -512,9 +512,9 @@ bool updateTwoPageLCD() {
       lcdDisplayAlt[0][11] = qualityMessage[0];
     }
 
-    if (bme680_avail && mySettings.useBME680) { // ====================================================
+    if (bme68x_avail && mySettings.useBME68x) { // ====================================================
 
-      checkdP( (abs(bme680.pressure - bme680_pressure24hrs)/100.0), qualityMessage, 1);
+      checkdP( (abs(bme68x.pressure - bme68x_pressure24hrs)/100.0), qualityMessage, 1);
       lcdDisplayAlt[3][11] = qualityMessage[0];
     }
 
@@ -556,10 +556,10 @@ bool updateTwoPageLCD() {
       strncpy(&lcdDisplay[1][6], lcdbuf, 8); // No Null char
     }
 
-    if (bme680_avail && mySettings.useBME680) { // ====================================================
-      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4dmb"),(int)(bme680.pressure/100.0));
+    if (bme68x_avail && mySettings.useBME68x) { // ====================================================
+      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4dmb"),(int)(bme68x.pressure/100.0));
       strncpy(&lcdDisplay[2][6], lcdbuf, 6); // No Null char
-      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%2dmb"),(int)(abs((bme680.pressure - bme680_pressure24hrs)/100.0)));
+      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%2dmb"),(int)(abs((bme68x.pressure - bme68x_pressure24hrs)/100.0)));
       strncpy(&lcdDisplay[3][8], lcdbuf, 4); // No Null char
     }
 
@@ -679,34 +679,34 @@ bool updateLCD() {
     yieldTime += yieldOS(); 
   }  // end if avail scd30
   
-  if (bme680_avail && mySettings.useBME680) { // ==================================================
+  if (bme68x_avail && mySettings.useBME68x) { // ==================================================
     
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4d"),(int)(bme680.pressure/100.0)); 
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4d"),(int)(bme68x.pressure/100.0)); 
     strncpy(&lcdDisplay[PRESSURE_Y][PRESSURE_X], lcdbuf, 4); // No Null char
   
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4.1f%%"),bme680.humidity);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4.1f%%"),bme68x.humidity);
     strncpy(&lcdDisplay[HUM2_Y][HUM2_X], lcdbuf, 5); // No Null char
   
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4.1fg"),bme680_ah);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4.1fg"),bme68x_ah);
     strncpy(&lcdDisplay[HUM3_Y][HUM3_X], lcdbuf, 5); // No Null char
 
-    checkHumidity(bme680.humidity, qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnetLog("BME680Hum: "); printSerialTelnetLog(qualityMessage); }
+    checkHumidity(bme68x.humidity, qualityMessage, 1);
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("BME68xHum: "); printSerialTelnetLog(qualityMessage); }
     // Where does it go on the display?
       
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%+5.1fC"),bme680.temperature);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%+5.1fC"),bme68x.temperature);
     strncpy(&lcdDisplay[TEMP2_Y][TEMP2_X], lcdbuf, 6); // No Null char
   
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%5.1f"),(float(bme680.gas_resistance)/1000.0));
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%5.1f"),(float(bme68x.gas_resistance)/1000.0));
     strncpy(&lcdDisplay[IAQ_Y][IAQ_X], lcdbuf, 5); // No Null char
   
-    checkGasResistance(bme680.gas_resistance, qualityMessage, 1);
-    if (mySettings.debuglevel == 11) { printSerialTelnetLog("BME680 GasRes: "); printSerialTelnetLog(qualityMessage); }
+    checkGasResistance(bme68x.gas_resistance, qualityMessage, 1);
+    if (mySettings.debuglevel == 11) { printSerialTelnetLog("BME68x GasRes: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[IAQ_WARNING_Y][IAQ_WARNING_X], qualityMessage, 1); // No Null char
 
     yieldTime += yieldOS(); 
     
-  } // end if avail bme680
+  } // end if avail bme68x
   
   if (sgp30_avail && mySettings.useSGP30) { // ====================================================
     snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%4hu"), sgp30.CO2);

@@ -8,7 +8,7 @@
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/BME280.h"
-#include "src/BME680.h"
+#include "src/BME68x.h"
 #include "src/CCS811.h"
 #include "src/MLX.h"
 #include "src/SCD30.h"
@@ -408,8 +408,8 @@ bool sensorsWarning(void) {
   // Check Humidity
   if (bme280_avail && mySettings.useBME280) { 
     if ( checkHumidity(bme280_hum, qualityMessage, 0) == false)             { ok = false; }
-  } else if (bme680_avail && mySettings.useBME680) { 
-    if ( checkHumidity(bme680.humidity, qualityMessage, 0) == false)        { ok = false; }
+  } else if (bme68x_avail && mySettings.useBME68x) { 
+    if ( checkHumidity(bme68x.humidity, qualityMessage, 0) == false)        { ok = false; }
   } else if (scd30_avail && mySettings.useSCD30)  { 
     if ( checkHumidity(scd30_hum, qualityMessage, 0) == false )             { ok = false; }
   }
@@ -417,8 +417,8 @@ bool sensorsWarning(void) {
   // Check dP
   if (bme280_avail && mySettings.useBME280) { 
     if ( checkdP((bme280_pressure-bme280_pressure24hrs)/100.0, qualityMessage, 0) == false) { ok = false; }
-  } else if (bme680_avail && mySettings.useBME680) { 
-    if ( checkdP((bme680.pressure-bme680_pressure24hrs)/100.0, qualityMessage, 0) == false){ ok = false; }
+  } else if (bme68x_avail && mySettings.useBME68x) { 
+    if ( checkdP((bme68x.pressure-bme68x_pressure24hrs)/100.0, qualityMessage, 0) == false){ ok = false; }
   }
 
   return ok;

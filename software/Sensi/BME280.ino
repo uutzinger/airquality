@@ -271,7 +271,34 @@ void bme280JSON(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
     strcpy(qualityMessage3, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.1f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+  snprintf_P(payload, len, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
+                       bme280_avail ? "true" : "false", 
+                       bme280_avail ? bme280_pressure/100.0 : -1.0, 
+                       bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 
+                       bme280_avail ? bme280_hum : -1.0, 
+                       bme280_avail ? bme280_ah : -1.0, 
+                       bme280_avail ? bme280_temp : -999.0, 
+                       qualityMessage1, 
+                       qualityMessage2,
+                       qualityMessage3);
+}
+
+void bme280JSONMQTT(char *payload, size_t len){
+  //{"avail":true, "p":123.4, "pavg":1234.5, "rH":123.4,"aH":123.4,"T":-25.0,"dp_airquality":"normal", "rh_airquality":"normal"}
+  // about 150 Ccharacters
+  char qualityMessage1[16];
+  char qualityMessage2[16];
+  char qualityMessage3[16];
+  if (bme280_avail) { 
+    checkdP((bme280_pressure-bme280_pressure24hrs)/100.0, qualityMessage1, 15);
+    checkHumidity(bme280_hum, qualityMessage2, 15);
+    checkAmbientTemperature(bme280_temp, qualityMessage3, 15);
+  } else {
+    strcpy(qualityMessage1, "not available");
+    strcpy(qualityMessage2, "not available");
+    strcpy(qualityMessage3, "not available");
+  }  
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
                        bme280_avail ? "true" : "false", 
                        bme280_avail ? bme280_pressure/100.0 : -1.0, 
                        bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 

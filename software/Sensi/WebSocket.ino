@@ -11,7 +11,7 @@
 #include "src/Sensi.h"
 #include "src/WiFi.h"
 #include "src/BME280.h"
-#include "src/BME680.h"
+#include "src/BME68x.h"
 #include "src/CCS811.h"
 #include "src/MLX.h"
 #include "src/SCD30.h"
@@ -183,11 +183,11 @@ void updateWebSocketMessage() {
       yieldTime += yieldOS(); 
     }
 
-    if (bme680NewDataWS) {
-      bme680JSON(payLoad, sizeof(payLoad));
+    if (bme68xNewDataWS) {
+      bme68xJSON(payLoad, sizeof(payLoad));
       webSocket.broadcastTXT(payLoad);      
-      bme680NewDataWS = false;
-      if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME680 WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
+      bme68xNewDataWS = false;
+      if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
       yieldTime += yieldOS(); 
     }
 

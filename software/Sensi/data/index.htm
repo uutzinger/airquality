@@ -45,10 +45,10 @@
       <td>BME280 24hrs </td> <td><spawn id="BME280PressureAvg">0mb</spawn> </td>
     </tr>
     <tr>
-      <td>BME680 </td> <td><spawn id="BME680Pressure">0mb</spawn> </td> <td><spawn id="BME680dPaq"></spawn> </td>
+      <td>BME68x </td> <td><spawn id="BME68xPressure">0mb</spawn> </td> <td><spawn id="BME68xdPaq"></spawn> </td>
     </tr>
     <tr>
-      <td>BME680 24hrs </td> <td><spawn id="BME680PressureAvg">0mb</spawn> </td>
+      <td>BME68x 24hrs </td> <td><spawn id="BME68xPressureAvg">0mb</spawn> </td>
     </tr>
   </table>
   <br>
@@ -59,7 +59,7 @@
       <td>BME280 </td> <td><spawn id="BME280Temp">-999 &deg;C</spawn> </td> <td><spawn id="BME280Tq"></spawn> </td>
     </tr>
     <tr>
-      <td>BME680 </td> <td><spawn id="BME680Temp">-999 &deg;C</spawn> </td> <td><spawn id="BME680Tq"></spawn> </td>
+      <td>BME68x </td> <td><spawn id="BME68xTemp">-999 &deg;C</spawn> </td> <td><spawn id="BME68xTq"></spawn> </td>
     </tr>
     <tr>
       <td>MLX ambient </td> <td><spawn id="MLXAmbient">-999 &deg;C</spawn> </td> <td><spawn id="MLXaTq"></spawn> </td>
@@ -79,7 +79,7 @@
       <td>BME280 </td> <td><spawn id="BME280rHum">0%</spawn>, <spawn id="BME280aHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="BME280Haq"></spawn> </td>
     </tr>
     <tr>
-      <td>BME680 </td> <td><spawn id="BME680rHum">0%</spawn>, <spawn id="BME680aHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="BME680Haq"></spawn> </td>
+      <td>BME68x </td> <td><spawn id="BME68xrHum">0%</spawn>, <spawn id="BME68xaHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="BME68xHaq"></spawn> </td>
     </tr>
     <tr>
       <td>SCD30 </td> <td><spawn id="SCD30rHum">0%</spawn>, <spawn id="SCD30aHum">45g/m<sup>3</sup></spawn> </td> <td><spawn id="SCD30rHaq"></spawn> </td>
@@ -110,7 +110,7 @@
       <td>SGP30 tVOC </td> <td><spawn id="SGP30tVOC">0pbb</spawn> </td> <td><spawn id="SGP30tVOCaq"></spawn> </td>
     </tr>
     <tr>
-      <td>BME680 Gas Resistance </td> <td><spawn id="BME680Resistance">0Ohm</spawn> </td> <td><spawn id="BME680Raq"></spawn> </td>
+      <td>BME68x Gas Resistance </td> <td><spawn id="BME68xResistance">0Ohm</spawn> </td> <td><spawn id="BME68xRaq"></spawn> </td>
     </tr>
   </table>
   <br>
@@ -166,7 +166,7 @@
   setInterval(getTime,        60000);
   setInterval(getSystem,       5000);
   setInterval(getDataBME280,   1000);
-  setInterval(getDataBME680,   5000);
+  setInterval(getDataBME68x,   5000);
   setInterval(getDataCCS811,  10000);
   // setInterval(getDataMAX,     1000);
   setInterval(getDataMLX,      1000);
@@ -270,25 +270,25 @@
     xhttp.send();
   }
 
-  function getDataBME680() {
+  function getDataBME68x() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4 && this.status == 200) {
         var txt = this.responseText;
         var obj = JSON.parse(txt); 
-        document.getElementById("BME680Pressure").innerHTML = obj.bme680.p + "mbar";
-        document.getElementById("BME680PressureAvg").innerHTML= obj.bme680.pavg + "mbar";
-        document.getElementById("BME680rHum").innerHTML = obj.bme680.rH + "%";
-        document.getElementById("BME680aHum").innerHTML = obj.bme680.aH + "g/m<sup>3</sup>";
-        document.getElementById("BME680Temp").innerHTML = obj.bme680.T + "&deg;C";
-        document.getElementById("BME680Tq").innerHTML = obj.bme680.T_airquality;
-        document.getElementById("BME680Resistance").innerHTML = obj.bme680.resistance + "Ohm";
-        document.getElementById("BME680dPaq").innerHTML = obj.bme680.dp_airquality;
-        document.getElementById("BME680Haq").innerHTML = obj.bme680.rH_airquality;
-        document.getElementById("BME680Raq").innerHTML = obj.bme680.resistance_airquality;
+        document.getElementById("BME68xPressure").innerHTML = obj.bme68x.p + "mbar";
+        document.getElementById("BME68xPressureAvg").innerHTML= obj.bme68x.pavg + "mbar";
+        document.getElementById("BME68xrHum").innerHTML = obj.bme68x.rH + "%";
+        document.getElementById("BME68xaHum").innerHTML = obj.bme68x.aH + "g/m<sup>3</sup>";
+        document.getElementById("BME68xTemp").innerHTML = obj.bme68x.T + "&deg;C";
+        document.getElementById("BME68xTq").innerHTML = obj.bme68x.T_airquality;
+        document.getElementById("BME68xResistance").innerHTML = obj.bme68x.resistance + "Ohm";
+        document.getElementById("BME68xdPaq").innerHTML = obj.bme68x.dp_airquality;
+        document.getElementById("BME68xHaq").innerHTML = obj.bme68x.rH_airquality;
+        document.getElementById("BME68xRaq").innerHTML = obj.bme68x.resistance_airquality;
       }
     };
-    xhttp.open("GET", "bme680", true);
+    xhttp.open("GET", "bme68x", true);
     xhttp.send();
   }
 

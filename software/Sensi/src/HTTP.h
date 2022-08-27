@@ -11,7 +11,7 @@ void updateHTTP(void);
 void updateHTTPUpdater(void);
 void handleRoot(void);
 void handleBME280(void);
-void handleBME680(void);
+void handleBME68x(void);
 void handleCCS811(void);
 void handleSCD30(void);
 void handleSGP30(void);

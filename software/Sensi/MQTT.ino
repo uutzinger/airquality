@@ -8,7 +8,7 @@
 #include "src/Sensi.h"
 #include "src/Config.h"
 #include "src/BME280.h"
-#include "src/BME680.h"
+#include "src/BME68x.h"
 #include "src/CCS811.h"
 #include "src/MLX.h"
 #include "src/SCD30.h"
@@ -64,7 +64,7 @@ void updateMQTT() {
         if (mqtt_connected == true) {
           char MQTTtopicStr[64];                                     // String allocated for MQTT topic 
           snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status"),mySettings.mqtt_mainTopic);
-          mqttClient.publish(MQTTtopicStr, "Sensi up");
+          mqttClient.publish(MQTTtopicStr, "up");
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT: connected successfully")); }
           stateMQTT = CHECK_CONNECTION;  // advance to connection monitoring and publishing
           AllmaxUpdateMQTT = 0;
@@ -99,123 +99,128 @@ void updateMQTT() {
 void updateMQTTMessage() {
   char MQTTtopicStr[64];
   mqtt_sent = false;
-    
-  // --------------------- this sends new data to mqtt server as soon as its available ----------------
-  if (mySettings.sendMQTTimmediate) {
-    char MQTTpayloadStr[512]; 
-    if (scd30NewData)  {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      scd30JSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      scd30NewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SCD30 MQTT updated")); }
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-    
-    if (sgp30NewData)  {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      sgp30JSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      sgp30NewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SGP30 MQTT updated")); }      
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-    
-    if (sps30NewData)  {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      sps30JSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      sps30NewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SPS30 MQTT updated")); }      
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-    
-    if (ccs811NewData) {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      ccs811JSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      ccs811NewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("CCS811 MQTT updated")); }      
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-    
-    if (bme680NewData) {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      bme680JSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      bme680NewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME680 MQTT updated")); }
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-    
-    if (bme280NewData) {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      bme280JSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      bme280NewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME280 MQTT updated")); }
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-    
-    if (mlxNewData) {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data"),mySettings.mqtt_mainTopic);
-      mlxJSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      mlxNewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MLX MQTT updated")); }
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
 
-    if (timeNewData) {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status"),mySettings.mqtt_mainTopic);
-      timeJSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      mlxNewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Time MQTT updated")); }
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-
-    if (dateNewData) {
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status"),mySettings.mqtt_mainTopic);
-      dateJSON(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      mlxNewData = false;
-      if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Data MQTT updated")); }
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
+  if ( (currentTime - lastMQTTPublish) > intervalMQTT ) { // wait for interval time, sending lots of MQTT messages breaks the software
+    lastMQTTPublish = currentTime;
     
-    if (sendMQTTonce) { // send sensor polling once at boot up
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status"),mySettings.mqtt_mainTopic);
-      snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_interval\":%lu,\"lcd_interval\":%lu,\"ccs811_mode\":%hhu,\"sgp30_interval\":%lu,\"scd30_interval\":%lu,\"sps30_interval\":%lu,\"bme680_interval\":%lu,\"bme280_interval\":%lu}"),
-                intervalMLX, intervalLCD, ccs811Mode, intervalSGP30, intervalSCD30, intervalSPS30, intervalBME680, intervalBME280);
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      sendMQTTonce = false;  // do not update interval information again
-      yieldTime += yieldOS(); 
-    }
-    
-    if (currentTime - lastMQTTPublish > intervalMQTTSlow) { // update sensor status every mninute
-      snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status"),mySettings.mqtt_mainTopic);
-      snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_avail\":%d,\"lcd_avail\":%d,\"ccs811_avail\":%d,\"sgp30_avail\":%d,\"scd30_avail\":%d,\"sps30_avail\":%d,\"bme680_avail\":%d,\"bme280_avail\":%d,\"ntp_avail\":%d}"),
-                therm_avail, lcd_avail, ccs811_avail, sgp30_avail, scd30_avail, sps30_avail, bme680_avail, bme280_avail, ntp_avail);
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      lastMQTTPublish = currentTime;
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
-    }
-  } 
+    // --------------------- this sends new data to mqtt server as soon as its available ----------------
+    if (mySettings.sendMQTTimmediate) {
       
-  // --------------- this creates single message ---------------------------------------------------------
-  else {
-    if (currentTime - lastMQTTPublish > intervalMQTT) { // wait for interval time
+      char MQTTpayloadStr[512]; 
+      if (scd30NewData)  {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/scd30"),mySettings.mqtt_mainTopic);
+        scd30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        scd30NewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SCD30 MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+    
+      if (sgp30NewData)  {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/sgp30"),mySettings.mqtt_mainTopic);
+        sgp30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        sgp30NewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SGP30 MQTT updated")); }      
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+      
+      if (sps30NewData)  {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/sps30"),mySettings.mqtt_mainTopic);
+        sps30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        sps30NewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SPS30 MQTT updated")); }      
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+      
+      if (ccs811NewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/ccs811"),mySettings.mqtt_mainTopic);
+        ccs811JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        ccs811NewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("CCS811 MQTT updated")); }      
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+      
+      if (bme68xNewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/bme68x"),mySettings.mqtt_mainTopic);
+        bme68xJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        bme68xNewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME68x MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+      
+      if (bme280NewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/bme280"),mySettings.mqtt_mainTopic);
+        bme280JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        bme280NewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME280 MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+      
+      if (mlxNewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/mlx"),mySettings.mqtt_mainTopic);
+        mlxJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        mlxNewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MLX MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+
+      // when minute changed      
+      if (timeNewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/time"),mySettings.mqtt_mainTopic);
+        timeJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        timeNewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Time MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+
+      // when day changed
+      if (dateNewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/date"),mySettings.mqtt_mainTopic);
+        dateJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        dateNewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Date MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+      
+      if (sendMQTTonce) { // send sensor polling once at boot up
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/intervals"),mySettings.mqtt_mainTopic);
+        snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_interval\":%lu,\"lcd_interval\":%lu,\"ccs811_mode\":%hhu,\"sgp30_interval\":%lu,\"scd30_interval\":%lu,\"sps30_interval\":%lu,\"bme68x_interval\":%lu,\"bme280_interval\":%lu}"),
+                  intervalMLX, intervalLCD, ccs811Mode, intervalSGP30, intervalSCD30, intervalSPS30, intervalBME68x, intervalBME280);
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        sendMQTTonce = false;  // do not update interval information again
+        yieldTime += yieldOS(); 
+      }
+      
+      if (currentTime - lastMQTTPublish > intervalMQTTSlow) { // update sensor status every mninute
+        snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status/sensors"),mySettings.mqtt_mainTopic);
+        snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_avail\":%d,\"lcd_avail\":%d,\"ccs811_avail\":%d,\"sgp30_avail\":%d,\"scd30_avail\":%d,\"sps30_avail\":%d,\"bme68x_avail\":%d,\"bme280_avail\":%d,\"ntp_avail\":%d}"),
+                  therm_avail, lcd_avail, ccs811_avail, sgp30_avail, scd30_avail, sps30_avail, bme68x_avail, bme280_avail, ntp_avail);
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        lastMQTTPublish = currentTime;
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+    } 
+      
+    // --------------- this creates single message ---------------------------------------------------------
+    else {
       char MQTTpayloadStr[1024];                            // String allocated for MQTT message
       updateMQTTpayload(MQTTpayloadStr, sizeof(MQTTpayloadStr));                    // creating payload String
       snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr), PSTR("%s/data/all"),mySettings.mqtt_mainTopic);
@@ -225,10 +230,10 @@ void updateMQTTMessage() {
       lastMQTTPublish = currentTime;
       mqtt_sent = true;
       yieldTime += yieldOS(); 
-    } // end interval
-  } // end send immidiate
+    } // end send immidiate
+  }
   
-  // --------------- dubg status ---------------------------------------------------------
+  // --------------- debug status ---------------------------------------------------------
   if (mqtt_sent == true) {
     if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MQTT: published data")); }
   }
@@ -248,19 +253,19 @@ void updateMQTTpayload(char *payload, size_t len) {
     strncat(payload,"\"scd30_rH\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1f%%"),     scd30_hum);                 strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
     strncat(payload,"\"scd30_T\":",        len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%+5.1fC"),     scd30_temp);                strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
   }  // end if avail scd30
-  if (bme680_avail && mySettings.useBME680) { // ===rH,T,aQ=================================================
-    strncat(payload,"\"bme680_p\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4dbar"),(int)(bme680.pressure/100.0));    strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload)); 
-    strncat(payload,"\"bme680_rH\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1f%%"),     bme680.humidity);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"bme680_aH\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1fg"),      bme680_ah);                 strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"bme680_T\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%+5.1fC"),     bme680.temperature);        strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"bme680_aq\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%dOhm"),       bme680.gas_resistance);     strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-  } // end if avail bme680
+  if (bme68x_avail && mySettings.useBME68x) { // ===rH,T,aQ=================================================
+    strncat(payload,"\"bme68x_p\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4dbar"),(int)(bme68x.pressure/100.0));    strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload)); 
+    strncat(payload,"\"bme68x_rH\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1f%%"),     bme68x.humidity);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"bme68x_aH\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1fg"),      bme68x_ah);                 strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"bme68x_T\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%+5.1fC"),     bme68x.temperature);        strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"bme68x_aq\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%dOhm"),       bme68x.gas_resistance);     strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+  } // end if avail bme68x
   if (bme280_avail && mySettings.useBME280) { // ===rH,T,aQ=================================================
     strncat(payload,"\"bme280_p\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4dbar"),(int)(bme280_pressure/100.0));    strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload)); 
     strncat(payload,"\"bme280_rH\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1f%%"),     bme280_hum);                strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
     strncat(payload,"\"bme280_aH\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4.1fg"),      bme280_ah);                 strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
     strncat(payload,"\"bme280_T\":",       len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%+5.1fC"),     bme280_temp);               strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-  } // end if avail bme680
+  } // end if avail bme68x
   if (sgp30_avail && mySettings.useSGP30)   { // ===CO2,tVOC=================================================
     strncat(payload,"\"sgp30_CO2\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4dppm"),      sgp30.CO2);                 strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
     strncat(payload,"\"sgp30_tVOC\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4dppb"),      sgp30.TVOC);                strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));

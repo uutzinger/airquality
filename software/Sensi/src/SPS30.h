@@ -55,4 +55,5 @@ SPS30_version v;                                           // version structure 
 bool initializeSPS30(void);
 bool updateSPS30(void);
 void sps30JSON(char *payload, size_t len);                 // convert readings to serialized JSON
+void sps30JSONMQTT(char *payload, size_t len);             // convert readings to serialized JSON
 SPS30 sps30;                                               // the particle sensor
