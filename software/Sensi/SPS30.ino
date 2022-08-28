@@ -58,7 +58,7 @@ bool initializeSPS30() {
     sps30.wakeup();
     delay(500); lastYield = millis(); // 5ms needed
     sps30.reset();
-    delay(1000); lastYield = millis(); // takes 100ms to finish reset
+    delay(100); lastYield = millis(); // takes 100ms to finish reset
     if (sps30.probe() == false) {
       if (mySettings.debuglevel > 0) {
         printSerialTelnetLogln(F("SPS30: could not probe / connect"));
@@ -394,54 +394,13 @@ bool updateSPS30() {
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: reinitialization attempts exceeded, SPS30: no longer available.")); }
           break;
         } // give up after ERROR_COUNT tries
+
         sps30_lastError = currentTime;
-        switchI2C(sps30_port, sps30_i2c[0], sps30_i2c[1], sps30_i2cspeed, sps30_i2cClockStretchLimit);
-        sps30.EnableDebugging(SPS30Debug);
-        if (sps30.begin(sps30_port) == false) {
-          stateSPS30 = HAS_ERROR;
-          errorRecSPS30 = currentTime + 5000;
-          // success = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: could not re-intialize")); }
-          break;
+
+        if (initializeSPS30()) {
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: recovered.")); }
         }
-        if (sps30.probe() == false) { 
-          sps30.wakeup();
-          delay(5); lastYield = millis(); // 5ms needed to wake up
-          sps30.reset(); 
-          delay(100); lastYield = millis(); // 100ms needed to reset
-          if (sps30.probe() == false) {
-            stateSPS30 = HAS_ERROR;
-            errorRecSPS30 = currentTime + 5000;
-            // success = false;
-            if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: probe not successful, could not re-intialize")); }
-            break;
-          }
-        }
-        if (sps30.reset() == false) { 
-          stateSPS30 = HAS_ERROR;
-          errorRecSPS30 = currentTime + 5000;
-          delay(1); lastYield = millis();
-          // success = false;
-          if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: could not re-intialize/reset")); }
-          break;
-        } else { delay(100); lastYield = millis();}
-        // read device info
-        ret = sps30.GetVersion(&v);
-        if (ret != SPS30_ERR_OK) { // I have sensor that reports v.minor = 255 and CRC error when reading version information
-          v.major = 1;  // is reasonable minimal version
-          v.minor = 0;  // is not reasonable
-        }
-        ret = sps30.GetAutoCleanInt(&autoCleanIntervalSPS30);
-        if (sps30.start() == true) { 
-          delay(1); lastYield = millis();
-          stateSPS30 = IS_BUSY; 
-        } else { 
-          stateSPS30 = HAS_ERROR;
-          errorRecSPS30 = currentTime + 5000;
-          // success = false;
-          if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SPS30: could not re-intialize")); }
-          break;
-        }
+
       }
       break;
     }

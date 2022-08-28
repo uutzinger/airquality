@@ -199,25 +199,13 @@ bool updateSGP30() {
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: reinitialization attempts exceeded, SGP30: no longer available.")); }
           break; 
         } // give up after ERROR_COUNT tries
+
         sgp30_lastError = currentTime;
+
         // trying to recover sensor
-        switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
-        if (sgp30.begin(*sgp30_port) == false) {
-          stateSGP30 = SGP30_HAS_ERROR;
-          errorRecSGP30 = currentTime + 5000;
-          // success = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: re-initialization failed")); }
-          break;
+        if (initializeSGP30()) {
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: recovered.")); }
         }
-        sgp30.initAirQuality();
-        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: re-initialized")); }
-        if (mySettings.baselineSGP30_valid == 0xF0) {
-          sgp30.setBaseline((uint16_t)mySettings.baselineeCO2_SGP30, (uint16_t)mySettings.baselinetVOC_SGP30);
-          warmupSGP30 = millis() + warmupSGP30_withbaseline;
-        } else {
-          warmupSGP30 = millis() + warmupSGP30_withoutbaseline;
-        }
-        stateSGP30 = SGP30_IS_MEASURING;
       }
       break;
     }

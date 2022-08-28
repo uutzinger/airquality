@@ -1,10 +1,10 @@
 /******************************************************************************************************/
 // MLX, ambient and object temperature
 /******************************************************************************************************/
-// float object(void);
-// float ambient(void);
-// float readEmissivity();
-//
+// float therm.object()
+// float therm.ambient()
+// float therm.readEmissivity()
+
 #include "VSC.h"
 #ifdef EDITVSC
 #include "src/MLX.h"
@@ -50,7 +50,7 @@ bool initializeMLX(){
   }
 
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("MLX: initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
 
   return(true);
 }
@@ -134,22 +134,13 @@ bool updateMLX() {
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: reinitialization attempts exceeded, MLX: no longer available.")); }
           break; 
         } // give up after ERROR_COUNT tries
+        
         mlx_lastError = currentTime;
+        
         // trying to recover sensor
-        switchI2C(mlx_port, mlx_i2c[0], mlx_i2c[1], mlx_i2cspeed, mlx_i2cClockStretchLimit);
-        if (therm.begin(0x5A, *mlx_port) == true) { 
-          therm.setUnit(TEMP_C); // Set the library's units to Centigrade
-          therm.setEmissivity(emissivity); // hard coded from definitions file
-          therm_error_cnt = 0;
-          stateMLX = IS_MEASURING;
-        } else { // could not recover
-          stateMLX = HAS_ERROR;
-          errorRecMLX = currentTime + 5000;
-          // success = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: re-initialization failed")); }
-          break;
+        if (initializeMLX()){
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: recovered.")); }
         }
-        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: re-initialized")); }
       }
       break;
     }

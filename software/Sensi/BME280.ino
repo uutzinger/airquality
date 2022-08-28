@@ -3,7 +3,7 @@
 /******************************************************************************************************/
 //float bme280_pressure;
 //float bme280_temp;
-//float bme280_hum;   
+//float bme280_hum; 
 
 #include "VSC.h"
 #ifdef EDITVSC
@@ -16,6 +16,8 @@
 bool initializeBME280() {
 
   switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
+
+  bme280.reset();
   bme280.settings.commInterface = I2C_MODE;
   bme280.settings.I2CAddress = 0x76;
   
@@ -132,6 +134,7 @@ bool initializeBME280() {
 /******************************************************************************************************/
 bool updateBME280() {
   bool success = true; // when ERROR recovery fails, success becomes false
+
   switch(stateBME280) { 
 
     case IS_SLEEPING: { // ------------------ Slow and Energy Saving Mode: Wait until time to start measurement
@@ -212,40 +215,9 @@ bool updateBME280() {
           break; 
         } // give up after ERROR_COUNT tries
         bme280_lastError = currentTime;
-        switchI2C(bme280_port, bme280_i2c[0], bme280_i2c[1], bme280_i2cspeed, bme280_i2cClockStretchLimit);
-        bme280.reset();
-        bme280.settings.commInterface = I2C_MODE;
-        bme280.settings.I2CAddress = 0x76;
-        if (fastMode == true) { 
-          intervalBME280                  = intervalBME280Fast;
-          bme280.settings.runMode         = bme280_ModeFast;
-          bme280.settings.tStandby        = bme280_StandbyTimeFast;
-          bme280.settings.filter          = bme280_FilterFast;
-          bme280.settings.tempOverSample  = bme280_TempOversampleFast; 
-          bme280.settings.pressOverSample = bme280_PressureOversampleFast;
-          bme280.settings.humidOverSample = bme280_HumOversampleFast;
-        } else { 
-          intervalBME280                  = intervalBME280Slow;
-          bme280.settings.runMode         = bme280_ModeSlow;
-          bme280.settings.tStandby        = bme280_StandbyTimeSlow;
-          bme280.settings.filter          = bme280_FilterSlow;
-          bme280.settings.tempOverSample  = bme280_TempOversampleSlow; 
-          bme280.settings.pressOverSample = bme280_PressureOversampleSlow;
-          bme280.settings.humidOverSample = bme280_HumOversampleSlow;
+        if (initializeBME280()) {        
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: recovered.")); }
         }
-  
-        if (bme280.settings.runMode == MODE_NORMAL) {                     // for normal mode we obtain readings periodically
-            bme280.setMode(MODE_NORMAL);                                  //
-            stateBME280 = IS_BUSY;                                        //
-        } else if (bme280.settings.runMode == MODE_FORCED) {              // for forced mode we initiate reading manually
-          bme280.setMode(MODE_SLEEP);                                     // sleep for now
-          stateBME280 = IS_SLEEPING;                                      //
-        } else if (bme280.settings.runMode == MODE_SLEEP){                //
-          bme280.setMode(MODE_SLEEP);                                     //
-          stateBME280 = IS_SLEEPING;                                      //
-        }
-        
-        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reset")); }
       }
       break; 
     }

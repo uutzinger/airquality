@@ -1,14 +1,13 @@
 /******************************************************************************************************/
 // BME68x, Pressure, Temperature, Humidity, Gas Resistance
 /******************************************************************************************************/
+// float bme68x.temperature;
+// float bme68x.humidity 
+// float bme68x.pressure
 // float bme68x_pressure24hrs
-// uint32_t gas_resistance
-// float readTemperature()
-// float readPressure()
-// float readHumidity()
-// uint32_t readGas()
-// float readAltitude(float seaLevel)
-  
+// float bme68x.gas_resitance
+// float bme68x_ah
+
 #include "VSC.h"
 #ifdef EDITVSC
 #include "src/BME68x.h"
@@ -20,6 +19,7 @@
 bool initializeBME68x() {
 
   switchI2C(bme68x_port, bme68x_i2c[0], bme68x_i2c[1], bme68x_i2cspeed, bme68x_i2cClockStretchLimit);
+  
   bme68xSensor.begin(0x77, *bme68x_port);
 
   if (bme68xSensor.checkStatus()) { 
@@ -73,6 +73,15 @@ bool updateBME68x() {
   
   switch(stateBME68x) { 
     
+    case IS_SLEEPING: { // -----------------
+      if ((currentTime - lastBME68x) >= intervalBME68x) {
+        startMeasurementBME68x = millis();
+        D_printSerialTelnet(F("D:U:BME68x:IS.."));
+        startMeasurementsBME68x();
+      }
+      break;
+    }
+    
     case IS_IDLE : { //---------------------
       if ((currentTime - lastBME68x) >= intervalBME68x) {
         startMeasurementBME68x = millis();
@@ -117,12 +126,12 @@ bool updateBME68x() {
         if (readDataBME68x()) {
           stateBME68x = IS_IDLE;
           bme68x_error_cnt = 0;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME68x: recovered")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME68x: recovered.")); }
           break;
         } else {
           // reading again did not work, restart the sensor
           if (initializeBME68x()) {
-            if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME68x: re-initialized")); }
+            if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME68x: recovered.")); }
           }
         }
       }
@@ -149,8 +158,9 @@ bool startMeasurementsBME68x(){
   // BME68X_SEQUENTIAL_MODE
   bme68xSensor.setOpMode(BME68X_FORCED_MODE);
 
-  uint32_t tmpInterval = 1 + (bme68xSensor.getMeasDur()/1000);
-  endTimeBME68x = (millis() + tmpInterval + 100); // in milliseconds, the calculation does not seem to be accurate
+  uint32_t tmpInterval = 1 + (bme68xSensor.getMeasDur(BME68X_FORCED_MODE)/1000) + bme68x_HeaterDuration;
+
+  endTimeBME68x = (millis() + tmpInterval); // in milliseconds
   lastBME68x = currentTime;
       
   if (tmpInterval == 0) { 

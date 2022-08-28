@@ -1,14 +1,14 @@
 /******************************************************************************************************/
 // SCD30, CO2, Humidity, Temperature
 /******************************************************************************************************/
-//float scd30_temp
-//float scd30_hum
-//float scd30_ah
-// uint16_t getCO2(void);
-// float getHumidity(void);
-// float getTemperature(void);
-// float getTemperatureOffset(void);
-// uint16_t getAltitudeCompensation(void);
+// float scd30_temp
+// float scd30_hum
+// float scd30_ah
+// uint16_t getCO2()
+// float getHumidity()
+// float getTemperature()
+// float getTemperatureOffset()
+// uint16_t getAltitudeCompensation()
   
 #include "VSC.h"
 #ifdef EDITVSC
@@ -43,6 +43,7 @@ bool initializeSCD30() {
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SCD30: configuring interrupt")); }
   pinMode(SCD30interruptPin , INPUT);                      // interrupt scd30
   attachInterrupt(digitalPinToInterrupt(SCD30interruptPin),  handleSCD30Interrupt,  RISING);
+  
   switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
   if (scd30.begin(*scd30_port, true)) {                    // start with autocalibration
     scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
@@ -194,22 +195,13 @@ bool updateSCD30 () {
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: reinitialization attempts exceeded, SCD30: no longer available.")); }
           break;
         } // give up after ERROR_COUNT tries
-        // trying to recover sensor
+
         scd30_lastError = currentTime;
-        switchI2C(scd30_port, scd30_i2c[0], scd30_i2c[1], scd30_i2cspeed, scd30_i2cClockStretchLimit);
-        if (scd30.begin(*scd30_port, true)) { 
-          scd30.setMeasurementInterval(uint16_t(intervalSCD30/1000));
-          scd30.setAutoSelfCalibration(true); 
-          mySettings.tempOffset_SCD30 = scd30.getTemperatureOffset();
-          stateSCD30 = IS_BUSY;
-        } else {
-          stateSCD30 = HAS_ERROR;
-          errorRecSCD30 = currentTime + 5000;
-          // success = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: re-initialization failed")); }
-          break;
+
+        // trying to recover sensor
+        if (initializeSCD30()) {
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: recovered.")); }
         }
-        if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: re-initialized")); }
       }
       break;
     }

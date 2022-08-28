@@ -116,7 +116,7 @@ bool initializeCCS811(){
 bool updateCCS811() {
   // Operation:
   //  Setup 
-  //   turn on sensor and starts reading
+  //   turn on sensor and start readings
   //  When measurement complete, interrupt is asserted and ISR is called
   //  if fastMode = false
   //    ISR wakes up i2c communication on wakeup pin
@@ -257,41 +257,9 @@ bool updateCCS811() {
         ccs811_lastError;
 
         // trying to recover sensor, reinitialize it
-        digitalWrite(CCS811_WAKE, LOW); // Set CCS811 to wake
-        delayMicroseconds(100); // wakeup takes 50 microseconds      
-        switchI2C(ccs811_port, ccs811_i2c[0], ccs811_i2c[1], ccs811_i2cspeed, ccs811_i2cClockStretchLimit);
-        css811Ret = ccs811.beginWithStatus(*ccs811_port); // has delays and wait loops
-        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-          errorRecCCS811 = currentTime + 5000;
-          // success = false; 
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
-          break;
+        if (initializeCCS811()) {
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: recovered.")); }
         }
-        css811Ret = ccs811.setDriveMode(ccs811Mode);
-        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-          errorRecCCS811 = currentTime + 5000;
-          // success = false; 
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
-          break;
-        }
-        css811Ret = ccs811.enableInterrupts(); // Configure and enable the interrupt line, then print error status
-        if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-          errorRecCCS811 = currentTime + 5000;
-          // success = false; 
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
-          break;
-        }
-        if (mySettings.baselineCCS811_valid == 0xF0) {
-          css811Ret = ccs811.setBaseline(mySettings.baselineCCS811);
-          if (css811Ret != CCS811Core::CCS811_Stat_SUCCESS) { 
-            errorRecCCS811 = currentTime + 5000;
-            // success = false; 
-            if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: re-initialization failed")); }
-            break;
-          }
-        }
-        if (mySettings.debuglevel > 0) {  R_printSerialTelnetLogln(F("CCS811: re-initialized")); }
-        stateCCS811 = IS_IDLE;
       }
       break;
     }
