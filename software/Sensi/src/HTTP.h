@@ -1,14 +1,16 @@
 /******************************************************************************************************/
 // HTTP WebServer
 /******************************************************************************************************/
+#ifndef HTTP_H_
+#define HTTP_H_
+
 #include <ESP8266WebServer.h>
 
-// #define intervalHTTP      100                              // NOT USER, NO LOOP DELAY, We check for HTTP requests every 0.1 seconds
-unsigned long lastHTTP;									   // last time we checked for http requests
-volatile WiFiStates stateHTTP       = IS_WAITING;          // keeping track of webserver state
-
+void initializeHTTP();
+void initializeHTTPUpdater();
 void updateHTTP(void);
 void updateHTTPUpdater(void);
+
 void handleRoot(void);
 void handleBME280(void);
 void handleBME68x(void);
@@ -28,7 +30,10 @@ void handleSystem(void);
 void handleEdit(void);
 void handleConfig(void);
 void handleFileUpload(void);
+void handleWeather(void);
 
-String getContentType(String filename); // convert the file extension to the MIME type
+String getContentType(String filename);
 bool handleFileRead(String filePath); 
 bool streamFile(String path);           // send the right file to the client (if it exists)
+
+#endif

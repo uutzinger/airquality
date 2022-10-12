@@ -5,13 +5,47 @@
 //float bme280_temp;
 //float bme280_hum; 
 
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/BME280.h"
 #include "src/Sensi.h"
 #include "src/Config.h"
 #include "src/Quality.h"
-#endif
+#include "src/Print.h"
+
+//////// ===================================================
+float          bme280_pressure = -1.;                      // pressure from sensor
+float          bme280_temp = -999.;                        // temperature from sensor
+float          bme280_hum =-1.;                            // humidity from sensor
+float          bme280_ah = -1.;                            // [gr/m^3]
+float          bme280_pressure24hrs = 0.0;                 // average pressure last 24hrs
+float          alphaBME280;                                // poorman's low pass filter for f_cutoff = 1 day
+bool           bme280_avail = false;                       // do we hace the sensor?
+bool           bme280NewData = false;                      // is there new data
+bool           bme280NewDataWS = false;                    // is there new data for websocket
+long           bme280_measuretime = 0;                     // computed time it takes to complete the measurements and to finish standby
+bool           BMEhum_avail = false;                       // no humidity sensor if we have BMP instead of BME
+uint8_t        bme280_error_cnt = 0;                       // give a few retiries if error data length occurs while reading sensor values
+uint8_t        bme280_i2c[2];                              // the pins for the i2c port, set during initialization
+unsigned long  intervalBME280 = 0;                         // filled automatically during setup
+unsigned long  lastBME280;                                 // last time we interacted with sensor
+unsigned long  endTimeBME280;                              // when data will be available
+unsigned long  errorRecBME280;
+unsigned long  startMeasurementBME280;
+unsigned long  bme280_lastError;
+
+TwoWire       *bme280_port = 0;                            // pointer to the i2c port, might be useful for other microcontrollers
+volatile       SensorStates stateBME280 = IS_IDLE;         // sensor state
+BME280         bme280;                                     // the pressure sensor
+
+// External Variables 
+extern Settings      mySettings;   // Config
+extern bool          fastMode;     // Sensi
+extern unsigned long lastYield;    // Sensi
+extern unsigned long currentTime;  // Sensi
+extern char          tmpStr[256];       // Sensi
+
+/******************************************************************************************************/
+// Intialize BME280
+/******************************************************************************************************/
 
 bool initializeBME280() {
 
@@ -102,10 +136,10 @@ bool initializeBME280() {
   // float   w_c = 2.0 * 3.141 / (24.0 * 3600.0);                        // = cut off frequency [radians / seconds]
   // float   f_s = 1.0 / (intervalBME280 / 1000.0);                      // = sampling frenecy [1/s] 
   //         w_c = w_c / f_s;                                            // = normalize cut off frequency [radians]
-  // float     y = 1 - cos(w_c);                                          // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
+  // float     y = 1 - cos(w_c);                                         // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
   float   w_c = float(intervalBME280) * 7.27e-8;
-  float     y =  w_c*w_c/2.;                                            // small angle approximation
-  alphaBME280 = -y + sqrt( y*y + 2.*y );                                // is quite small e.g. 1e-6
+  float     y =  w_c*w_c/2.;                                          // small angle approximation of cosine
+  alphaBME280 = -y + sqrt( y*y + 2.*y );                              // is quite small e.g. 1e-6
 
   if ((chipID == 0x58) || (chipID == 0x60))  {                        //
     if (bme280.settings.runMode == MODE_NORMAL) {                     // for normal mode we obtain readings periodically
@@ -128,10 +162,10 @@ bool initializeBME280() {
 
 } // end bme280
 
-
 /******************************************************************************************************/
 // Update BME280
 /******************************************************************************************************/
+
 bool updateBME280() {
   bool success = true; // when ERROR recovery fails, success becomes false
 
@@ -211,12 +245,12 @@ bool updateBME280() {
         if (bme280_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           bme280_avail = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reinitialization attempts exceeded, BME280: no longer available.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reinitialization attempts exceeded, BME280: no longer available")); }
           break; 
         } // give up after ERROR_COUNT tries
         bme280_lastError = currentTime;
         if (initializeBME280()) {        
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: recovered.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: recovered")); }
         }
       }
       break; 
@@ -228,31 +262,16 @@ bool updateBME280() {
   return success;
 }
 
-void bme280JSON(char *payload, size_t len){
-  //{"bme280":{ "avail":true, "p":123.4, "pavg":1234.5, "rH":123.4,"aH":123.4,"T":-25.0,"dp_airquality":"normal", "rh_airquality":"normal"}}
-  // about 150 Ccharacters
-  char qualityMessage1[16];
-  char qualityMessage2[16];
-  char qualityMessage3[16];
-  if (bme280_avail) { 
-    checkdP((bme280_pressure-bme280_pressure24hrs)/100.0, qualityMessage1, 15);
-    checkHumidity(bme280_hum, qualityMessage2, 15);
-    checkAmbientTemperature(bme280_temp, qualityMessage3, 15);
-  } else {
-    strcpy(qualityMessage1, "not available");
-    strcpy(qualityMessage2, "not available");
-    strcpy(qualityMessage3, "not available");
-  }  
-  snprintf_P(payload, len, PSTR("{ \"bme280\": { \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
-                       bme280_avail ? "true" : "false", 
-                       bme280_avail ? bme280_pressure/100.0 : -1.0, 
-                       bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 
-                       bme280_avail ? bme280_hum : -1.0, 
-                       bme280_avail ? bme280_ah : -1.0, 
-                       bme280_avail ? bme280_temp : -999.0, 
-                       qualityMessage1, 
-                       qualityMessage2,
-                       qualityMessage3);
+/******************************************************************************************************/
+// JSON BME280
+/******************************************************************************************************/
+
+void bme280JSON(char *payLoad, size_t len){
+  const char * str = "{ \"bme280\": ";
+  size_t l = strlen(str);
+  strlcpy(payLoad, str, l+1);
+  bme280JSONMQTT(payLoad+l, len-l-1);
+  strlcat(payLoad, "}", len);
 }
 
 void bme280JSONMQTT(char *payload, size_t len){
@@ -271,13 +290,13 @@ void bme280JSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage3, "not available");
   }  
   snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
-                       bme280_avail ? "true" : "false", 
-                       bme280_avail ? bme280_pressure/100.0 : -1.0, 
-                       bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 
-                       bme280_avail ? bme280_hum : -1.0, 
-                       bme280_avail ? bme280_ah : -1.0, 
-                       bme280_avail ? bme280_temp : -999.0, 
-                       qualityMessage1, 
-                       qualityMessage2,
-                       qualityMessage3);
+             bme280_avail ? "true" : "false", 
+             bme280_avail ? bme280_pressure/100.0 : -1.0, 
+             bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 
+             bme280_avail ? bme280_hum : -1.0, 
+             bme280_avail ? bme280_ah : -1.0, 
+             bme280_avail ? bme280_temp : -999.0, 
+             qualityMessage1, 
+             qualityMessage2,
+             qualityMessage3);
 }

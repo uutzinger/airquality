@@ -1,28 +1,105 @@
 /******************************************************************************************************/
-// Initialize LCD
+// LCD
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/Sensi.h"
 #include "src/LCD.h"
+#include "src/LCDlayout.h"
+#include "src/Config.h"
+#include "src/Quality.h"
+#include "src/WiFi.h"
+#include "src/bme280.h"
+#include "src/bme68x.h"
+#include "src/ccs811.h"
+#include "src/scd30.h"
+#include "src/sgp30.h"
+#include "src/sps30.h"
+#include "src/Weather.h"
+#include "src/MLX.h"
+#include "src/MAX30.h"
+
+bool          lcd_avail = false;                           // is LCD attached?
+int           altDisplay = 0;                              // Alternate between sensors, when not enough space on display
+uint8_t       lcd_i2c[2];                                  // the pins for the i2c port, set during initialization
+unsigned long intervalLCD = 0;                             // LCD refresh rate, is set depending on fastmode during setup
+unsigned long lastLCD;                                     // last time LCD was modified
+unsigned long lastLCDReset;                                // last time LCD was reset
+char          lcdDisplay[4][20];                           // 4 lines of 20 characters, Display 0
+char          lcdDisplayAlt[4][20];                        // 4 lines of 20 characters, Display 1
+bool          lastLCDInten = false;
+
+TwoWire      *lcd_port = 0;                                // Pointer to the i2c port
+
+// --- LCD Display
+#if defined(ADALCD)
+  #include "Adafruit_LiquidCrystal.h"
+  Adafruit_LiquidCrystal lcd(0);                           // 0x20 is added inside driver
+#else
+  #include "LiquidCrystal_PCF8574.h"
+  LiquidCrystal_PCF8574 lcd(0x27);                         // set the LCD address to 0x27 
 #endif
 
-#define myround(x) ((x)>=0?(int)((x)+0.5):(int)((x)-0.5))
+// External Variables
+extern unsigned long     yieldTime;           // Sensi
+extern unsigned long     lastYield;           // Sensi
+extern Settings          mySettings;          // Config
+extern unsigned long     currentTime;         // Sensi
+extern char              tmpStr[256];         // Sensi
+
+extern bool              bme280_avail;        // bme280
+extern float             bme280_pressure;
+extern float             bme280_pressure24hrs;
+extern float             bme280_temp;
+
+extern bool              bme68x_avail;        // bme68x
+extern Bme68x            bme68xSensor;
+extern bme68xData        bme68x;      
+extern float             bme68x_pressure24hrs;//
+
+extern bool              scd30_avail;         // scd30
+extern uint16_t          scd30_ppm; 
+extern float             scd30_temp;
+extern float             scd30_hum; 
+extern float             scd30_ah;
+
+extern bool              ccs811_avail;        // ccs811
+extern CCS811            ccs811;    
+
+extern bool              sgp30_avail;         // sgp30
+extern SGP30             sgp30;     
+
+extern bool              sps30_avail;         // sps30
+extern sps30_measurement valSPS30;
+extern volatile SensorStates stateSPS30;
+
+extern bool              therm_avail;         // MLX
+extern IRTherm           therm;
+extern float             mlxOffset;
+
+extern bool              weather_avail;
+extern bool              weather_success;
+extern volatile WiFiStates stateWeather;
+extern clientData        weatherData;
+
+extern bool              time_avail;
+extern tm               *localTime; 
+
+/******************************************************************************************************/
+// Initialize LCD
+/******************************************************************************************************/
 
 bool initializeLCD() {
   bool success = true; // unfortuntely the LCD driver functions have no error checking
-  
   switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
 
 #if defined(ADALCD)
   lcd.begin(20, 4, LCD_5x8DOTS, *lcd_port);
-  if (mySettings.useBacklight == true) { lcd.setBacklight(HIGH); } else { lcd.setBacklight(LOW); }
+  if (mySettings.useBacklight == true) { lcd.setBacklight(HIGH); lastLCDInten = true; } else { lcd.setBacklight(LOW); lastLCDInten = false; }
 #else
   lcd.begin(20, 4, *lcd_port);
-  if (mySettings.useBacklight == true) { lcd.setBacklight(255); }  else { lcd.setBacklight(0); }
+  if (mySettings.useBacklight == true) { lcd.setBacklight(255);  lastLCDInten = true; } else { lcd.setBacklight(0);   lastLCDInten = false; }
 #endif
   if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("LCD initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
 
   return success;
 } 
@@ -64,30 +141,28 @@ bool updateSinglePageLCDwTime() {
   char myPM25_warning[] = "N";
   char myPM10_warning[] = "N";
   char mytVOC_warning[] = "N";
-  const char myNaN[]    = ".";
-    
+  const char myNaN[]    = " ";
+
   char lcdbuf[21];
   const char  clearLine[] = "                    ";  // 20 spaces
   char qualityMessage[2];
     
+  //////////////////////////////////////////////////////////////////////////////////////////////////
   // Collect Data
   //////////////////////////////////////////////////////////////////////////////////////////////////
   D_printSerialTelnet(F("D:LCD:CD.."));
 
-  if (scd30_avail && mySettings.useSCD30 && (scd30_ppm != 0)) { // =CO2 Hum =========================
+  if (scd30_avail && mySettings.useSCD30 && (scd30_ppm != 0)) { // =CO2 Hum ===
     myTemp = scd30_temp;
     myHum  = scd30_hum;
     myCO2  = float(scd30_ppm);
   } else { 
-    if (ccs811_avail && mySettings.useCCS811) { // scd30 not running use eCO2
-      myCO2 = float(ccs811.getCO2());
-    }
-    if (bme68x_avail && mySettings.useBME68x) { 
-      myHum = bme68x.humidity; 
-    } 
+    if (ccs811_avail && mySettings.useCCS811) { myCO2 = float(ccs811.getCO2()); } // scd30 not running use eCO2 from ccs811
+    else { if (sgp30_avail && mySettings.useSGP30) { myCO2 = float(sgp30.CO2); } } // scd30 not running use eCO2 from sgp30
+    if (bme68x_avail && mySettings.useBME68x) { myHum = bme68x.humidity; } 
   }
       
-  if (bme68x_avail && mySettings.useBME68x) { // =Pressure Temp =====================================
+  if (bme68x_avail && mySettings.useBME68x) { // =Pressure Temp ===============
     mydP   = (bme68x.pressure - bme68x_pressure24hrs)/100.0;
     myTemp = bme68x.temperature;
     myP    = bme68x.pressure/100.0;   
@@ -98,19 +173,19 @@ bool updateSinglePageLCDwTime() {
     myP    = bme280_pressure/100.0;
   }
   
-  if (ccs811_avail && mySettings.useCCS811) { // =tVOC =========================================
+  if (ccs811_avail && mySettings.useCCS811) { // =tVOC ========================
     mytVOC = float(ccs811.getTVOC());
   } else if (sgp30_avail && mySettings.useSGP30) { 
     mytVOC = float(sgp30.TVOC);               // tVoc fall back
   }
 
-  if (sps30_avail && mySettings.useSPS30) { // =Particles ===========================================
+  if (sps30_avail && mySettings.useSPS30) { // =Particles =====================
     if (stateSPS30 == HAS_ERROR) {
       myPM25 = -9999.;
       myPM10 = -9999.;
     } else {
-      myPM25 = valSPS30.MassPM2;
-      myPM10 = valSPS30.MassPM10;
+      myPM25 = valSPS30.mc_2p5;
+      myPM10 = valSPS30.mc_10p0;
     }
   }
 
@@ -136,6 +211,7 @@ bool updateSinglePageLCDwTime() {
   if (mytVOC >= 0.) { checkTVOC(mytVOC, qualityMessage, 1); }                 else { strncpy(qualityMessage, myNaN, 1); }
   mytVOC_warning[0] = qualityMessage[0];
   
+  //////////////////////////////////////////////////////////////////////////////////////////////////
   // build display
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -233,17 +309,71 @@ bool updateSinglePageLCDwTime() {
   } else { 
     strncpy(&lcdDisplay[2][5], myNaN, 1); // without Null char
   }
+  
+  //  // time and date or weather]
+  //  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Weather: avail ................ %s, %d"),  (weather_avail) ? FPSTR(mON) : FPSTR(mOFF), weather_avail); 
+  //  printSerialTelnetLogln(tmpStr);
+  //  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Weather: success .............. %s, %d"),  (weather_success) ? FPSTR(mON) : FPSTR(mOFF), weather_success); 
+  //  printSerialTelnetLogln(tmpStr);
+  //  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Weather: use .................. %s, %d"),  (mySettings.useWeather) ? FPSTR(mON) : FPSTR(mOFF), mySettings.useWeather); 
+  //  printSerialTelnetLogln(tmpStr);
+  //  snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Alt Display: .................. %s, %d"),  (altDisplay>0) ? FPSTR(mON) : FPSTR(mOFF), altDisplay); 
+  //  printSerialTelnetLogln(tmpStr);
 
-  if (time_avail && mySettings.useNTP ) {
-    // Data and Time
-    snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d.%d%d.%d"), 
-            (localTime->tm_mon+1)/10, 
-            (localTime->tm_mon+1)%10, 
-            localTime->tm_mday/10, 
-            localTime->tm_mday%10, 
-            (localTime->tm_year+1900));  
-    strncpy(&lcdDisplay[3][0], lcdbuf, 10); // without Null char
+  if (weather_avail && mySettings.useWeather && weather_success) { 
+    altDisplay = (altDisplay+1) % 3;
+  }
+
+  if (altDisplay == 0) { // display time and date
+    if (time_avail && mySettings.useNTP ) {
+      // Data
+      snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d.%d%d.%d"), 
+              (localTime->tm_mon+1)/10, 
+              (localTime->tm_mon+1)%10, 
+              localTime->tm_mday/10, 
+              localTime->tm_mday%10, 
+              (localTime->tm_year+1900));  
+      strncpy(&lcdDisplay[3][0], lcdbuf, 10); // without Null char
+      // Time
+      snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d:%d%d:%d%d"), 
+             localTime->tm_hour/10 ? localTime->tm_hour/10 : 0 , 
+             localTime->tm_hour%10,
+             localTime->tm_min/10,    
+             localTime->tm_min%10,
+             localTime->tm_sec/10,    
+             localTime->tm_sec%10);
+      strncpy(&lcdDisplay[3][12], lcdbuf, 8); // without Null char
+    }
     
+  } else if (altDisplay == 1) { // display weather description and time if enough space
+    int wl = strlen(weatherData.description);
+    strncpy(&lcdDisplay[3][0], weatherData.description, wl >= 20 ? 20 : wl  ); // without Null char
+    if (wl <=12) { 
+      snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d:%d%d:%d%d"), 
+             localTime->tm_hour/10 ? localTime->tm_hour/10 : 0 , 
+             localTime->tm_hour%10,
+             localTime->tm_min/10,    
+             localTime->tm_min%10,
+             localTime->tm_sec/10,    
+             localTime->tm_sec%10);
+      strncpy(&lcdDisplay[3][12], lcdbuf, 8); // without Null char
+    } else if (wl <=15) {
+      snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d:%d%d"), 
+             localTime->tm_min/10,    
+             localTime->tm_min%10,
+             localTime->tm_sec/10,    
+             localTime->tm_sec%10);
+      strncpy(&lcdDisplay[3][15], lcdbuf, 5); // without Null char
+    } else if (wl <=18) {
+      snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d"), 
+             localTime->tm_sec/10,    
+             localTime->tm_sec%10);
+      strncpy(&lcdDisplay[3][18], lcdbuf, 2); // without Null char
+    }
+    
+  } else if (altDisplay == 2) { // display max and min weather temperature
+    snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%5.1f %5.1f"), weatherData.tempMin, weatherData.tempMax);
+    strncpy(&lcdDisplay[3][0], lcdbuf, 11); // without Null char
     snprintf_P(lcdbuf, sizeof(lcdbuf),PSTR("%d%d:%d%d:%d%d"), 
            localTime->tm_hour/10 ? localTime->tm_hour/10 : 0 , 
            localTime->tm_hour%10,
@@ -253,7 +383,7 @@ bool updateSinglePageLCDwTime() {
            localTime->tm_sec%10);
     strncpy(&lcdDisplay[3][12], lcdbuf, 8); // without Null char
   }
-  
+    
   D_printSerialTelnet(F("D:LCD:US.."));
 
   switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
@@ -271,13 +401,13 @@ bool updateSinglePageLCDwTime() {
   yieldTime += yieldOS(); 
 
   if (mySettings.debuglevel == 11) { // if dbg, display the lines also on serial port
-    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; printSerialTelnetLog("|");  printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
-    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; printSerialTelnetLog("|");  printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
-    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[2][0], 20);    lcdbuf[20] = '\0'; printSerialTelnetLog("|");  printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
-    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0';   printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
+    strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; printSerialTelnetLog("|");  printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
     yieldTime += yieldOS(); 
   }
 
@@ -338,8 +468,8 @@ bool updateSinglePageLCD() {
   } 
 
   if (sps30_avail && mySettings.useSPS30) { // ======================================================
-    myPM25 = valSPS30.MassPM2;
-    myPM10 = valSPS30.MassPM10;
+    myPM25 = valSPS30.mc_2p5;
+    myPM10 = valSPS30.mc_10p0;
   }
 
   // my warnings // =================================================================================
@@ -492,7 +622,7 @@ bool updateTwoPageLCD() {
   const char  thirdLineN[] = "P04      P          ";
   const char   forthLine[] = "P10     dP    CO2   ";
   
-  if (altDisplay) { // SHOW Measurands and Assessment
+  if (altDisplay>0) { // SHOW Measurands and Assessment
     
     strncpy(&lcdDisplayAlt[0][0],  firstLine , 20); // No Null char
     strncpy(&lcdDisplayAlt[1][0], secondLine , 20); // No Null char
@@ -524,10 +654,10 @@ bool updateTwoPageLCD() {
     }
 
     if (sps30_avail && mySettings.useSPS30) { // ======================================================
-      checkPM2(valSPS30.MassPM2, qualityMessage, 1);
+      checkPM2(valSPS30.mc_2p5, qualityMessage, 1);
       lcdDisplayAlt[1][4]  = qualityMessage[0];
  
-      checkPM10(valSPS30.MassPM10, qualityMessage, 1);
+      checkPM10(valSPS30.mc_10p0, qualityMessage, 1);
       lcdDisplayAlt[3][4]  = qualityMessage[0];
     }
 
@@ -571,13 +701,13 @@ bool updateTwoPageLCD() {
     }
 
     if (sps30_avail && mySettings.useSPS30) { // ====================================================
-      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.MassPM1);
+      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.mc_1p0);
       strncpy(&lcdDisplay[0][0], lcdbuf, 5); // No Null char
-      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.MassPM2);
+      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.mc_2p5);
       strncpy(&lcdDisplay[1][0], lcdbuf, 5); // No Null char
-      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.MassPM4);
+      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.mc_4p0);
       strncpy(&lcdDisplay[2][0], lcdbuf, 5); // No Null char
-      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.MassPM10);
+      snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0fug"),valSPS30.mc_10p0);
       strncpy(&lcdDisplay[3][0], lcdbuf, 5); // No Null char
     }
 
@@ -592,7 +722,7 @@ bool updateTwoPageLCD() {
   //lcd.clear();
   lcd.setCursor(0, 0); 
   
-  if (altDisplay) {
+  if (altDisplay>0) {
     // 1st line continues at 3d line
     // 2nd line continues at 4th line
     strncpy(lcdbuf, &lcdDisplayAlt[0][0], 20); lcdbuf[20] = '\0'; if (strlen(lcdbuf) == 20) { lcd.print(lcdbuf); }
@@ -615,7 +745,7 @@ bool updateTwoPageLCD() {
   }
 
   if (mySettings.debuglevel == 11) { // if dbg, display the lines also on serial port
-    if (altDisplay) {
+    if (altDisplay>0) {
       strncpy(lcdbuf, &lcdDisplayAlt[0][0], 20); lcdbuf[20] = '\0'; 
       R_printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
       yieldTime += yieldOS(); 
@@ -643,7 +773,14 @@ bool updateTwoPageLCD() {
       yieldTime += yieldOS();   
     }
   }
-  altDisplay = !altDisplay; // flip display between analysis and values
+  
+  // switch display
+  if (altDisplay > 0) {
+    altDisplay = 0;
+  } else {
+    altDisplay = 1;
+  }
+
   return success;
 } // update
 
@@ -747,23 +884,23 @@ bool updateLCD() {
   } // end if avail ccs811
   
   if (sps30_avail && mySettings.useSPS30) { // ====================================================
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.MassPM1);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.mc_1p0);
     strncpy(&lcdDisplay[PM1_Y][PM1_X], lcdbuf, 3); // No Null char
     
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.MassPM2);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.mc_2p5);
     strncpy(&lcdDisplay[PM2_Y][PM2_X], lcdbuf, 3); // No Null char
     
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.MassPM4);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.mc_4p0);
     strncpy(&lcdDisplay[PM4_Y][PM4_X], lcdbuf, 3); // No Null char
     
-    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.MassPM10);
+    snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3.0f"),valSPS30.mc_10p0);
     strncpy(&lcdDisplay[PM10_Y][PM10_X], lcdbuf, 3); // No Null char
 
-    checkPM2(valSPS30.MassPM2, qualityMessage, 1);
+    checkPM2(valSPS30.mc_2p5, qualityMessage, 1);
     if (mySettings.debuglevel == 11) { printSerialTelnetLog("SPS30 PM2: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[PM2_WARNING_Y][PM2_WARNING_X], qualityMessage, 1);  // No Null char
 
-    checkPM10(valSPS30.MassPM10, qualityMessage,1 );
+    checkPM10(valSPS30.mc_10p0, qualityMessage,1 );
     if (mySettings.debuglevel == 11) { printSerialTelnetLog("SPS30 PM10: "); printSerialTelnetLog(qualityMessage); }
     strncpy(&lcdDisplay[PM10_WARNING_Y][PM10_WARNING_X], qualityMessage, 1); // No Null char
 
@@ -771,7 +908,7 @@ bool updateLCD() {
   }// end if avail SPS30
 
   if (therm_avail && mySettings.useMLX) { // ====================================================
-    if (altDisplay == true) {
+    if (altDisplay > 0) {
       snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%+5.1fC"),(therm.object()+mlxOffset));
       strncpy(&lcdDisplay[TEMP1_Y][TEMP1_X], lcdbuf, 6); // No Null char
 
@@ -786,7 +923,11 @@ bool updateLCD() {
     }
   }// end if avail  MLX
 
-  altDisplay = !altDisplay;
+  if (altDisplay > 0) { 
+    altDisplay = 0; 
+  } else { 
+    altDisplay = 1; 
+  }
   
   switchI2C(lcd_port, lcd_i2c[0], lcd_i2c[1], lcd_i2cspeed, lcd_i2cClockStretchLimit);
   

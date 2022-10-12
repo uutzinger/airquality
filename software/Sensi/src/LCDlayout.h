@@ -1,3 +1,7 @@
+#ifndef BME280_H_
+#define BME280_H_
+#endif
+
 // Particle (for air quality display)
 #define PM1_X              0
 #define PM1_Y              0

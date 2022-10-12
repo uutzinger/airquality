@@ -1,9 +1,7 @@
 /******************************************************************************************************/
-// Initialize WiFi
+// WiFi
 // https://arduino-esp8266.readthedocs.io/en/latest/esp8266wifi/
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/WiFi.h"
 #include "src/MQTT.h"
 #include "src/NTP.h"
@@ -12,10 +10,53 @@
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/WebSocket.h"
-#endif
+#include "src/Print.h"
+
+char          hostName[16] = {0};
+bool          wifi_avail = true;                           // do we have wifi?
+bool          mdns_avail = true;
+bool          wifi_connected = false;                      // is wifi connected to known ssid?
+bool          otaInProgress = false;                       // stop handling any other updates when OTA is inprogress
+unsigned long lastWiFi;                                    // last time we checked if we are connected
+unsigned long lastMDNS;                                    // last time we checked if mqtt is connected
+unsigned long lastOTA;                                     // last time we checked if mqtt is connected
+unsigned long mDNS_lastError;
+unsigned long prevActualTime = 0;                          //
+
+volatile WiFiStates stateWiFi       = START_UP;            // keeping track of WiFi state
+volatile WiFiStates stateMDNS       = IS_WAITING;          // keeping track of MDNS state
+volatile WiFiStates stateOTA        = IS_WAITING;          // keeping track of over the air programming state
+
+//https://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
+const char mStarting[]   PROGMEM = {"Starting up                "};
+const char mMonitoring[] PROGMEM = {"Monitoring connection      "};
+const char mScanning[]   PROGMEM = {"Scanning for known network "};
+const char mConnecting[] PROGMEM = {"Connecting                 "};
+const char mWaiting[]    PROGMEM = {"Waiting                    "};
+const char mNotEnabled[] PROGMEM = {"Not Enabled                "};
+
+ESP8266WiFiMulti wifiMulti;                                // Switching between Access Points
+
+//External Variables
+extern volatile WiFiStates stateMQTT;
+extern volatile WiFiStates stateNTP;
+extern volatile WiFiStates stateHTTP;
+extern volatile WiFiStates stateHTTPUpdater;
+extern volatile WiFiStates stateTelnet;
+extern volatile WiFiStates stateWebSocket;
+
+extern unsigned long lastYield;        // Sensi
+extern unsigned long AllmaxUpdateWifi;
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];      // Sensi
+
+/******************************************************************************************************/
+// Initialize WiFi
+/******************************************************************************************************/
 
 void initializeWiFi() {    
-  
+  D_printSerialTelnet(F("D:U:WIFI:IN.."));
   if (WiFi.status() == WL_NO_SHIELD) {
     wifi_avail = false;
     stateWiFi = IS_WAITING;
@@ -86,6 +127,7 @@ void updateWiFi() {
       stateHTTP        = IS_WAITING;
       stateHTTPUpdater = IS_WAITING;
       stateTelnet      = IS_WAITING;
+      stateWeather     = IS_WAITING;
       lastWiFi = currentTime;      
       break;
     }
@@ -110,6 +152,7 @@ void updateWiFi() {
           stateMDNS        = START_UP;
           stateWebSocket   = START_UP;
           stateTelnet      = START_UP;
+          stateWeather     = START_UP;
           randomSeed(micros()); // init random generator (time until connect is random)
           AllmaxUpdateWifi = 0;
         } else {
@@ -148,3 +191,27 @@ void updateWiFi() {
   
   } // end switch case
 } // update wifi
+
+/******************************************************************************************************/
+// JSON WiFi
+/******************************************************************************************************/
+
+void ipJSON(char *payLoad, size_t len) {
+  IPAddress lip = WiFi.localIP();
+  snprintf_P(payLoad, len, PSTR("{ \"ip\": \"%d.%d.%d.%d\"}"), lip[0], lip[1], lip[2], lip[3]);
+}
+
+void wifiJSON(char *payLoad, size_t len) {
+  snprintf_P(payLoad, len, PSTR("{ \"wifi\": { \"ssid\": \"%s\", \"rssi\": %d, \"channel\": %d, \"ip\": \"%d.%d.%d.%d\"}}"), 
+  WiFi.SSID().c_str(), 
+  WiFi.RSSI(), 
+  WiFi.channel(), 
+  WiFi.localIP()[0], 
+  WiFi.localIP()[1], 
+  WiFi.localIP()[2], 
+  WiFi.localIP()[3]);
+}
+
+void hostnameJSON(char *payLoad, size_t len) {
+   snprintf_P(payLoad, len, PSTR("{ \"hostname\": \"%s\"}"), hostName);
+}

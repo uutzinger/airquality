@@ -1,8 +1,6 @@
 /******************************************************************************************************/
 // MQTT
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/MQTT.h"
 #include "src/WiFi.h"
 #include "src/Sensi.h"
@@ -14,7 +12,106 @@
 #include "src/SCD30.h"
 #include "src/SGP30.h"
 #include "src/SPS30.h"
-#endif
+#include "src/Weather.h"
+#include "src/Print.h"
+
+bool          mqtt_connected = false;                      // is mqtt server connected?
+bool          mqtt_sent = false;                           // did we publish data?
+bool          mqtt_useregular = true;                      // want to be on regular or fallback
+bool          mqtt_onfallback = true;                      // did fallback connect?
+bool          mqtt_onregular = true;                       // did regular connect?
+bool          sendMQTTonce = true;                         // send system constants to broker at beginning
+unsigned long intervalMQTTreconnect = intervalMQTTconnect; //
+unsigned long intervalMQTT = intervalMQTTFast;             // automatically set during setup
+unsigned long lastMQTTPublish;                             // last time we published mqtt data
+unsigned long lastMQTTStatusPublish;                       // last time we published mqtt sensor availability data
+unsigned long lastMQTT;                                    // last time we checked if mqtt is connected
+
+volatile WiFiStates stateMQTT = IS_WAITING;                // keeping track of MQTT state
+WiFiClient    mqttWiFiClient;                              // The WiFi interface
+PubSubClient  mqttClient(mqttWiFiClient);                  // The MQTT interface
+
+// Extern variables
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern unsigned long AllmaxUpdateMQTT; // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];           // Sensi
+
+extern bool          bme280NewData;
+extern bool          bme280_avail;        // bme68x
+extern float         bme280_pressure;
+extern float         bme280_pressure24hrs;
+extern unsigned long intervalBME280;
+extern float         bme280_hum;
+extern float         bme280_ah;
+extern float         bme280_temp;
+
+extern bool          bme68x_avail;        // bm680
+extern bme68xData    bme68x; 
+extern bool          bme68xNewData;
+extern Bme68x        bme68xSensor; 
+extern float         bme68x_pressure24hrs;//
+extern unsigned long intervalBME68x;
+extern float         bme68x_ah;
+
+extern bool          scd30_avail;         // scd30
+extern bool          scd30NewData;
+extern unsigned long intervalSCD30;
+extern uint16_t      scd30_ppm;
+extern float         scd30_hum;
+extern float         scd30_temp;
+
+extern bool          ccs811_avail;        // ccs811
+extern bool          ccs811NewData;
+extern CCS811        ccs811;      
+extern uint8_t       ccs811Mode;
+
+extern bool          sgp30_avail;         // sgp30
+extern bool          sgp30NewData;
+extern unsigned long intervalSGP30; 
+extern SGP30         sgp30;
+
+extern bool          sps30_avail;         // sps30
+extern bool          sps30NewData;
+extern unsigned long intervalSPS30;
+extern sps30_measurement valSPS30;
+
+extern bool          therm_avail;         // MLX
+extern bool          mlxNewData;
+extern unsigned long intervalMLX;
+extern IRTherm       therm;
+extern float         mlxOffset;
+
+extern bool          weather_avail;       // weather
+extern bool          weatherNewData;
+extern clientData    weatherData;
+extern volatile WiFiStates stateWeather;
+
+extern bool          timeNewData;         // Sensi
+extern bool          dateNewData;
+extern bool          max30NewData;
+extern bool          time_avail;
+extern tm           *localTime; 
+extern bool          ntp_avail;
+
+extern unsigned long intervalLCD;
+extern bool          lcd_avail;
+
+/******************************************************************************************************/
+// Initialize MQTT
+/******************************************************************************************************/
+
+void initializeMQTT() {    
+  D_printSerialTelnet(F("D:U:MQTT:IN.."));
+  mqttClient.setCallback(mqttCallback);                             // start listener
+  delay(50); lastYield = millis();
+} // init MQTT
+
+/******************************************************************************************************/
+// Update MQTT
+/******************************************************************************************************/
 
 void updateMQTT() {
 // Operation:
@@ -38,53 +135,67 @@ void updateMQTT() {
     }
     
     case START_UP : { //---------------------
-      if ((currentTime - lastMQTT) >= intervalWiFi) {
+      if ((currentTime - lastMQTT) >= intervalMQTTreconnect) {
         D_printSerialTelnet(F("D:U:MQTT:S.."));
         lastMQTT = currentTime;
-        mqttClient.setCallback(mqttCallback);                             // start listener
-        mqttClient.setServer(mySettings.mqtt_server, MQTT_PORT);          // start connection to server
-        if (mySettings.debuglevel > 0) { 
-          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Connecting to MQTT: %s"), mySettings.mqtt_server); 
-          R_printSerialTelnetLogln(tmpStr); 
-        }
-        mqtt_connected = false;
-        // connect to server with or without username password
-        if (strlen(mySettings.mqtt_username) > 0)   { mqtt_connected = mqttClient.connect("SensiEPS8266Client", mySettings.mqtt_username, mySettings.mqtt_password); }
-        else                                        { mqtt_connected = mqttClient.connect("SensiEPS8266Client"); }
-        if (mqtt_connected == false) { // try fall back server
+        
+        if ( mqtt_useregular ) {
+          mqttClient.setServer(mySettings.mqtt_server, MQTT_PORT);          // start connection to server
+          if (mySettings.debuglevel > 0) { 
+            snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Connecting to MQTT: %s"), mySettings.mqtt_server); 
+            R_printSerialTelnetLogln(tmpStr); 
+          }
+          mqtt_connected = false;
+          // connect to server with or without username password
+          if (strlen(mySettings.mqtt_username) > 0)   { mqtt_connected = mqttClient.connect(mqttClientID, mySettings.mqtt_username, mySettings.mqtt_password); } // crashes here
+          else                                        { mqtt_connected = mqttClient.connect(mqttClientID); }
+          if ( mqtt_connected ) { mqtt_onregular = true; } else { mqtt_onregular = false; }
+        } else {
           mqttClient.setServer(mySettings.mqtt_fallback, MQTT_PORT);
           if (mySettings.debuglevel > 0) { 
             snprintf_P(tmpStr, sizeof(tmpStr), "Connecting to MQTT: %s", mySettings.mqtt_fallback); 
             R_printSerialTelnetLogln(tmpStr);
           }
-          if (strlen(mySettings.mqtt_username) > 0) { mqtt_connected = mqttClient.connect("SensiEPS8266Client", mySettings.mqtt_username, mySettings.mqtt_password); }
-          else                                      { mqtt_connected = mqttClient.connect("SensiEPS8266Client"); }
+          if (strlen(mySettings.mqtt_username) > 0) { mqtt_connected = mqttClient.connect(mqttClientID, mySettings.mqtt_username, mySettings.mqtt_password); }
+          else                                      { mqtt_connected = mqttClient.connect(mqttClientID); }          
+          if ( mqtt_connected ) { mqtt_onfallback = true; } else { mqtt_onfallback = false; }
+ 
         }
-        // publish connection status
+
+        // go slower if both server can not be reached
+        if ( (mqtt_onregular == false) && (mqtt_onfallback == false) ) {
+          intervalMQTTreconnect = intervalMQTTconnect * 4;
+        } else {
+          intervalMQTTreconnect = intervalMQTTconnect;
+        } 
+
         if (mqtt_connected == true) {
+          // publish connection status
           char MQTTtopicStr[64];                                     // String allocated for MQTT topic 
           snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status"),mySettings.mqtt_mainTopic);
           mqttClient.publish(MQTTtopicStr, "up");
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT: connected successfully")); }
           stateMQTT = CHECK_CONNECTION;  // advance to connection monitoring and publishing
           AllmaxUpdateMQTT = 0;
-        } else {  // connection failed
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT: conenction failed")); }
+        } else {  
+          // connection failed, switch server
+          mqtt_useregular = !mqtt_useregular;
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MQTT: conenction attempt failed, switching to fallback")); }
         } // failed connectig, repeat starting up
       } //interval time
       break;
     }
     
     case CHECK_CONNECTION : { //---------------------
-      if ((currentTime - lastMQTT) >= intervalMQTT) {
-        D_printSerialTelnet(F("D:U:MQTT:CC.."));
+      //if ((currentTime - lastMQTT) >= intervalMQTT) {
+      //  D_printSerialTelnet(F("D:U:MQTT:CC.."));
         lastMQTT = currentTime;
-        if (mqttClient.loop() != true) {
+        if (mqttClient.loop() == false) {
           mqtt_connected = false;
           stateMQTT = START_UP;
           if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MQTT: is disconnected. Reconnecting to server")); }
         }
-      }
+      //}
       break;          
     }
 
@@ -153,7 +264,7 @@ void updateMQTTMessage() {
         mqtt_sent = true;
         yieldTime += yieldOS(); 
       }
-      
+
       if (bme68xNewData) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/bme68x"),mySettings.mqtt_mainTopic);
         bme68xJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
@@ -180,6 +291,16 @@ void updateMQTTMessage() {
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         mlxNewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MLX MQTT updated")); }
+        mqtt_sent = true;
+        yieldTime += yieldOS(); 
+      }
+
+      if (weatherNewData) {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/weather"),mySettings.mqtt_mainTopic);
+        weatherJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        weatherNewData = false;
+        if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Weather MQTT updated")); }
         mqtt_sent = true;
         yieldTime += yieldOS(); 
       }
@@ -225,7 +346,7 @@ void updateMQTTMessage() {
         yieldTime += yieldOS(); 
       }
     } 
-      
+
     // --------------- this creates single message ---------------------------------------------------------
     else {
       char MQTTpayloadStr[1024];                            // String allocated for MQTT message
@@ -282,15 +403,15 @@ void updateMQTTpayload(char *payload, size_t len) {
     strncat(payload,"\"ccs811_tVOC\":",    len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%4dppb"),      ccs811.getTVOC());          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
   } // end if avail ccs811
   if (sps30_avail && mySettings.useSPS30)   { // ===Particle=================================================
-    strncat(payload,"\"sps30_PM1\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.MassPM1);          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_PM2\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.MassPM2);          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_PM4\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.MassPM4);          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_nPM10\":",    len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.MassPM10);         strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_nPM0\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.NumPM0);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_nPM2\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.NumPM2);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_nPM4\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.NumPM4);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_nPM10\":",    len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.NumPM10);          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
-    strncat(payload,"\"sps30_PartSize\":", len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµm"),     valSPS30.PartSize);         strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_PM1\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.mc_1p0);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_PM2\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.mc_2p5);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_PM4\":",      len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.mc_4p0);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_nPM10\":",    len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµg/m3"),  valSPS30.mc_10p0);          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_nPM0\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.nc_0p5);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_nPM2\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.nc_2p5);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_nPM4\":",     len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.nc_4p0);           strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_nPM10\":",    len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0f#/m3"),   valSPS30.nc_10p0);          strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
+    strncat(payload,"\"sps30_PartSize\":", len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%3.0fµm"),     valSPS30.typical_particle_size); strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
   }// end if avail SPS30
   if (therm_avail && mySettings.useMLX)     { // ====To,Ta================================================
     strncat(payload,"\"MLX_To\":",         len-strlen(payload)); snprintf_P(tmpbuf, sizeof(tmpbuf), PSTR("%+5.1fC"),    (therm.object()+mlxOffset)); strncat(payload,tmpbuf, len-strlen(payload)); strncat(payload,", ", len-strlen(payload));
@@ -299,19 +420,18 @@ void updateMQTTpayload(char *payload, size_t len) {
   strncat(payload, "}",                    len-strlen(payload));
 } // update MQTT
 
-
 /******************************************************************************************************/
 // MQTT Call Back in case we receive MQTT message from network
 /******************************************************************************************************/
 
 void mqttCallback(char* topic, uint8_t* payload, unsigned int len) {
-  char payloadC[64];
-  if (mySettings.debuglevel > 0) { 
-    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MQTT: Message received\r\nMQTT: topic: %s\r\nMQTT: payload: "), topic); 
+  char *p = (char *)malloc(len);
+  if (mySettings.debuglevel > 0) {
+    snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MQTT: Message arrived [%s] "), topic); 
     R_printSerialTelnetLogln(tmpStr);
-    memcpy( (void *)( payloadC ), (void *) payload, (len < 64) ? len : 63 );
-    payloadC[len]='\0';
-    printSerialTelnetLogln(payloadC);
-    yieldTime += yieldOS(); 
+    memcpy(p,payload,len);
+    printSerialTelnetLogln(p);
+    yieldTime += yieldOS();
  }
+ free(p);
 }

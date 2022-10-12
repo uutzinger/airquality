@@ -1,21 +1,24 @@
 /******************************************************************************************************/
 // Stored System settings
 /******************************************************************************************************/
+#ifndef CONFIG_H_
+#define CONFIG_H_
+
 #include <EEPROM.h>
 #include <FS.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>                                   // Encoding Decoding JSON text
-#define JSONSIZE 2048                                      // crashes program if too small, use online tool to check recommended size
-#define EEPROM_SIZE 2048                                   // make sure this value is larger than the space required by the settings below and lowwer than the max Settings of the microcontroller
-//#define intervalSettingsJSON 604800000                   // 7 days
-#define intervalSettings 43200000                          // 12 hrs, min write interval is 6,650,000 for 20 year liftime: 100,000/20yrs/365days = 13 writes per day
-const unsigned int eepromAddress = 0;                      // 
-unsigned long lastSaveSettings;                            // last time we updated EEPROM, should occur every couple days
-unsigned long lastSaveSettingsJSON;                        // last time we updated JSON, should occur every couple days
+
+#define JSONSIZE                  2048                     // crashes program if too small, use online tool to check recommended size
+#define EEPROM_SIZE               2048                     // make sure this value is larger than the space required by the settings below and lowwer than the max Settings of the microcontroller
+#define intervalSettingsJSON 604800000                     // 7 days
+#define intervalSettings      43200000                     // 12 hrs 
+
 // ========================================================// The EEPROM section
 // This table has grown over time. So its not in order.
 // Appending new settings will keeps the already stored settings.
 // Boolean settings are stored as a byte.
-// This structure is approx 620 bytes in size.
+// This structure is approx 690 bytes in size.
 
 struct Settings {
   unsigned long runTime;                                   // keep track of total sensor run time
@@ -73,9 +76,13 @@ struct Settings {
   bool          useBacklightNight;                         // backlight at night on/off
   bool          useBlinkNight;                             // blink the backlight at night on/off
   char          ntpFallback[64];
+  bool          useWeather;
+  char          weatherApiKey[33];                         // open weather api key
+  char          weatherCity[33];                           // city to look up weather
+  char          weatherCountryCode[3];                     // country to look up weather
 };
-
-Settings mySettings;                                       // the settings
 
 void saveConfiguration(const Settings &config);
 void loadConfiguration(Settings &config);
+
+#endif

@@ -1,15 +1,41 @@
 /******************************************************************************************************/
 // HTTP Updae Server / Upload Code
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/WiFi.h"
 #include "src/HTTPUpdater.h"
-#endif
+#include "src/Sensi.h"
+#include "src/Config.h"
+
+// #define intervalHTTPUpdater 1000
+//
+const char*         update_path     = "/firmware";
+const char*         update_username = "admin";
+const char*         update_password = "w1ldc8ts";
+unsigned long       lastHTTPUpdater;                   // last time we checked for http update requests
+volatile WiFiStates stateHTTPUpdater = IS_WAITING;     // keeping track of webserver state
+
+ESP8266WebServer httpUpdateServer(8890);
+ESP8266HTTPUpdateServer httpUpdater;                       // Code update server
+
+// External Variables
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];           // Sensi
+extern unsigned long maxUpdateHTTPUPDATER; // Sensi
+
+void initializeHTTPUpdater() {
+  D_printSerialTelnet(F("D:U:HTTPUpdater:IN.."));
+  delay(50); lastYield = millis();
+}
 
 void updateHTTPUpdater() {
   // Operation:
-
+  // Wait for WiFi to come up
+  // Setup and announce mDNS 
+  // Handle connections
+  
   switch(stateHTTPUpdater) {
     
     case IS_WAITING : { //---------------------
@@ -49,6 +75,5 @@ void updateHTTPUpdater() {
 
     default: {if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("HTTP Updater Error: invalid switch statement")); break;}}
     
-          
   } // end switch state
 } // http

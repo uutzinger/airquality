@@ -10,14 +10,42 @@
 //  uint16_t ethanol;
 //  uint64_t serialID;
   
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/SGP30.h"
 #include "src/BME68x.h"
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/Quality.h"
-#endif
+#include "src/Print.h"
+
+bool          sgp30_avail  = false;                        // do we have this sensor
+bool          sgp30NewData = false;                        // do we have new data
+bool          sgp30NewDataWS = false;                      // do we have new data for websocket
+bool          baslineSGP30_valid = false;
+uint8_t       sgp30_i2c[2];                                // the pins for the i2c port, set during initialization
+unsigned long lastSGP30;                                   // last time we obtained data
+unsigned long lastSGP30Humidity;                           // last time we upated humidity
+unsigned long lastSGP30Baseline;                           // last time we obtained baseline
+unsigned long intervalSGP30 = 1000;                        // populated during setup
+unsigned long warmupSGP30;                                 // populated during setup
+unsigned long errorRecSGP30;
+unsigned long startMeasurementSGP30;
+unsigned long sgp30_lastError;
+
+volatile      SGP30SensorStates stateSGP30 = SGP30_IS_IDLE; 
+TwoWire      *sgp30_port = 0;                              // pointer to the i2c port, might be useful for other microcontrollers
+uint8_t       sgp30_error_cnt = 0;
+SGP30         sgp30;
+
+// External Variables
+extern Settings      mySettings;   // Config
+extern bool          fastMode;     // Sensi
+extern unsigned long currentTime;  // Sensi
+extern char          tmpStr[256];  // Sensi
+extern bool          bme68x_avail;
+extern float         bme68x_ah;
+extern bool          scd30_avail;
+extern float         scd30_ah;
+
 
 const char *SGP30errorString(SGP30ERR sgp30Return) {
   SGP30ERR val;
@@ -40,6 +68,10 @@ const char *SGP30errorString(SGP30ERR sgp30Return) {
       break;
   }
 }
+
+/******************************************************************************************************/
+// Initialize SGP30
+/******************************************************************************************************/
 
 bool initializeSGP30() {
   
@@ -77,6 +109,7 @@ bool initializeSGP30() {
 /******************************************************************************************************/
 // Update SGP30
 /******************************************************************************************************/
+
 bool updateSGP30() {
   // Operation Sequence:
   //  Setup
@@ -196,7 +229,7 @@ bool updateSGP30() {
         if (sgp30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           sgp30_avail = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: reinitialization attempts exceeded, SGP30: no longer available.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: reinitialization attempts exceeded, SGP30: no longer available")); }
           break; 
         } // give up after ERROR_COUNT tries
 
@@ -204,7 +237,7 @@ bool updateSGP30() {
 
         // trying to recover sensor
         if (initializeSGP30()) {
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: recovered.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: recovered")); }
         }
       }
       break;
@@ -222,22 +255,16 @@ bool updateSGP30() {
   return(success);
 }
 
-void sgp30JSON(char *payload, size_t len){
-  char qualityMessage1[16];
-  char qualityMessage2[16];
-  if (sgp30_avail) { 
-    checkCO2(float(sgp30.CO2), qualityMessage1, 15); 
-    checkTVOC(float(sgp30.TVOC), qualityMessage2, 15);
-  } else {
-    strcpy(qualityMessage1, "not available");
-    strcpy(qualityMessage2, "not available");
-  } 
-  snprintf_P(payload, len, PSTR("{ \"sgp30\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
-                       sgp30_avail ? "true" : "false", 
-                       sgp30_avail ? sgp30.CO2 : 0, 
-                       sgp30_avail ? sgp30.TVOC : 0,
-                       qualityMessage1, 
-                       qualityMessage2);
+/******************************************************************************************************/
+// JSON SGP30
+/******************************************************************************************************/
+
+void sgp30JSON(char *payLoad, size_t len){
+  const char * str = "{ \"sgp30\": ";
+  size_t l = strlen(str);
+  strlcpy(payLoad, str, l+1);
+  sgp30JSONMQTT(payLoad+l, len-l-1);
+  strlcat(payLoad, "}", len);
 }
 
 void sgp30JSONMQTT(char *payload, size_t len){

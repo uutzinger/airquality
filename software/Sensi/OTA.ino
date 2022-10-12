@@ -1,12 +1,23 @@
 /******************************************************************************************************/
-// OTA
+// OTA Over the air programming
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/Config.h"
 #include "src/WiFi.h"
 #include "src/Sensi.h"
-#endif
+#include "src/Print.h"
+
+// Extern variables
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern unsigned long lastOTA;          // WiFi
+extern unsigned long AllmaxUpdateOTA;  // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];      // Sensi
+extern char          hostName[16];     // WiFi
+extern bool          otaInProgress;    // WiFi
+extern volatile WiFiStates stateOTA;   // WiFi
+
 // Over the air program, standard functions from many web tutorials
 void onstartOTA() {
   if (mySettings.debuglevel > 0) { 
@@ -42,6 +53,27 @@ void onerrorOTA(ota_error_t error) {
   LittleFS.begin();       // get FS back online
 }
 
+/******************************************************************************************************/
+// Initialize OTA
+/******************************************************************************************************/
+
+void initializeOTA() {
+  D_printSerialTelnet(F("D:U:OTA:IN.."));
+  ArduinoOTA.setPort(8266);                        // OTA port
+  ArduinoOTA.setHostname(hostName);                // hostname
+  ArduinoOTA.setPassword("w1ldc8ts");              // That should be set by programmer and not user 
+  // call back functions
+  ArduinoOTA.onStart( onstartOTA );
+  ArduinoOTA.onEnd( onendOTA );
+  ArduinoOTA.onProgress( onprogressOTA );
+  ArduinoOTA.onError( onerrorOTA );
+  delay(50); lastYield = millis();
+}
+
+/******************************************************************************************************/
+// Update OTA
+/******************************************************************************************************/
+
 void updateOTA() {
   
   switch(stateOTA) {
@@ -60,14 +92,6 @@ void updateOTA() {
       if ((currentTime - lastOTA) >= intervalWiFi) {
         D_printSerialTelnet(F("D:U:OTA:S.."));
         lastOTA = currentTime;
-        ArduinoOTA.setPort(8266);                        // OTA port
-        ArduinoOTA.setHostname(hostName);                // hostname
-        ArduinoOTA.setPassword("w1ldc8ts");              // That should be set by programmer and not user 
-        // call back functions
-        ArduinoOTA.onStart( onstartOTA );
-        ArduinoOTA.onEnd( onendOTA );
-        ArduinoOTA.onProgress( onprogressOTA );
-        ArduinoOTA.onError( onerrorOTA );
         // get it going
         ArduinoOTA.begin(true);                            //start and use mDNS
         if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("OTA: ready")); }

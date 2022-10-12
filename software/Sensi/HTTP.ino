@@ -1,11 +1,36 @@
 /******************************************************************************************************/
 // HTTP Server
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/WiFi.h"
 #include "src/HTTP.h"
-#endif
+#include "src/Sensi.h"
+#include "src/Config.h"
+#include "src/bme280.h"
+#include "src/bme68x.h"
+#include "src/ccs811.h"
+#include "src/scd30.h"
+#include "src/sgp30.h"
+#include "src/sps30.h"
+#include "src/Weather.h"
+#include "src/MLX.h"
+#include "src/MAX30.h"
+#include "src/Print.h"
+
+// #define intervalHTTP      100                  // NOT USER, NO LOOP DELAY, We check for HTTP requests every 0.1 seconds
+unsigned long lastHTTP;                           // last time we checked for http requests
+volatile      WiFiStates stateHTTP = IS_WAITING;  // keeping track of webserver state
+String        getContentType(String filename);    // convert the file extension to the MIME type
+
+ESP8266WebServer httpServer(80);                           // Server on port 80
+
+// Extern variables
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern unsigned long AllmaxUpdateHTTP; // Sensi
+extern char          tmpStr[256];           // Sensi
+
 //Example web applications
 //  https://www.mischianti.org/2020/05/24/rest-server-on-esp8266-and-esp32-get-and-json-formatter-part-2/
 //  https://tttapa.github.io/ESP8266/Chap16%20-%20Data%20Logging.html
@@ -23,9 +48,41 @@
 //  JSON & tabulated data https://circuits4you.com/2019/01/25/esp8266-dht11-humidity-temperature-data-logging/
 //  Simple autorefresh https://circuits4you.com/2018/02/04/esp8266-ajax-update-part-of-web-page-without-refreshing/
 
+/******************************************************************************************************/
+// Initialize
+/******************************************************************************************************/
+
+void initializeHTTP(){
+  D_printSerialTelnet(F("D:U:HTTP:IN.."));
+  httpServer.on("/",         handleRoot);          //Which routine to handle at root location. This is display page
+  httpServer.on("/bme280",   handleBME280);
+  httpServer.on("/bme68x",   handleBME68x);
+  httpServer.on("/ccs811",   handleCCS811);
+  httpServer.on("/max",      handleMAX30); // crashed here
+  httpServer.on("/mlx",      handleMLX);
+  httpServer.on("/scd30",    handleSCD30);
+  httpServer.on("/sgp30",    handleSGP30);
+  httpServer.on("/sps30",    handleSPS30);
+  httpServer.on("/date",     handleDate);
+  httpServer.on("/weather",  handleWeather);
+  httpServer.on("/time",     handleTime);
+  httpServer.on("/hostname", handleHostname);          
+  httpServer.on("/ip",       handleIP);          
+  httpServer.on("/wifi",     handleWiFi);          
+  httpServer.on("/config",   handleConfig);
+  httpServer.on("/system",   handleSystem);
+  httpServer.on("/edit",     handleEdit);
+  httpServer.on("/upload",   HTTP_GET, []() { if (!handleFileRead("/upload.htm")) httpServer.send(404, "text/plain", "404: Not Found"); });        
+  httpServer.on("/upload",   HTTP_POST, [](){ httpServer.send(200); }, handleFileUpload );
+  httpServer.onNotFound(     handleNotFound);      // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
+  delay(50); lastYield = millis();
+}
+
+/******************************************************************************************************/
+// Update
+/******************************************************************************************************/
 
 void updateHTTP() {
-  // Operation:
 
   switch(stateHTTP) {
     
@@ -43,25 +100,6 @@ void updateHTTP() {
       if ((currentTime - lastHTTP) >= intervalWiFi) {        
         lastHTTP = currentTime;
         D_printSerialTelnet(F("D:U:HTTP:S.."));
-        httpServer.on("/",         handleRoot);          //Which routine to handle at root location. This is display page
-        httpServer.on("/bme280",   handleBME280);
-        httpServer.on("/bme68x",   handleBME68x);
-        httpServer.on("/ccs811",   handleCCS811);
-        httpServer.on("/max",      handleMAX30); // crashed here
-        httpServer.on("/mlx",      handleMLX);
-        httpServer.on("/scd30",    handleSCD30);
-        httpServer.on("/sgp30",    handleSGP30);
-        httpServer.on("/sps30",    handleSPS30);
-        httpServer.on("/date",     handleDate);
-        httpServer.on("/time",     handleTime);
-        httpServer.on("/hostname", handleHostname);          
-        httpServer.on("/ip",       handleIP);          
-        httpServer.on("/config",   handleConfig);
-        httpServer.on("/system",   handleSystem);
-        httpServer.on("/edit",     handleEdit);
-        httpServer.on("/upload", HTTP_GET, []() { if (!handleFileRead("/upload.htm")) httpServer.send(404, "text/plain", "404: Not Found"); });        
-        httpServer.on("/upload", HTTP_POST, [](){ httpServer.send(200); }, handleFileUpload );
-        httpServer.onNotFound(     handleNotFound);      // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
         httpServer.begin();                              // Start server
         if (mySettings.debuglevel  > 0) { R_printSerialTelnetLogln(F("HTTP Server: initialized")); }
         stateHTTP = CHECK_CONNECTION;
@@ -100,7 +138,7 @@ void handleConfig() {
 }
 
 void handleNotFound(){
-  if (!handleFileRead(httpServer.uri())) {                // check if the file exists in the flash memory, if so, send it
+  if (!handleFileRead(httpServer.uri())) {    // check if the file exists in the flash memory, if so, send it
    String message = "File Not Found \r\n\n";
    message += "URI: ";
    message += httpServer.uri();
@@ -164,6 +202,16 @@ void handleHostname() {
 void handleIP() {
   char HTTPpayloadStr[32];
   ipJSON(HTTPpayloadStr, sizeof(HTTPpayloadStr));
+  httpServer.send(200, "text/json", HTTPpayloadStr);
+  if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("HTTP: time request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
+  yieldTime += yieldOS(); 
+}
+
+// { "wifi": { "ssid": "32 chars here", "rssi": 255, "channel": 123, "ip": "123.123.123.123"}} 
+
+void handleWiFi() {
+  char HTTPpayloadStr[128];
+  wifiJSON(HTTPpayloadStr, sizeof(HTTPpayloadStr));
   httpServer.send(200, "text/json", HTTPpayloadStr);
   if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("HTTP: time request received. Sent: %u"), strlen(HTTPpayloadStr)); R_printSerialTelnetLogln(tmpStr); }
   yieldTime += yieldOS(); 
@@ -244,6 +292,15 @@ void handleMAX30() {
   yieldTime += yieldOS(); 
 }
 
+// { "weather": { "avail": false, "description": "thunderstorm with heavy drizzle          ", "T": 12345, "Tmin": 12345, "Tmax": 12345, "p": 12345, , "rH": 123, "ws": 1234, "wd": 12345, , "v": 100000} }
+void handleWeather() {
+  char WeatherPayloadStr[288]; 
+  weatherJSON(WeatherPayloadStr, sizeof(WeatherPayloadStr));
+  httpServer.send(200, "text/json", WeatherPayloadStr);
+  if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("HTTP: Weather request received. Sent: %u"), strlen(WeatherPayloadStr)); R_printSerialTelnetLogln(tmpStr); }
+  yieldTime += yieldOS(); 
+}
+
 String getContentType(String filename){
   if (httpServer.hasArg("download"))  return "application/octet-stream";
   else if(filename.endsWith(".htm"))  return "text/html";
@@ -289,6 +346,7 @@ bool handleFileRead(String filePath) {
 void handleFileUpload() { // upload a new file to the SPIFFS
   HTTPUpload& upload = httpServer.upload();
   String upfilePath;
+  File uploadFile;
   if (upload.status == UPLOAD_FILE_START) {
     upfilePath = upload.filename;
     if (!upfilePath.startsWith("/")) upfilePath = "/" + upfilePath;

@@ -1,7 +1,11 @@
 /******************************************************************************************************/
 // SPS30; Senserion Particle Sensor
 /******************************************************************************************************/
-#include <sps30.h>
+#ifndef SPS30_H_
+#define SPS30_H_
+
+#include <SPS30_Arduino_Library.h>
+
 // Sample interval min 1+/-0.04s
 // After power up, sensor is idle
 // Execute start command to start measurements
@@ -20,40 +24,15 @@
 //
 #define intervalSPS30Fast  4000                            // minimum is 1 sec
 #define intervalSPS30Slow 60000                            // system will sleep for intervalSPS30Slow - timetoStable if sleep function is available
-#define SPS30Debug 0                                       // define driver debug: 0 np debug
 
 #define sps30_i2cspeed               I2C_REGULAR             
-#define sps30_i2cClockStretchLimit   I2C_LONGSTRETCH       // because its on shared bus
-//#define sps30_i2cClockStretchLimit   I2C_DEFAULTSTRETCH
+#define sps30_i2cClockStretchLimit   I2C_LONGSTRETCH       // or I2C_DEFAULTSTRETCH
+#define SPS30_TIMEOUT_DELAY          100
+#define SPS30_ERROR_COUNT            24                    // 
 
-//   0 - no messages,
-//   1 - request sending and receiving,
-//   2 - request sending and receiving + show protocol errors */
-unsigned long intervalSPS30 = 0;                           // measurement interval
-unsigned long timeSPS30Stable;                             // time when readings are stable, is adjusted automatically based on particle counts
-unsigned long lastSPS30;                                   // last time we interacted with sensor
-unsigned long wakeSPS30;                                   // time when wakeup was issued
-unsigned long wakeTimeSPS30;                               // time when sensor is supposed to be woken up
-unsigned long timeToStableSPS30;                           // how long it takes to get stable readings, automatically pupulated based on total particles
-unsigned long errorRecSPS30;
-unsigned long startMeasurementSPS30;
-unsigned long sps30_lastError;
-char buf[64];                                              // messaging buffer
-uint8_t ret, st;                                           // return variables
-float totalParticles = -1.;                                      // we need to calculate time to stable readings depending on total particle concentration
-uint32_t autoCleanIntervalSPS30;                           // current cleaning interval setting in sensor
-bool sps30_avail = false;                                  // do we have this sensor?
-bool sps30NewData = false;                                 // do we have new data?
-bool sps30NewDataWS = false;                               // do we have new data for websocket
-TwoWire *sps30_port =0;                                    // pointer to the i2c port, might be useful for other microcontrollers
-uint8_t sps30_i2c[2];                                      // the pins for the i2c port, set during initialization
-volatile SensorStates stateSPS30 = IS_BUSY;                // sensor state
-struct sps_values valSPS30;                                // will hold the readings from sensor
-uint8_t sps_error_cnt = 0;                                 // give a few retiries if error data length occurs while reading sensor values
-uint8_t sps30_error_cnt = 0;                               // give a few retries with rebooting
-SPS30_version v;                                           // version structure of sensor
 bool initializeSPS30(void);
 bool updateSPS30(void);
 void sps30JSON(char *payload, size_t len);                 // convert readings to serialized JSON
 void sps30JSONMQTT(char *payload, size_t len);             // convert readings to serialized JSON
-SPS30 sps30;                                               // the particle sensor
+
+#endif

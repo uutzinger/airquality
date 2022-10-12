@@ -1,12 +1,31 @@
 /******************************************************************************************************/
 // Telnet
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/Telnet.h"
-#endif
+#include "src/WiFi.h"
+#include "src/Print.h"
+
+String        telnetInput;
+char          telnetInputBuff[64];
+bool          telnetConnected = false; 
+bool          telnetReceived = false;
+unsigned long lastTelnet;                                     // last time we checked telnet input
+unsigned long lastTelnetInput = 0;                            // keep track of telnet flood
+
+volatile WiFiStates stateTelnet = IS_WAITING;                 // keeping track of network time state
+
+ESPTelnet      Telnet;                                       // The Telnet interface
+
+// External Variables
+extern Settings      mySettings;   // Config
+extern bool          fastMode;     // Sensi
+extern bool          BMEhum_avail; // BME280
+extern unsigned long lastYield;    // Sensi
+extern unsigned long currentTime;  // Sensi
+extern unsigned long yieldTime;    // Sensi
+extern char          tmpStr[256];  // Sensi
 
 void onTelnetInputReceived(String str){
   strncpy(telnetInputBuff, str.c_str(), sizeof(telnetInputBuff)); 
@@ -56,6 +75,25 @@ void onTelnetConnectionAttempt(String ip) {
   telnetConnected = false;
 }
 
+/******************************************************************************************************/
+// Initialize Telnet
+/******************************************************************************************************/
+
+void initializeTelnet() {
+  D_printSerialTelnet(F("D:U:Telnet:IN.."));
+  // Telnetsetup
+  Telnet.onConnect(onTelnetConnect);
+  Telnet.onConnectionAttempt(onTelnetConnectionAttempt);
+  Telnet.onReconnect(onTelnetReconnect);
+  Telnet.onDisconnect(onTelnetDisconnect);
+  Telnet.onInputReceived(onTelnetInputReceived);
+  delay(50); lastYield = millis();
+}
+
+/******************************************************************************************************/
+// Update Telnet
+/******************************************************************************************************/
+
 void updateTelnet() {
 
   switch(stateTelnet) {
@@ -74,19 +112,7 @@ void updateTelnet() {
       if ((currentTime - lastTelnet) >= intervalWiFi) {
         D_printSerialTelnet(F("D:U:Tel:S.."));
         lastTelnet = currentTime;
-                          
-        // Telnetsetup
-        Telnet.onConnect(onTelnetConnect);
-        Telnet.onConnectionAttempt(onTelnetConnectionAttempt);
-        Telnet.onReconnect(onTelnetReconnect);
-        Telnet.onDisconnect(onTelnetDisconnect);
-        
-        Telnet.onInputReceived(onTelnetInputReceived);
-        /* Telnet.onInputReceived([](String str) {
-          strncpy(telnetInputBuff, str.c_str(), sizeof(telnetInputBuff)); 
-          telnetReceived = true;
-        }); */      
-        
+                                  
         if (Telnet.begin()) {
           if ( (mySettings.debuglevel > 0 ) && mySettings.useSerial) { R_printSerialTelnetLogln(F("Telnet: running")); }
           stateTelnet = CHECK_CONNECTION;

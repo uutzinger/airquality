@@ -1,27 +1,32 @@
 /******************************************************************************************************/
 // Initialize Configuration
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/Config.h"
-#endif
+#include "src/Sensi.h"
+
+const unsigned int eepromAddress = 0;                      // 
+unsigned long      lastSaveSettings;                       // last time we updated EEPROM, should occur every couple days
+unsigned long      lastSaveSettingsJSON;                   // last time we updated JSON, should occur every couple days
+
+Settings           mySettings;                             // the settings
+
+// External variables
+extern bool fsOK;
+extern unsigned long yieldTime;
 
 // Save and Read Settings
 // Uses JSON structure on LittleFS Filespace
 //
-// These routines are not used for bootup
-// JSON saving settings to LittelFS regularly results in system crashes.
+// These routines are not used for boot-up
+// JSON saving settings to LittelFS regularly resulted in system crashes.
 // The JSON conversion might complete but opening and writting the file does not.
 
 void saveConfiguration(const Settings &config) {
   if (ESP.getMaxFreeBlockSize() > JSONSIZE) {
     if (fsOK) { // file system is mounted
-    
       // Allocate a temporary JsonDocument
       // Use arduinojson.org/assistant to compute the capacity.
-  
       D_printSerialTelnet(F("D:JSON:1.."));
-
       //StaticJsonDocument<JSONSIZE> doc;
       DynamicJsonDocument doc(JSONSIZE);
     
@@ -82,6 +87,11 @@ void saveConfiguration(const Settings &config) {
       doc["useCCS811"]                    = config.useCCS811;                                // ...
       doc["useBME280"]                    = config.useBME280;                                // ...
       doc["avgP"]                         = config.avgP;                                     // averagePressure
+
+      doc["useWeather"]                   = config.useWeather;                               // connect to open weather
+      doc["weatherApiKey"]                = config.weatherApiKey;                            // api key created on open weather
+      doc["weatherCity"]                  = config.weatherCity;                              // city
+      doc["weatherCountryCode"]           = config.weatherCountryCode;                       // city
       
       doc["useHTTP"]                      = config.useHTTP;                                  // provide webserver
       doc["useOTA"]                       = config.useOTA;                                   // porivude over the air programming
@@ -188,7 +198,12 @@ void loadConfiguration(Settings &config) {
         config.useCCS811              = doc["useCCS811"]                            | true;
         config.useBME280              = doc["useBME280"]                            | false;
         config.avgP                   = doc["avgP"]                                 | 90000.0;
-        
+
+        config.useWeather             = doc["useWeather"]                           | false;
+        strlcpy(config.weatherApiKey,   doc["weatherApiKey"]                        | "", sizeof(config.weatherApiKey));
+        strlcpy(config.weatherCity,     doc["weatherCity"]                          | "Tucson", sizeof(config.weatherCity));
+        strlcpy(config.weatherCountryCode, doc["weatherCountryCode"]                | "US", sizeof(config.weatherCountryCode));
+
         config.useHTTP                = doc["useHTTP"]                              | true;
         config.useOTA                 = doc["useOTA"]                               | false;
         config.usemDNS                = doc["usemDNS"]                              | true;

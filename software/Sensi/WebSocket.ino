@@ -4,8 +4,7 @@
 // https://www.hackster.io/s-wilson/nodemcu-home-weather-station-with-websocket-7c77a3
 // https://www.mischianti.org/2020/12/21/websocket-on-arduino-esp8266-and-esp32-temperature-and-humidity-realtime-update-3/
 // http://www.martyncurrey.com/esp8266-and-the-arduino-ide-part-10a-iot-website-temperature-and-humidity-monitor/
-#include "VSC.h"
-#ifdef EDITVSC
+
 #include "src/WebSocket.h"
 #include "src/Config.h"
 #include "src/Sensi.h"
@@ -17,7 +16,48 @@
 #include "src/SCD30.h"
 #include "src/SGP30.h"
 #include "src/SPS30.h"
-#endif
+#include "src/Weather.h"
+#include "src/Print.h"
+
+
+bool ws_connected = false;                                 // mqtt connection established?
+unsigned long lastWebSocket;                               // last time we checked for websocket
+volatile WiFiStates stateWebSocket  = IS_WAITING;          // keeping track of websocket
+
+WebSocketsServer webSocket = WebSocketsServer(81);         // The Websocket interface
+
+// External Variables
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern unsigned long AllmaxUpdateWS;   // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];      // Sensi
+
+extern bool          bme280NewDataWS;
+extern bool          bme68xNewDataWS;
+extern bool          scd30NewDataWS;
+extern bool          ccs811NewDataWS;
+extern bool          sgp30NewDataWS;
+extern bool          sps30NewDataWS;
+extern bool          mlxNewDataWS;
+extern bool          weatherNewDataWS;
+extern bool          timeNewDataWS;
+extern bool          dateNewDataWS;
+extern bool          max30NewDataWS;
+
+/******************************************************************************************************/
+// Initialize Web Socket Server 
+/******************************************************************************************************/
+
+void intializeWebSocket() {
+  D_printSerialTelnet(F("D:U:WS:IN.."));  
+  delay(50); lastYield = millis();
+}
+
+/******************************************************************************************************/
+// Update Web Socket Server 
+/******************************************************************************************************/
 
 void updateWebSocket() {
   // Operation:
@@ -196,6 +236,14 @@ void updateWebSocketMessage() {
       webSocket.broadcastTXT(payLoad);      
       mlxNewDataWS = false;
       if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
+      yieldTime += yieldOS(); 
+    }  
+
+    if (weatherNewDataWS) {
+      weatherJSON(payLoad, sizeof(payLoad));
+      webSocket.broadcastTXT(payLoad);      
+      weatherNewDataWS = false;
+      if (mySettings.debuglevel == 3) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Weather WebSocket data boradcasted, len: %u"), strlen(payLoad)); R_printSerialTelnetLogln(tmpStr); }      
       yieldTime += yieldOS(); 
     }  
 

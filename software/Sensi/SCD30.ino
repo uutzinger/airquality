@@ -10,15 +10,53 @@
 // float getTemperatureOffset()
 // uint16_t getAltitudeCompensation()
   
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/SCD30.h"
 #include "src/BME68x.h"
 #include "src/BME280.h"
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/Quality.h"
-#endif
+#include "src/Print.h"
+
+uint16_t      scd30_ppm = 0;                               // co2 concentration from sensor
+float         scd30_temp = -999.;                          // temperature from sensor
+float         scd30_hum = -1.;                             // humidity from sensor
+float         scd30_ah = -1.;                              // absolute humidity, calculated
+bool          scd30_avail = false;                         // do we have this sensor?
+bool          scd30NewData = false;                        // do we have new data?
+bool          scd30NewDataWS = false;                      // do we have new data for websocket
+uint8_t       scd30_i2c[2];                                // the pins for the i2c port, set during initialization
+uint8_t       scd30_error_cnt = 0;
+unsigned long intervalSCD30 = 0;                           // will bet set at initilization to either values for Fast or Slow opertion
+unsigned long lastSCD30;                                   // last time we interacted with sensor
+unsigned long lastPressureSCD30;                           // last time we updated pressure
+unsigned long lastSCD30Busy;                               // for the statemachine
+unsigned long errorRecSCD30;
+unsigned long startMeasurementSCD30;
+unsigned long scd30_lastError;
+const int     SCD30interruptPin = SCD30_RDY;               // 
+
+volatile  SensorStates stateSCD30 = IS_IDLE;               // keeping track of sensor state
+TwoWire *scd30_port =0;                                    // pointer to the i2c port, might be useful for other microcontrollers
+SCD30 scd30;                                               // the sensor
+
+// External Variables
+extern Settings      mySettings;   // Config
+extern bool          fastMode;     // Sensi
+extern bool          BMEhum_avail; // BME280
+extern unsigned long lastYield;    // Sensi
+extern unsigned long currentTime;  // Sensi
+extern char          tmpStr[256];       // Sensi
+
+extern bool          bme68x_avail; // bme680
+extern TwoWire      *bme68x_port;  
+extern uint8_t       bme68x_i2c[2]; 
+extern bme68xData    bme68x;
+
+extern bool          bme280_avail;
+extern TwoWire      *bme280_port;
+extern uint8_t       bme280_i2c[2];
+extern float         bme280_pressure;
 
 void ICACHE_RAM_ATTR handleSCD30Interrupt() {              // Interrupt service routine when data ready is signaled
   stateSCD30 = DATA_AVAILABLE;                             // advance the sensor state
@@ -185,14 +223,14 @@ bool updateSCD30 () {
       }
       break;        
     }
-    
+
     case HAS_ERROR : {
       if (currentTime > errorRecSCD30) {      
         D_printSerialTelnet(F("D:U:SCD30:E.."));
         if (scd30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           scd30_avail = false; 
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: reinitialization attempts exceeded, SCD30: no longer available.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: reinitialization attempts exceeded, SCD30: no longer available")); }
           break;
         } // give up after ERROR_COUNT tries
 
@@ -200,7 +238,7 @@ bool updateSCD30 () {
 
         // trying to recover sensor
         if (initializeSCD30()) {
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: recovered.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: recovered")); }
         }
       }
       break;
@@ -218,28 +256,12 @@ bool updateSCD30 () {
   return success;
 }
 
-void scd30JSON(char *payload, size_t len){
-  char qualityMessage1[16];
-  char qualityMessage2[16];
-  char qualityMessage3[16];
-  if (scd30_avail) { 
-    checkCO2(float(scd30_ppm), qualityMessage1, 15); 
-    checkHumidity(scd30_hum, qualityMessage2, 15);
-    checkAmbientTemperature(scd30_temp, qualityMessage3, 15);
-  } else {
-    strcpy(qualityMessage1, "not available");
-    strcpy(qualityMessage2, "not available");
-    strcpy(qualityMessage3, "not available");
-  } 
-  snprintf_P(payload, len, PSTR("{ \"scd30\": { \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}}"), 
-                       scd30_avail ? "true" : "false", 
-                       scd30_avail ? scd30_ppm : 0, 
-                       scd30_avail ? scd30_hum : -1.0,
-                       scd30_avail ? scd30_ah : -1.0,
-                       scd30_avail ? scd30_temp : -999.0,
-                       qualityMessage1, 
-                       qualityMessage2,
-                       qualityMessage3);
+void scd30JSON(char *payLoad, size_t len){
+  const char * str = "{ \"scd30\": ";
+  size_t l = strlen(str);
+  strlcpy(payLoad, str, l+1);
+  scd30JSONMQTT(payLoad+l, len-l-1);
+  strlcat(payLoad, "}", len);
 }
 
 void scd30JSONMQTT(char *payload, size_t len){

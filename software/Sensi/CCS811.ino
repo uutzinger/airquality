@@ -6,14 +6,44 @@
 //  uint16_t vrefCounts
 //  uint16_t ntcCounts
 //  float temperature
-  
-#include "VSC.h"
-#ifdef EDITVSC
+
 #include "src/CCS811.h"
 #include "src/Sensi.h"
 #include "src/Config.h"
 #include "src/Quality.h"
-#endif
+#include "src/Print.h"
+
+bool                   ccs811_avail = false;               // do we have this sensor?
+bool                   ccs811NewData = false;              // do we have new data
+bool                   ccs811NewDataWS = false;            // do we have new data for websocket
+uint8_t                ccs811_i2c[2];                      // the pins for the i2c port, set during initialization
+uint8_t                ccs811Mode;                         // operation mode, see above 
+uint8_t                ccs811_error_cnt = 0;               // do we have errors when reading the sensor  
+const uint8_t          CCS811interruptPin = CCS811_INT;    // CCS811 not Interrupt Pin
+unsigned long          lastCCS811;                         // last time we interacted with sensor
+unsigned long          lastCCS811Baseline;                 // last time we obtained baseline
+unsigned long          lastCCS811Humidity;                 // last time we update Humidity on sensor
+unsigned long          warmupCCS811;                       // sensor needs 20min conditioning 
+unsigned long          intervalCCS811Baseline;             // get the baseline every few minutes
+unsigned long          intervalCCS811Humidity;             // update the humidity every few minutes
+unsigned long          intervalCCS811;                     // to check if interrupt timed out
+unsigned long          errorRecCCS811;                     // when did we attempt to recover sensor
+unsigned long          startMeasurementCCS811;
+unsigned long          ccs811_lastError;
+volatile unsigned long lastCCS811Interrupt;                // last time we update Humidity on sensor
+
+TwoWire               *ccs811_port =0;                     // pointer to the i2c port, might be useful for other microcontrollers
+volatile SensorStates  stateCCS811 = IS_IDLE;              // sensor state
+CCS811                 ccs811(0X5B);                       // the sensor, if alternative address is used, the address pin will need to be set to high
+
+// External Variables 
+extern Settings      mySettings;   // Config
+extern bool          fastMode;     // Sensi
+extern unsigned long lastYield;    // Sensi
+extern unsigned long currentTime;  // Sensi
+extern char          tmpStr[256];       // Sensi
+extern bool          bme68x_avail; // bme68x
+extern unsigned long tmpTime;      // Sensi
 
 /******************************************************************************************************/
 // Interrupt Handler CCS811
@@ -113,6 +143,7 @@ bool initializeCCS811(){
 /******************************************************************************************************/
 // UPDATE CCS811
 /******************************************************************************************************/
+
 bool updateCCS811() {
   // Operation:
   //  Setup 
@@ -251,14 +282,14 @@ bool updateCCS811() {
         if (ccs811_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           ccs811_avail = false; 
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: reinitialization attempts exceeded, CCS811: no longer available.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: reinitialization attempts exceeded, CCS811: no longer available")); }
           break;
         } // give up after ERROR_COUNT tries
         ccs811_lastError;
 
         // trying to recover sensor, reinitialize it
         if (initializeCCS811()) {
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: recovered.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: recovered")); }
         }
       }
       break;
@@ -271,23 +302,16 @@ bool updateCCS811() {
   return success;
 }
 
-void ccs811JSON(char *payload, size_t len){
-  //
-  char qualityMessage1[16];
-  char qualityMessage2[16];
-  if (ccs811_avail) { 
-    checkCO2(float(ccs811.getCO2()), qualityMessage1, 15); 
-    checkTVOC(float(ccs811.getTVOC()), qualityMessage2, 15);
-  } else {
-    strcpy(qualityMessage1, "not available");
-    strcpy(qualityMessage2, "not available");
-  }
-  snprintf_P(payload, len, PSTR("{ \"ccs811\": { \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}}"), 
-                       ccs811_avail ? "true" : "false", 
-                       ccs811_avail ? ccs811.getCO2() : 0, 
-                       ccs811_avail ? ccs811.getTVOC() : 0, 
-                       qualityMessage1, 
-                       qualityMessage2);
+/******************************************************************************************************/
+// JSON CCS811
+/******************************************************************************************************/
+
+void ccs811JSON(char *payLoad, size_t len){
+  const char * str = "{ \"ccs811\": ";
+  size_t l = strlen(str);
+  strlcpy(payLoad, str, l+1);
+  ccs811JSONMQTT(payLoad+l, len-l-1);
+  strlcat(payLoad, "}", len);
 }
 
 void ccs811JSONMQTT(char *payload, size_t len){
@@ -302,9 +326,9 @@ void ccs811JSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
   }
   snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}"), 
-                       ccs811_avail ? "true" : "false", 
-                       ccs811_avail ? ccs811.getCO2() : 0, 
-                       ccs811_avail ? ccs811.getTVOC() : 0, 
-                       qualityMessage1, 
-                       qualityMessage2);
+             ccs811_avail ? "true" : "false", 
+             ccs811_avail ? ccs811.getCO2() : 0, 
+             ccs811_avail ? ccs811.getTVOC() : 0, 
+             qualityMessage1, 
+             qualityMessage2);
 }

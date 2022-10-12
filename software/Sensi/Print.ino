@@ -1,13 +1,18 @@
 /******************************************************************************************************/
 // Printing functions
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/Config.h"
 #include "src/Sensi.h"
 #include "src/Print.h"
 #include "src/Telnet.h"
-#endif
+
+// External Variables
+extern Settings      mySettings;       // Config
+extern bool          telnetConnected;
+extern ESPTelnet     Telnet;
+extern File          logFile;
+extern tm           *localTime;
+
 /******************************************************************************************************/
 // Printing Options for Serial, Telnet, Logfile
 // Print to one of the 3 devices
@@ -18,6 +23,7 @@
 // Print strings and char*
 // Printing to log file adds time stamp
 /******************************************************************************************************/
+
 void printSerial(char* str) {
   if ( mySettings.useSerial ) { Serial.print(str); }
 }

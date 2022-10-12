@@ -1,12 +1,36 @@
 /******************************************************************************************************/
-// MDNS
+// mDNS multicast Domain Name Service
 /******************************************************************************************************/
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/Wifi.h"
 #include "src/Sensi.h"
 #include "src/Config.h"
-#endif
+
+// External variables
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];      // Sensi
+extern char          hostName[16];     // WiFi
+
+extern unsigned long AllmaxUpdatemDNS; // Sensi
+extern volatile WiFiStates    stateMDNS;        // WiFi
+extern unsigned long lastMDNS;         // WiFi
+extern unsigned long mDNS_lastError;   // WiFi
+extern bool          mdns_avail;       // WiFi
+
+/******************************************************************************************************/
+// Initialize mDNS
+/******************************************************************************************************/
+
+void initializeMDNS() {
+  D_printSerialTelnet(F("D:U:MDNS:IN.."));
+  delay(50); lastYield = millis();
+}
+
+/******************************************************************************************************/
+// Update mDNS
+/******************************************************************************************************/
 
 void updateMDNS() {
 
@@ -30,15 +54,16 @@ void updateMDNS() {
         lastMDNS = currentTime;
         // mDNS responder setup
         // by default OTA service is starting mDNS, if OTA is enabled we need to skip begin and update
-        if (!mySettings.useOTA) {
+        if (mySettings.useOTA == false) {
           D_printSerialTelnet(F("D:S:mDNS:HN.."));
-          if (MDNS.begin(hostName) == false) { 
+          if (MDNS.begin(hostName) ) {
+            if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MDNS: started")); }
+          } else {
+            stateMDNS = WF_ERROR;
             mDNS_lastError = currentTime;
-            if (mySettings.debuglevel > 0) { 
-              snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MDNS: error setting up MDNS responder")); 
-              R_printSerialTelnetLogln(tmpStr);
-            } 
-          }
+            if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: could not start")); }
+            break;
+          } 
         }
 
         D_printSerialTelnet(F("D:S:mDNS:R.."));
@@ -48,65 +73,49 @@ void updateMDNS() {
           // mDNS announce service for website
           if ( mySettings.useHTTP == true) {
             D_printSerialTelnet(F("D:S:mDNS:HTTP.."));
-            if (!MDNS.addService("http", "tcp", 80)) { 
+            if (MDNS.addService("http", "tcp", 80)) {
+              if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MDNS: http added")); }
+            } else { 
+              stateMDNS = WF_ERROR;
               mDNS_lastError = currentTime;
-              if (mySettings.debuglevel > 0) { 
-                R_printSerialTelnetLogln(F("MDNS: could not add service for tcp 80")); 
-                } 
-              }
+              if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: could not add service for tcp 80")); } 
+            }
             D_printSerialTelnet(F("D:S:mDNS:WS.."));
-            if (!MDNS.addService("ws", "tcp", 81)) { 
+            if (MDNS.addService("ws", "tcp", 81)) {
+              if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MDNS: ws added")); }
+            } else {
+              stateMDNS = WF_ERROR;
               mDNS_lastError = currentTime;
-              if (mySettings.debuglevel > 0) { 
-                R_printSerialTelnetLogln(F("MDNS: could not add service for ws 81")); 
-              }
+              if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: could not add service for ws 81")); } 
             }
           }
+        } else {
+          stateMDNS = WF_ERROR;
+          mDNS_lastError = currentTime;
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: error, not running")); }
+        }
 
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: initialized")); }
-          
-          // query mDNS on network
-          /*
-          int n = MDNS.queryService("esp", "tcp"); // Send out query for esp tcp services
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLog(F("MDNS: query completed")); }
-          if (n == 0) {
-            if (mySettings.debuglevel > 0) { Serial.println(F("MDNS: no services found")); }
-          } else {
-            if (mySettings.debuglevel > 0) {
-              Serial.println(F("MDNS: service(s) found"));
-              for (int i = 0; i < n; ++i) {
-                // Print details for each service found
-                printSerialTelnetLog(F("MDNS: ")); 
-                printSerialTelnetLog(i + 1); 
-                printSerialTelnetLog(F(": ")); 
-                printSerialTelnetLog(MDNS.hostname(i)); 
-                printSerialTelnetLog(F(" (")); 
-                printSerialTelnetLog(MDNS.IP(i)); 
-                printSerialTelnetLog(F(":"));  
-                printSerialTelnetLog(MDNS.port(i)); 
-                printSerialTelnetLogln(F(")"));
-              } // for all mDNS services
-            } 
-          } // end found mDNS announcements
-          */
-        } // end mDNS
       } // end time interval
       break;
     } // end startup
 
     case CHECK_CONNECTION : { //---------------------
       D_printSerialTelnet(F("D:S:mDNS:CC.."));
-      if (mySettings.useOTA == false) { // Update MDNS but only if OTA is not enabled, OTA update also updates mDNS by default 
-        MDNS.update(); 
-      }
+      // Update MDNS but only if OTA is not enabled, OTA update also updates mDNS by default 
+      if (mySettings.useOTA == false) { MDNS.update(); }
+      break;
+    }
+
+    case WF_ERROR : { //---------------------
+      D_printSerialTelnet(F("D:S:mDNS:ERR.."));
+      mdns_avail =  false;
+      if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: no longer available")); }
       break;          
     }
 
-    default: {
-      if (mySettings.debuglevel > 0) { 
-        R_printSerialTelnetLogln(F("mDNS Error: invalid switch statement")); 
+    default: { // ----------------------------
+      if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MDNS: wrong switch statement")); }
       break;
-      }
     }
 
   } // switch

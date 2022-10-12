@@ -5,13 +5,42 @@
 // float therm.ambient()
 // float therm.readEmissivity()
 
-#include "VSC.h"
-#ifdef EDITVSC
 #include "src/MLX.h"
 #include "src/Sensi.h"
 #include "src/Config.h"
 #include "src/Quality.h"
-#endif
+#include "src/Print.h"
+
+// reading a black surface should give the same value as room temperature measuresd with other sensors
+// measuring wall or ceiling differs from room temp
+float                 mlxOffset = 1.4;                     // offset to adjust for sensor inaccuracy,
+bool                  therm_avail = false;                 // do we hav e the sensor?
+bool                  mlxNewData = false;                  // do we have new data
+bool                  mlxNewDataWS = false;                // do we have new data for websocket
+uint8_t               mlx_i2c[2];                          // the pins for the i2c port, set during initialization
+unsigned long         intervalMLX = 1000;                  // readout intervall in ms, 250ms minimum
+unsigned long         lastMLX;                             // last time we interacted with sensor
+unsigned long         sleepTimeMLX;                        // computed internally
+unsigned long         errorRecMLX;
+uint8_t               mlx_error_cnt = 0;                   //
+uint8_t               therm_error_cnt = 0;                 //
+unsigned long         startMeasurementMLX;
+unsigned long         mlx_lastError;
+volatile SensorStates stateMLX = IS_IDLE;                  // sensor state
+TwoWire              *mlx_port =0;                         // pointer to the i2c port, might be useful for other microcontrollers
+IRTherm               therm;                               // the IR thermal sensor
+
+// Extern variables
+extern bool          fastMode;         // Sensi
+extern unsigned long yieldTime;        // Sensi
+extern unsigned long lastYield;        // Sensi
+extern Settings      mySettings;       // Config
+extern unsigned long currentTime;      // Sensi
+extern char          tmpStr[256];           // Sensi
+
+/******************************************************************************************************/
+// Initialize MLX
+/******************************************************************************************************/
 
 bool initializeMLX(){
   
@@ -131,7 +160,7 @@ bool updateMLX() {
         if (therm_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           therm_avail = false;
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: reinitialization attempts exceeded, MLX: no longer available.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: reinitialization attempts exceeded, MLX: no longer available")); }
           break; 
         } // give up after ERROR_COUNT tries
         
@@ -139,7 +168,7 @@ bool updateMLX() {
         
         // trying to recover sensor
         if (initializeMLX()){
-          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: recovered.")); }
+          if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: recovered")); }
         }
       }
       break;
@@ -155,22 +184,16 @@ bool updateMLX() {
   return success;
 }
 
-void mlxJSON(char *payload, size_t len){
-  char qualityMessage1[16];
-  char qualityMessage2[16];
-  if (therm_avail) { 
-    checkFever(therm.object()+mlxOffset+fhDelta, qualityMessage1, 15);
-    checkAmbientTemperature(therm.ambient(), qualityMessage2, 15);
-  } else {
-    strcpy(qualityMessage1, "not available");
-    strcpy(qualityMessage2, "not available");
-  }  
-  snprintf_P(payload, len, PSTR("{ \"mlx\": { \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.2f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}}"), 
-                       therm_avail ? "true" : "false", 
-                       therm_avail ? therm.object()+mlxOffset : -999., 
-                       therm_avail ? therm.ambient() : -999., 
-                       qualityMessage1, 
-                       qualityMessage2);
+/******************************************************************************************************/
+// JSON MLX
+/******************************************************************************************************/
+
+void mlxJSON(char *payLoad, size_t len){
+  const char * str = "{ \"mlx\": ";
+  size_t l = strlen(str);
+  strlcpy(payLoad, str, l+1);
+  mlxJSONMQTT(payLoad+l, len-l-1);
+  strlcat(payLoad, "}", len);
 }
 
 void mlxJSONMQTT(char *payload, size_t len){
