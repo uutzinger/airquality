@@ -14,7 +14,7 @@ Most WiFi features of the ESP8266 are implemented (web, telnet, web sockets, mqt
     + [SCD30](#scd30)
     + [SPS30](#sps30)
     + [SGP30](#sgp30)
-    + [BME680](#bme680)
+    + [BME680](#bme68x)
     + [CCS811](#ccs811)
     + [MLX90614](#mlx90614)
     + [MAX30105](#max30105)
@@ -31,7 +31,7 @@ There are many sensors for indoor air quality: [**Air Quality Sensors List**](Ai
 At this time this software **supports the following devices**:
 - LCD 20x4  (requires 5V signal and power)
 - SCD30 Senserion CO2  
-- BME680 Bosch Temp, Humidity, Pressure, tVOC  
+- BME68x Bosch Temp, Humidity, Pressure, tVOC  
 - BM[E/P]280 Bosch Temp, [Humidity], Pressure  
 - SGP30 Senserione VOC, eCO2  
 - CCS811 Airquality eCO2 tVOC  
@@ -67,7 +67,7 @@ You will also need to upload files to the LittleFS using the https://github.com/
 
 The libraries included in this distribution are:
 
-- SPS30 Senserion particle, Paul Van Haastrecht library, modified to accept faulty version information, replaced byte with uint8_t, https://github.com/uutzinger/sps30.git
+- SPS30 Senserion particle, Rearranged and expanded Sensirion arduino-sps library, https://github.com/uutzinger/SPS30_Arduino_Library
 - SCD30 Senserion CO2, Sparkfun library, using interrupt from data ready pin, replaced byte with uint8_t, https://github.com/uutzinger/SparkFun_SCD30_Arduino_Library.git
 - SGP30 Senserion VOC, eCO2, Sparkfun library, replaced byte with uint8_t, https://github.com/uutzinger/SparkFun_SGP30_Arduino_Library.git
 - BME680 Bosch Temp, Humidity, Pressure, VOC, Adafruit library https://github.com/adafruit/Adafruit_BME680.git
@@ -81,6 +81,7 @@ The libraries included in this distribution are:
 - ESPNTPClient, https://github.com/gmag11/ESPNtpClient
 - ArduWebSockets, https://github.com/Links2004/arduinoWebSockets
 - ArduJSON, https://github.com/bblanchon/ArduinoJson.git
+- OpenWeather https://openweathermap.org/
 
 ## Features
 
@@ -229,5 +230,5 @@ NTP
 Air Quality
 - Indoor: https://www.dhs.wisconsin.gov/chemical/carbondioxide.htm
 
-Weather Data (not included yet)
-- http://api.openweathermap.org/data/2.5/weather?q=Tucson,US&APPID=e05a9231d55d12a90f7e9d7903218b3c
+Weather Data
+- http://api.openweathermap.org/data/2.5/weather?q=Tucson,US&APPID=replacewithyourapikey

@@ -31,6 +31,7 @@
 //  - ESP_Telnet                                    https://github.com/LennartHennigs/ESPTelnet
 //  - ESPNTPClient                                  https://github.com/gmag11/ESPNtpClient
 //  - ArduWebSockets:                               https://github.com/Links2004/arduinoWebSockets
+//  - OpenWeather                                   https://openweathermap.org/
 //
 // Other Libraries:
 //  - ArduJSON                                      https://github.com/bblanchon/ArduinoJson.git
