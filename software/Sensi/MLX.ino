@@ -31,12 +31,12 @@ TwoWire              *mlx_port =0;                         // pointer to the i2c
 IRTherm               therm;                               // the IR thermal sensor
 
 // Extern variables
-extern bool          fastMode;         // Sensi
-extern unsigned long yieldTime;        // Sensi
-extern unsigned long lastYield;        // Sensi
-extern Settings      mySettings;       // Config
-extern unsigned long currentTime;      // Sensi
-extern char          tmpStr[256];           // Sensi
+extern bool           fastMode;         // Sensi
+extern unsigned long  yieldTime;        // Sensi
+extern unsigned long  lastYield;        // Sensi
+extern Settings       mySettings;       // Config
+extern unsigned long  currentTime;      // Sensi
+extern char           tmpStr[256];           // Sensi
 
 /******************************************************************************************************/
 // Initialize MLX

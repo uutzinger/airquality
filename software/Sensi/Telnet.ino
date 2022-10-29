@@ -28,7 +28,7 @@ extern unsigned long yieldTime;    // Sensi
 extern char          tmpStr[256];  // Sensi
 
 void onTelnetInputReceived(String str){
-  strncpy(telnetInputBuff, str.c_str(), sizeof(telnetInputBuff)); 
+  strlcpy(telnetInputBuff, str.c_str(), sizeof(telnetInputBuff)); // Null termination enforced
   telnetReceived = true;
 }
 

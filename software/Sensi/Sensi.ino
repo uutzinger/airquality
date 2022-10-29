@@ -39,9 +39,9 @@
 // Operation:
 //  Fast Mode: read often, minimal power saving, some sensors have higher sampling rate than others
 //  Slow Mode: read at about 1 sample per minute, where possible enable power saving features,
-//  Some sensorS require 1 sec sampling interval regardless of Fast or Slow Mode.
+//  Some sensors require 1 sec sampling interval regardless of Fast or Slow Mode.
 //
-//  Air quality sensors other than pressue, temperature and humidity consume more power than other sensors 
+//  Air quality sensors other than pressue, temperature and humidity consume more power 
 //  because they have heated sensos elements and are not well suited for battery operation.
 //
 // Settings:
@@ -119,6 +119,7 @@
 // Sometime:       Support for TFT display
 // Sometime:       Add support for xxx4x sensors from Sensirion, ENS160, BME688...
 //
+// 2022 October:   Print and delete files on LittleFS, telnet fix, manually set average pressure. 
 // 2022 September: Changed SPS30 library to a custom rearranged Sensirion library. 
 //                 Updated initialization and updateing of WIFI dependent modules. 
 //                 Modified include files and variable declarations in all files;.
@@ -163,7 +164,7 @@
 /************************************************************************************************************************************/
 // Build Configuration
 /************************************************************************************************************************************/
-#define VER "2.2.7"
+#define VER "2.2.10"
 
 // Debug
 // -----
@@ -173,8 +174,10 @@
 
 // LCD Screen
 // ----------
-//#define ADALCD  // we have Adafruit i2c to LCD driver
-#undef ADALCD      // we have non-Adafruit i2c to LCD driver
+//#define ADALCD     // we have Adafruit LCD driver
+#undef ADALCD      // we have non-Adafruit LCD driver
+#define TIMELCD    // we want time on LCD screen
+//#undef TIMELCD     // we dont want time on LCCD screen
 
 // Measure fast or slow
 // --------------------
@@ -910,7 +913,13 @@ void setup() {
   /************************************************************************************************************************************/
   D_printSerial(F("D:S:LCD.."));
   if (lcd_avail && mySettings.useLCD) {
-    if (mySettings.consumerLCD) { updateSinglePageLCDwTime(); } 
+    if (mySettings.consumerLCD) { 
+#if defined(TIMELCD)
+      updateSinglePageLCDwTime(); 
+#else
+      updateSinglePageLCD(); 
+#endif
+    }
     else                        { updateLCD(); }
     if (mySettings.debuglevel > 0) { R_printSerialLogln(F("LCD updated")); }
   }
@@ -1226,7 +1235,13 @@ void loop() {
         
         // Update the LCD screen
         // ---
-        if (  mySettings.consumerLCD ) { updateSinglePageLCDwTime(); } else { updateLCD(); } //<<<<<<------
+        if (  mySettings.consumerLCD ) { 
+#if defined(TIMELCD)
+          updateSinglePageLCDwTime();
+#else
+          updateSinglePageLCD(); 
+#endif
+        } else { updateLCD(); } //<<<<<<------
 
         // Do we want to blink the LCD background ?
         // ---
@@ -1820,7 +1835,60 @@ bool inputHandle() {
       } else { R_printSerialTelnetLogln(F("LittleFS not mounted")); }
       yieldTime += yieldOS(); 
     }
-    
+
+    else if (command[0] == 'Z') {                                            // print a file
+      if (strlen(value) > 0) { // we have a value
+        if (fsOK) {
+          File file = LittleFS.open(value, "r");
+          if (file) { 
+            while(file.available()){
+              size_t bytesRead = file.readBytes(tmpStr, sizeof(tmpStr)-1);
+              tmpStr[bytesRead] = '\0';
+              R_printSerialTelnetLog(tmpStr);
+              yieldTime += yieldOS(); 
+            }
+            file.close();
+          } else { 
+            printSerialTelnetLog(F("Failed to open file: ")); 
+            printSerialTelnetLogln(value); 
+          }
+        } else { R_printSerialTelnetLogln(F("LittleFS not mounted")); }
+      }
+    }
+
+    else if (command[0] == 'X') {                                            // delete a file
+      if (strlen(value) > 0) { // we have a value
+        if (fsOK) {
+          if (LittleFS.exists(value)) {
+            LittleFS.remove(value);
+            printSerialTelnetLog(value); 
+            printSerialTelnetLogln(F(" deleted")); 
+          } else { 
+            printSerialTelnetLog(value); 
+            printSerialTelnetLog(F(" does not exist")); 
+          }
+        } else { R_printSerialTelnetLogln(F("LittleFS not mounted")); }
+        yieldTime += yieldOS(); 
+      }
+    }
+
+    ///////////////////////////////////////////////////////////////////
+    // Pressure
+    ///////////////////////////////////////////////////////////////////
+    else if (command[0] == '~') {                                            // forced MLX temp offset
+      if (strlen(value)>0) {
+        tmpF = strtof(value, NULL);
+        if ((tmpF >= 0.0) && (tmpF <= 2000.0)) {
+          mySettings.avgP = tmpF*100.;
+          bme68x_pressure24hrs = tmpF*100.;
+          bme280_pressure24hrs = tmpF*100.;
+          snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Average pressure set to: %f"),mySettings.avgP/100.); 
+          R_printSerialTelnetLogln(tmpStr);
+        } else { R_printSerialTelnetLogln(F("Average pressure out of valid Range")); }
+      } else { R_printSerialTelnetLogln(F("No average data provided")); }
+      yieldTime += yieldOS(); 
+    }
+
     ///////////////////////////////////////////////////////////////////
     // SGP30
     ///////////////////////////////////////////////////////////////////
@@ -2361,7 +2429,7 @@ bool inputHandle() {
     //{"sps30":{"avail":false,"PM1": 0.0,"PM2": 0.0,"PM4": 0.0,"PM10": 0.0,"nPM0": 0.0,"nPM1": 0.0,"nPM2": 0.0,"nPM4": 0.0,"nPM10": 0.0,"PartSize": 0.0,"PM2_airquality":"Normal","PM10_airquality":"Normal"}} len: 200
     // max30, weather ...
     
-    else if (command[0] == 'i') {                                                         // simpler display on LCD
+    else if (command[0] == 'i') {                                          // simpler display on LCD
       mySettings.consumerLCD = !bool(mySettings.consumerLCD);
       if (mySettings.consumerLCD) {
         R_printSerialTelnetLog(F("Simpler LCD display"));
@@ -2371,12 +2439,12 @@ bool inputHandle() {
       yieldTime += yieldOS(); 
     }
 
-    else if (command[0] =='?' || command[0] =='h') {                                                          // help requested
+    else if (command[0] =='?' || command[0] =='h') {                       // help requested
       helpMenu();
       //yieldTime += yieldOS(); // is inside helpMenu()
     }
 
-    else {                                                                             // unrecognized command
+    else {                                                                 // unrecognized command
       R_printSerialTelnetLog(F("Command not available: "));
       printSerialTelnetLogln(command);
       yieldTime += yieldOS(); 
@@ -2414,11 +2482,12 @@ void helpMenu() {
     printSerialTelnetLogln(F("| z: print all sensor data              | n: this device Name, nSensi          |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| p: print current settings             | s: save settings (EEPROM) sj: (JSON) |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| dd: create default seetings           | r: read settings (EEPROM) rj: (JSON) |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| .: execution times                    | L: list content of filesystem        |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| j: print sensor data in JSON          | W: print WiFi states and Intervals   |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| .: execution times                    | W: print WiFi states and Intervals   |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| j: print sensor data in JSON          | L: list content of filesystem        |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| Z: print file Z/Sensi.json            | X: delete file X/Sensi.bak           |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("==Network===============================|==MQTT================================="));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| P1: SSID 1, P1myssid                  | u: mqtt username, umqtt or empty     |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| P2: SSID 2, P2myssid                  | w: mqtt password, ww1ldc8ts or empty |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| P2: SSID 2, P2myssid                  | w: mqtt password, wpasswd or empty   |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| P3: SSID 3, P3myssid                  | q: toggle send mqtt immediatly, q    |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| P4: password SSID 1, P4mypas or empty |                                      |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| P5: password SSID 2, P5mypas or empty | P8: mqtt server, P8my.mqtt.com       |"));  yieldTime += yieldOS(); 
@@ -2440,7 +2509,7 @@ void helpMenu() {
     printSerialTelnetLogln(F("|-MLX Temp------------------------------|-LCD----------------------------------|"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| m: set temp offset, m1.4              | i: simplified display                |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("|-Weather ------------------------------|--------------------------------------|"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| *1: set apikey *1e05a92...            |                                      |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| *1: set apikey *1e05a92...            | ~: set average pressure (mbar) ~998.0|"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| *2: set city *2Tucson                 |                                      |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| *3: set country *3US                  |                                      |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("==Disable===============================|==Disable=============================="));  yieldTime += yieldOS(); 
@@ -3092,11 +3161,11 @@ void defaultSettings() {
   mySettings.baselineCCS811_valid          = (uint8_t)         0x00;
   mySettings.baselineCCS811                = (uint16_t)        0;
   mySettings.tempOffset_SCD30_valid        = (uint8_t)         0x00;
-  mySettings.tempOffset_SCD30              = (float)        0.01;
+  mySettings.tempOffset_SCD30              = (float)           0.01;
   mySettings.forcedCalibration_SCD30_valid = (uint8_t)         0x00; // not used
-  mySettings.forcedCalibration_SCD30       = (float)         0.0; // not used
+  mySettings.forcedCalibration_SCD30       = (float)           0.0; // not used
   mySettings.tempOffset_MLX_valid          = (uint8_t)         0x00;
-  mySettings.tempOffset_MLX                = (float)         0.0;
+  mySettings.tempOffset_MLX                = (float)           0.0;
   strcpy_P(mySettings.ssid1,                 PSTR("meddev"));
   strcpy_P(mySettings.pw1,                   PSTR(""));
   strcpy_P(mySettings.ssid2,                 PSTR("UAGUest"));

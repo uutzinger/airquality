@@ -181,8 +181,8 @@ bool updateSinglePageLCDwTime() {
 
   if (sps30_avail && mySettings.useSPS30) { // =Particles =====================
     if (stateSPS30 == HAS_ERROR) {
-      myPM25 = -9999.;
-      myPM10 = -9999.;
+      myPM25 = -1.;
+      myPM10 = -1.;
     } else {
       myPM25 = valSPS30.mc_2p5;
       myPM10 = valSPS30.mc_10p0;
@@ -398,7 +398,7 @@ bool updateSinglePageLCDwTime() {
   strncpy(lcdbuf, &lcdDisplay[1][0], 20);    lcdbuf[20] = '\0'; if (strlen(lcdbuf) == 20) { lcd.print(lcdbuf); } // since display has no Null char we need to terminate lcdbuf
   yieldTime += yieldOS(); 
   strncpy(lcdbuf, &lcdDisplay[3][0], 20);    lcdbuf[20] = '\0'; if (strlen(lcdbuf) == 20) { lcd.print(lcdbuf); } // since display has no Null char we need to terminate lcdbuf
-  yieldTime += yieldOS(); 
+  yieldTime += yieldOS();
 
   if (mySettings.debuglevel == 11) { // if dbg, display the lines also on serial port
     strncpy(lcdbuf, &lcdDisplay[0][0], 20);    lcdbuf[20] = '\0'; printSerialTelnetLog("|");  printSerialTelnetLog(lcdbuf); printSerialTelnetLogln("|");
@@ -447,29 +447,46 @@ bool updateSinglePageLCD() {
   // Collect Data
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
-  if (scd30_avail && mySettings.useSCD30) { // ======================================================
+  if (scd30_avail && mySettings.useSCD30 && (scd30_ppm != 0)) { // =CO2 Hum =========================
     myTemp = scd30_temp;
     myHum  = scd30_hum;
     myCO2  = float(scd30_ppm);
-  }
+  } else { 
+    if (ccs811_avail && mySettings.useCCS811) { 
+      myCO2 = float(ccs811.getCO2());  // scd30 not running use eCO2 from ccs811
+    } else { 
+      if (sgp30_avail && mySettings.useSGP30) { 
+        myCO2 = float(sgp30.CO2); // scd30 not running use eCO2 from sgp30
+      }
+    }
+    if (bme68x_avail && mySettings.useBME68x) { 
+      myHum = bme68x.humidity;
+      myTemp = bme68x.temperature; 
+    } 
+  } 
     
-  if (bme68x_avail && mySettings.useBME68x) { // ====================================================
+  if (bme68x_avail && mySettings.useBME68x) { // =Pressure Temp =====================================
     mydP   = (bme68x.pressure - bme68x_pressure24hrs)/100.0;
     myTemp = bme68x.temperature;
-  }
-
-  if (bme280_avail && mySettings.useBME280) { // ====================================================
+  } else if (bme280_avail && mySettings.useBME280) { 
     mydP   = (bme280_pressure - bme280_pressure24hrs)/100.0;
     myTemp = bme280_temp;
   }
-  
-  if (sgp30_avail && mySettings.useSGP30) { // ======================================================
-    mytVOC = float(sgp30.TVOC);    
-  } 
 
-  if (sps30_avail && mySettings.useSPS30) { // ======================================================
-    myPM25 = valSPS30.mc_2p5;
-    myPM10 = valSPS30.mc_10p0;
+  if (ccs811_avail && mySettings.useCCS811) { // =tVOC ==============================================
+    mytVOC = float(ccs811.getTVOC());
+  } else if (sgp30_avail && mySettings.useSGP30) { 
+    mytVOC = float(sgp30.TVOC);               // tVoc fall back
+  }
+
+  if (sps30_avail && mySettings.useSPS30) { // =Particles ===========================================
+    if (stateSPS30 == HAS_ERROR) {
+      myPM25 = -1.;
+      myPM10 = -1.;
+    } else {
+      myPM25 = valSPS30.mc_2p5;
+      myPM10 = valSPS30.mc_10p0;
+    }
   }
 
   // my warnings // =================================================================================
@@ -554,7 +571,6 @@ bool updateSinglePageLCD() {
   }
 
   if (myPM25 >= 0.) {
-    
     if (myPM25<1000) { snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3du"), myround(myPM25)); } else { snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR(">999")); }
     strncpy(&lcdDisplay[2][8], lcdbuf, 4); // No Null char
     if (myPM10<1000) { snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR("%3du"), myround(myPM10)); } else { snprintf_P(lcdbuf, sizeof(lcdbuf), PSTR(">999")); }
