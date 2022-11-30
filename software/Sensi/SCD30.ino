@@ -24,6 +24,7 @@ float         scd30_hum = -1.;                             // humidity from sens
 float         scd30_ah = -1.;                              // absolute humidity, calculated
 bool          scd30_avail = false;                         // do we have this sensor?
 bool          scd30NewData = false;                        // do we have new data?
+bool          scd30NewDataHandeled = false;                // have we handeled the new data?
 bool          scd30NewDataWS = false;                      // do we have new data for websocket
 uint8_t       scd30_i2c[2];                                // the pins for the i2c port, set during initialization
 uint8_t       scd30_error_cnt = 0;
@@ -43,6 +44,8 @@ SCD30 scd30;                                               // the sensor
 // External Variables
 extern Settings      mySettings;   // Config
 extern bool          fastMode;     // Sensi
+extern bool          intervalNewData;
+extern bool          availNewData;
 extern bool          BMEhum_avail; // BME280
 extern unsigned long lastYield;    // Sensi
 extern unsigned long currentTime;  // Sensi
@@ -77,6 +80,7 @@ bool initializeSCD30() {
     snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SCD30: Interval: %lu"), intervalSCD30); 
     R_printSerialTelnetLogln(tmpStr); 
   }
+  intervalNewData = true;
 
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SCD30: configuring interrupt")); }
   pinMode(SCD30interruptPin , INPUT);                      // interrupt scd30
@@ -230,6 +234,7 @@ bool updateSCD30 () {
         if (scd30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           scd30_avail = false; 
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SCD30: reinitialization attempts exceeded, SCD30: no longer available")); }
           break;
         } // give up after ERROR_COUNT tries
@@ -277,7 +282,7 @@ void scd30JSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
     strcpy(qualityMessage3, "not available");
   } 
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"CO2\": %hu, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"CO2_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\" }"), 
                        scd30_avail ? "true" : "false", 
                        scd30_avail ? scd30_ppm : 0, 
                        scd30_avail ? scd30_hum : -1.0,

@@ -30,6 +30,7 @@ unsigned long sps30_lastError;
 
 bool     sps30_avail = false;                              // do we have this sensor?
 bool     sps30NewData = false;                             // do we have new data to display?
+bool     sps30NewDataHandeled = false;                     // have we handeled the new data?
 bool     sps30NewDataWS = false;                           // do we have new data for websocket
 
 uint8_t  sps30_i2c[2];                                     // the pins for the i2c port, set during initialization
@@ -47,6 +48,8 @@ volatile SensorStates stateSPS30 = IS_BUSY;                // sensor state
 // External Variables
 extern Settings      mySettings;   // Config
 extern bool          fastMode;     // Sensi
+extern bool          intervalNewData;
+extern bool          availNewData;
 extern bool          BMEhum_avail; // BME280
 extern unsigned long lastYield;    // Sensi
 extern unsigned long currentTime;  // Sensi
@@ -70,6 +73,7 @@ bool initializeSPS30() {
 
   if (fastMode == true) { intervalSPS30 = intervalSPS30Fast; }
   else                  { intervalSPS30 = intervalSPS30Slow; }
+  intervalNewData = true;
 
   if (mySettings.debuglevel > 0) { 
     snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SPS30: Interval: %lums"),intervalSPS30);
@@ -454,6 +458,7 @@ bool updateSPS30() {
         if (sps30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           sps30_avail = false; 
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SPS30: reinitialization attempts exceeded, SPS30: no longer available")); }
           break;
         } // give up after ERROR_COUNT tries
@@ -505,7 +510,7 @@ void sps30JSONMQTT(char *payload, size_t len) {
     strcpy(qualityMessage1, "not available");
     strcpy(qualityMessage2, "not available");
   } 
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"PM1\": %4.1f, \"PM2\": %4.1f, \"PM4\": %4.1f, \"PM10\": %4.1f, \"nPM0\": %4.1f, \"nPM1\": %4.1f, \"nPM2\": %4.1f, \"nPM4\": %4.1f, \"nPM10\": %4.1f, \"PartSize\": %4.1f, \"PM2_airquality\": \"%s\", \"PM10_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"PM1\": %4.1f, \"PM2\": %4.1f, \"PM4\": %4.1f, \"PM10\": %4.1f, \"nPM0\": %4.1f, \"nPM1\": %4.1f, \"nPM2\": %4.1f, \"nPM4\": %4.1f, \"nPM10\": %4.1f, \"PartSize\": %4.1f, \"PM2_airquality\": \"%s\", \"PM10_airquality\": \"%s\" }"), 
                        sps30_avail ? "true" : "false", 
                        sps30_avail ? valSPS30.mc_1p0  : -1.,
                        sps30_avail ? valSPS30.mc_2p5  : -1.,

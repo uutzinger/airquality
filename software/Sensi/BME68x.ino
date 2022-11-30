@@ -16,6 +16,7 @@
 
 bool           bme68x_avail = false;                        // do we hace the sensor?
 bool           bme68xNewData = false;                       // do we have new data?
+bool           bme68xNewDataHandeled = false;               // have we handeled the new data?
 bool           bme68xNewDataWS = false;                     // do we have new data for websocket
 uint8_t        bme68x_i2c[2];                               // the pins for the i2c port, set during initialization
 uint8_t        bme68x_error_cnt = 0;                        // give a few retiries if error data length occurs while reading sensor values
@@ -36,6 +37,8 @@ bme68xData     bme68x;                                      // global data struc
 
 // External Variables 
 extern Settings      mySettings;   // Config
+extern bool          intervalNewData;
+extern bool          availNewData;
 extern bool          fastMode;     // Sensi
 extern bool          BMEhum_avail; // BME280
 extern unsigned long lastYield;    // Sensi
@@ -81,6 +84,7 @@ bool initializeBME68x() {
     bme68xSensor.setFilter(bme68x_FilterSizeSlow);
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME68x: IIR filter set for slow measurements")); }
   }
+  intervalNewData = true;
 
   bme68xSensor.setHeaterProf(bme68x_HeaterTemp,bme68x_HeaterDuration); 
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME68x: gas measurement set")); }
@@ -163,6 +167,7 @@ bool updateBME68x() {
         if (bme68x_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           bme68x_avail = false;
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME68x: reinitialization attempts exceeded, BME68x: no longer available")); }
           break; 
         }
@@ -206,20 +211,23 @@ bool startMeasurementsBME68x(){
 
   unsigned long tmpInterval = (((unsigned long)bme68xSensor.getMeasDur(BME68X_FORCED_MODE))/1000) + bme68x_HeaterDuration;
 
-  endTimeBME68x = (millis() + tmpInterval + 1); // in milliseconds
+  endTimeBME68x = (millis() + tmpInterval + 1); // in milliseconds, global variable
       
-  if (tmpInterval == 0) { 
+  if (tmpInterval == bme68x_HeaterDuration) { 
     // measurement did not start
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("BME68x: failed to begin reading")); }
     return (false);
   } else {
     // started succesfully
-    if (tmpInterval > intervalBME68x) {intervalBME68x = tmpInterval;}
+    if (tmpInterval > intervalBME68x) {
+      intervalBME68x = tmpInterval;
+      intervalNewData = true;
+    }
     if (mySettings.debuglevel == 9) { 
       snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x: reading started. Completes in %ldms"), tmpInterval); printSerialTelnetLogln(tmpStr);
       snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BME68x: interval: %lums"), intervalBME68x); printSerialTelnetLogln(tmpStr); 
     }
-    // Construct poor man s lowpass filter y = (1-alpha) * y + alpha * x
+    // Construct poor man s lowpass filter x_new = (1-alpha) * x_old + alpha * x_measured
     // https://dsp.stackexchange.com/questions/54086/single-pole-iir-low-pass-filter-which-is-the-correct-formula-for-the-decay-coe
     // filter cut off frequency is 1/day
     // f_s = 1.0 / (intervalBME68x / 1000.0);    // = sampling frequency [1/s] 
@@ -227,7 +235,7 @@ bool startMeasurementsBME68x(){
     // w_c = 2.0 * 3.141 * f_c;                  // = cut off frequency in [radians / seconds]
     // y = 1 - cos(w_c);                         // = alpha for 3dB attenuation at cut off frequency, cos is almost 1
     float   w_c = float(intervalBME68x) * 7.27e-8;
-    float     y =  w_c*w_c/2.;                 // small angle approximation
+    float     y =  w_c*w_c/2.;                 // small angle approximation of 1 - cos(w_c)
     alphaBME68x = -y + sqrt( y*y + 2.*y );     // is quite small e.g. 1e-6
   }
   return (true);
@@ -313,7 +321,7 @@ void bme68xJSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage3, "not available");
     strcpy(qualityMessage4, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"resistance\": %6.0f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"resistance\": %6.0f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"resistance_airquality\": \"%s\", \"T_airquality\": \"%s\" }"), 
              bme68x_avail ? "true" : "false", 
              bme68x_avail ? bme68x.pressure/100.0 : -1., 
              bme68x_avail ? bme68x_pressure24hrs/100.0 : -1.0, 

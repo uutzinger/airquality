@@ -16,6 +16,7 @@
 float                 mlxOffset = 1.4;                     // offset to adjust for sensor inaccuracy,
 bool                  therm_avail = false;                 // do we hav e the sensor?
 bool                  mlxNewData = false;                  // do we have new data
+bool                  mlxNewDataHandeled = false;          // have we handeled the new data?
 bool                  mlxNewDataWS = false;                // do we have new data for websocket
 uint8_t               mlx_i2c[2];                          // the pins for the i2c port, set during initialization
 unsigned long         intervalMLX = 1000;                  // readout intervall in ms, 250ms minimum
@@ -32,6 +33,8 @@ IRTherm               therm;                               // the IR thermal sen
 
 // Extern variables
 extern bool           fastMode;         // Sensi
+extern bool           intervalNewData;
+extern bool           availNewData;
 extern unsigned long  yieldTime;        // Sensi
 extern unsigned long  lastYield;        // Sensi
 extern Settings       mySettings;       // Config
@@ -48,7 +51,7 @@ bool initializeMLX(){
   
   if (therm.begin(0x5A, *mlx_port) == true) { 
     therm.setUnit(TEMP_C);                    // Set the library's units to Centigrade
-    therm.setEmissivity(emissivity);
+    therm.setEmissivity(mySettings.emissivity);
     if (mySettings.debuglevel > 0) { 
       snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: emissivity: %f"), therm.readEmissivity()); 
       R_printSerialTelnetLogln(tmpStr); 
@@ -70,6 +73,7 @@ bool initializeMLX(){
     snprintf_P(tmpStr, sizeof(tmpStr), PSTR("MLX: interval time is %lums"), intervalMLX); 
     printSerialTelnetLogln(tmpStr); 
   }
+  intervalNewData = true;
 
   if (mySettings.tempOffset_MLX_valid == 0xF0) {
     mlxOffset = mySettings.tempOffset_MLX;
@@ -160,6 +164,7 @@ bool updateMLX() {
         if (therm_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           therm_avail = false;
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("MLX: reinitialization attempts exceeded, MLX: no longer available")); }
           break; 
         } // give up after ERROR_COUNT tries
@@ -206,7 +211,7 @@ void mlxJSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage1, "not available");
     strcpy(qualityMessage2, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.2f, \"fever\": \"%s\", \"T_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"To\": %5.1f, \"Ta\": %5.2f, \"fever\": \"%s\", \"T_airquality\": \"%s\" }"), 
                        therm_avail ? "true" : "false", 
                        therm_avail ? therm.object()+mlxOffset : -999., 
                        therm_avail ? therm.ambient() : -999., 

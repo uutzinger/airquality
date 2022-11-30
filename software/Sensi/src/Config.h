@@ -61,7 +61,7 @@ struct Settings {
   bool          useSerial;                                 // porivide Serial interface on USB
   bool          useLog;                                    // keep track of serial prints in logfile
   bool          sendMQTTimmediate;                         // true: update MQTT right away when new data is availablk, otherwise send one unified message
-  bool          consumerLCD;                               // simplified display
+  bool          notused;                                   // simplified display
   bool          useBME280;                                 // ...
   bool          useHTTPUpdater;                            // upload firmware with HTTP interface
   bool          useBacklight;                              // backlight on/off
@@ -80,6 +80,10 @@ struct Settings {
   char          weatherApiKey[33];                         // open weather api key
   char          weatherCity[33];                           // city to look up weather
   char          weatherCountryCode[3];                     // country to look up weather
+  float         intervalMQTT;                              // interval in seconds to send MQTT data
+  float         altitude;                                  // altitude of current lcoation in meters
+  float         emissivity;                                // MLX emissivity 
+  uint8_t       LCDdisplayType;                            // 
 };
 
 void saveConfiguration(const Settings &config);

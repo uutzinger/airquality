@@ -20,9 +20,13 @@ bool          mqtt_sent = false;                           // did we publish dat
 bool          mqtt_useregular = true;                      // want to be on regular or fallback
 bool          mqtt_onfallback = true;                      // did fallback connect?
 bool          mqtt_onregular = true;                       // did regular connect?
-bool          sendMQTTonce = true;                         // send system constants to broker at beginning
+bool          availNewData = true;                         // 
+bool          availNewDataHandeled = false;                //
+bool          intervalNewData = true;                      // 
+bool          intervalNewDataHandeled = false;
+bool          systemNewDataHandeled = false;               // update system status on mqtt
 unsigned long intervalMQTTreconnect = intervalMQTTconnect; //
-unsigned long intervalMQTT = intervalMQTTFast;             // automatically set during setup
+unsigned long intervalMQTT = intervalMQTTSlow;             // automatically set during setup
 unsigned long lastMQTTPublish;                             // last time we published mqtt data
 unsigned long lastMQTTStatusPublish;                       // last time we published mqtt sensor availability data
 unsigned long lastMQTT;                                    // last time we checked if mqtt is connected
@@ -40,6 +44,7 @@ extern unsigned long currentTime;      // Sensi
 extern char          tmpStr[256];           // Sensi
 
 extern bool          bme280NewData;
+extern bool          bme280NewDataHandeled;
 extern bool          bme280_avail;        // bme68x
 extern float         bme280_pressure;
 extern float         bme280_pressure24hrs;
@@ -51,6 +56,7 @@ extern float         bme280_temp;
 extern bool          bme68x_avail;        // bm680
 extern bme68xData    bme68x; 
 extern bool          bme68xNewData;
+extern bool          bme68xNewDataHandeled;
 extern Bme68x        bme68xSensor; 
 extern float         bme68x_pressure24hrs;//
 extern unsigned long intervalBME68x;
@@ -58,6 +64,8 @@ extern float         bme68x_ah;
 
 extern bool          scd30_avail;         // scd30
 extern bool          scd30NewData;
+extern bool          scd30NewDataHandeled;
+extern bool          scd30NewDataHandeled;
 extern unsigned long intervalSCD30;
 extern uint16_t      scd30_ppm;
 extern float         scd30_hum;
@@ -65,27 +73,33 @@ extern float         scd30_temp;
 
 extern bool          ccs811_avail;        // ccs811
 extern bool          ccs811NewData;
+extern bool          ccs811NewDataHandeled;
 extern CCS811        ccs811;      
 extern uint8_t       ccs811Mode;
 
 extern bool          sgp30_avail;         // sgp30
 extern bool          sgp30NewData;
+extern bool          sgp30NewDataHandeled;
 extern unsigned long intervalSGP30; 
 extern SGP30         sgp30;
 
 extern bool          sps30_avail;         // sps30
 extern bool          sps30NewData;
+extern bool          sps30NewDataHandeled;
 extern unsigned long intervalSPS30;
 extern sps30_measurement valSPS30;
 
 extern bool          therm_avail;         // MLX
 extern bool          mlxNewData;
+extern bool          mlxNewDataHandeled;
 extern unsigned long intervalMLX;
 extern IRTherm       therm;
 extern float         mlxOffset;
 
 extern bool          weather_avail;       // weather
 extern bool          weatherNewData;
+extern bool          weatherNewDataHandeled;                       // have we handeled the new data?
+
 extern clientData    weatherData;
 extern volatile WiFiStates stateWeather;
 
@@ -219,93 +233,130 @@ void updateMQTTMessage() {
       
       char MQTTpayloadStr[512]; 
 
-      snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/system"),mySettings.mqtt_mainTopic);
-      systemJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
-      mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-      mqtt_sent = true;
-      yieldTime += yieldOS(); 
+      // might need to limit system status update also
+      if (!systemNewDataHandeled)  {
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/system"),mySettings.mqtt_mainTopic);
+        systemJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        mqtt_sent = true;
+        systemNewDataHandeled = true;
+        yieldTime += yieldOS(); 
           
-      if (scd30NewData)  {
+      } else if (scd30NewData && !scd30NewDataHandeled )  {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/scd30"),mySettings.mqtt_mainTopic);
         scd30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         scd30NewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SCD30 MQTT updated")); }
         mqtt_sent = true;
+        scd30NewDataHandeled = true;
         yieldTime += yieldOS(); 
-      }
     
-      if (sgp30NewData)  {
+      } else if (sgp30NewData && !sgp30NewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/sgp30"),mySettings.mqtt_mainTopic);
         sgp30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         sgp30NewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SGP30 MQTT updated")); }      
         mqtt_sent = true;
+        sgp30NewDataHandeled = true;
         yieldTime += yieldOS(); 
-      }
-      
-      if (sps30NewData)  {
+
+      } else if (sps30NewData && !sps30NewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/sps30"),mySettings.mqtt_mainTopic);
         sps30JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         sps30NewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("SPS30 MQTT updated")); }      
         mqtt_sent = true;
+        sps30NewDataHandeled = true;
         yieldTime += yieldOS(); 
-      }
       
-      if (ccs811NewData) {
+      } else if (ccs811NewData && !ccs811NewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/ccs811"),mySettings.mqtt_mainTopic);
         ccs811JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         ccs811NewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("CCS811 MQTT updated")); }      
         mqtt_sent = true;
+        ccs811NewDataHandeled = true;
         yieldTime += yieldOS(); 
-      }
 
-      if (bme68xNewData) {
+      } else if (bme68xNewData && !bme68xNewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/bme68x"),mySettings.mqtt_mainTopic);
         bme68xJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         bme68xNewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME68x MQTT updated")); }
         mqtt_sent = true;
+        bme68xNewDataHandeled = true;
         yieldTime += yieldOS(); 
-      }
       
-      if (bme280NewData) {
+      } else if (bme280NewData && !bme280NewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/bme280"),mySettings.mqtt_mainTopic);
         bme280JSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         bme280NewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("BME280 MQTT updated")); }
         mqtt_sent = true;
+        bme280NewDataHandeled = true;
         yieldTime += yieldOS(); 
-      }
       
-      if (mlxNewData) {
+      } else if (mlxNewData && !mlxNewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/mlx"),mySettings.mqtt_mainTopic);
         mlxJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         mlxNewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("MLX MQTT updated")); }
         mqtt_sent = true;
-        yieldTime += yieldOS(); 
-      }
+        mlxNewDataHandeled = true;
+        yieldTime += yieldOS();
 
-      if (weatherNewData) {
+      } else if (weatherNewData && !weatherNewDataHandeled) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/data/weather"),mySettings.mqtt_mainTopic);
         weatherJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
         mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
         weatherNewData = false;
         if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Weather MQTT updated")); }
         mqtt_sent = true;
+        weatherNewDataHandeled = true;
         yieldTime += yieldOS(); 
+      
+      } else if (availNewData && !availNewDataHandeled) { // update sensor status every mninute
+        snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status/sensors"),mySettings.mqtt_mainTopic);
+        snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_avail\":%d,\"lcd_avail\":%d,\"ccs811_avail\":%d,\"sgp30_avail\":%d,\"scd30_avail\":%d,\"sps30_avail\":%d,\"bme68x_avail\":%d,\"bme280_avail\":%d,\"ntp_avail\":%d}"),
+                  therm_avail, lcd_avail, ccs811_avail, sgp30_avail, scd30_avail, sps30_avail, bme68x_avail, bme280_avail, ntp_avail);
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        availNewData = false;
+        mqtt_sent = true;
+        availNewDataHandeled = true;
+        yieldTime += yieldOS(); 
+
+      } else if (intervalNewData && !intervalNewDataHandeled) { // send sensor polling once at boot up
+        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/intervals"),mySettings.mqtt_mainTopic);
+        snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_interval\":%lu,\"lcd_interval\":%lu,\"ccs811_mode\":%hhu,\"sgp30_interval\":%lu,\"scd30_interval\":%lu,\"sps30_interval\":%lu,\"bme68x_interval\":%lu,\"bme280_interval\":%lu}"),
+                  intervalMLX, intervalLCD, ccs811Mode, intervalSGP30, intervalSCD30, intervalSPS30, intervalBME68x, intervalBME280);
+        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
+        intervalNewData = false;
+        intervalNewDataHandeled = true;
+        yieldTime += yieldOS(); 
+
+      } else {
+        // we have handeled all outstanding new data requests
+        scd30NewDataHandeled    = false;
+        sgp30NewDataHandeled    = false;
+        sps30NewDataHandeled    = false;
+        ccs811NewDataHandeled   = false;
+        bme68xNewDataHandeled   = false;
+        bme280NewDataHandeled   = false;
+        mlxNewDataHandeled      = false;
+        weatherNewDataHandeled  = false;
+        availNewDataHandeled    = false;
+        intervalNewDataHandeled = false;
+        systemNewDataHandeled   = false;
       }
 
-      // when minute changed      
+      // when minute changed, dont queue and send right away
       if (timeNewData) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/time"),mySettings.mqtt_mainTopic);
         timeJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
@@ -316,7 +367,7 @@ void updateMQTTMessage() {
         yieldTime += yieldOS(); 
       }
 
-      // when day changed
+      // when day changed, dont queue and send right away
       if (dateNewData) {
         snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/date"),mySettings.mqtt_mainTopic);
         dateJSONMQTT(MQTTpayloadStr, sizeof(MQTTpayloadStr));
@@ -327,25 +378,7 @@ void updateMQTTMessage() {
         yieldTime += yieldOS(); 
       }
       
-      if (sendMQTTonce) { // send sensor polling once at boot up
-        snprintf_P(MQTTtopicStr, sizeof(MQTTtopicStr),PSTR("%s/status/intervals"),mySettings.mqtt_mainTopic);
-        snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_interval\":%lu,\"lcd_interval\":%lu,\"ccs811_mode\":%hhu,\"sgp30_interval\":%lu,\"scd30_interval\":%lu,\"sps30_interval\":%lu,\"bme68x_interval\":%lu,\"bme280_interval\":%lu}"),
-                  intervalMLX, intervalLCD, ccs811Mode, intervalSGP30, intervalSCD30, intervalSPS30, intervalBME68x, intervalBME280);
-        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-        sendMQTTonce = false;  // do not update interval information again
-        yieldTime += yieldOS(); 
-      }
-
-      if (currentTime - lastMQTTStatusPublish > intervalMQTTSlow) { // update sensor status every mninute
-        snprintf_P(MQTTtopicStr,sizeof(MQTTtopicStr),PSTR("%s/status/sensors"),mySettings.mqtt_mainTopic);
-        snprintf_P(MQTTpayloadStr,sizeof(MQTTpayloadStr), PSTR("{\"mlx_avail\":%d,\"lcd_avail\":%d,\"ccs811_avail\":%d,\"sgp30_avail\":%d,\"scd30_avail\":%d,\"sps30_avail\":%d,\"bme68x_avail\":%d,\"bme280_avail\":%d,\"ntp_avail\":%d}"),
-                  therm_avail, lcd_avail, ccs811_avail, sgp30_avail, scd30_avail, sps30_avail, bme68x_avail, bme280_avail, ntp_avail);
-        mqttClient.publish(MQTTtopicStr, MQTTpayloadStr);
-        lastMQTTStatusPublish = currentTime;
-        mqtt_sent = true;
-        yieldTime += yieldOS(); 
-      }
-    } 
+    } // end send immidiate
 
     // --------------- this creates single message ---------------------------------------------------------
     else {
@@ -358,7 +391,7 @@ void updateMQTTMessage() {
       lastMQTTPublish = currentTime;
       mqtt_sent = true;
       yieldTime += yieldOS(); 
-    } // end send immidiate
+    } // end send single message
   }
   
   // --------------- debug status ---------------------------------------------------------

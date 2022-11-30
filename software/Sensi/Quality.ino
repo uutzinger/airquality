@@ -397,29 +397,30 @@ bool checkAmbientTemperature(float T, char *message, int len) {
   if (len > 0) {
     if ( (T<-100.0) || (T>100.0) ) {
       // coldest temp on earth is -95C
-      // hottest temp on earth is 57C
+      // hottest temp on earth is  57C
       // sauna goes up to 90C
-      // 20-25.5 normal
+      // 20-25 C normal
+      // 16-30 C acceptable
       strcpy(message, "?");
     } else if (len == 1) {
-      if (T < 0.0)        { strncpy_P(message, cold1,    len); }
+      if (T < 16.0)        { strncpy_P(message, cold1,    len); }
       else if (T <= 20.0) { strncpy_P(message, coldish1, len); }
-      else if (T <= 25.5) { strncpy_P(message, normal1,  len); }
-      else if (T <= 40.0) { strncpy_P(message, warm1,    len); }
+      else if (T <= 25.0) { strncpy_P(message, normal1,  len); }
+      else if (T <= 30.0) { strncpy_P(message, warm1,    len); }
       else                { strncpy_P(message, hot1,     len); }
   
     } else if (len <= 4) {
-      if (T <= 0.0)       { strncpy_P(message, cold4,    len);  }
-      else if (T <= 20.5) { strncpy_P(message, coldish4, len);  }
-      else if (T <= 25.5) { strncpy_P(message, normal4,  len);  }
-      else if (T <= 40.0) { strncpy_P(message, warm4,    len);  }
+      if (T <= 16.0)       { strncpy_P(message, cold4,    len);  }
+      else if (T <= 20.0) { strncpy_P(message, coldish4, len);  }
+      else if (T <= 25.0) { strncpy_P(message, normal4,  len);  }
+      else if (T <= 30.0) { strncpy_P(message, warm4,    len);  }
       else                { strncpy_P(message, hot4,     len); }
   
     } else {
-      if (T < 20.0)       { strncpy_P(message, coldF,    len); }
+      if (T < 16.0)       { strncpy_P(message, coldF,    len); }
       else if (T <= 20.0) { strncpy_P(message, coldishF, len); }
-      else if (T <= 25.5) { strncpy_P(message, normalF,  len); }
-      else if (T <= 40.0) { strncpy_P(message, warmF,    len); }
+      else if (T <= 25.0) { strncpy_P(message, normalF,  len); }
+      else if (T <= 30.0) { strncpy_P(message, warmF,    len); }
       else                { strncpy_P(message, hotF,     len); }
     }
     message[len] = '\0';

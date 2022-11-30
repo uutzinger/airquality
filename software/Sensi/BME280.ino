@@ -20,6 +20,7 @@ float          bme280_pressure24hrs = 0.0;                 // average pressure l
 float          alphaBME280;                                // poorman's low pass filter for f_cutoff = 1 day
 bool           bme280_avail = false;                       // do we hace the sensor?
 bool           bme280NewData = false;                      // is there new data
+bool           bme280NewDataHandeled = false;              // have we handeled the new data?
 bool           bme280NewDataWS = false;                    // is there new data for websocket
 long           bme280_measuretime = 0;                     // computed time it takes to complete the measurements and to finish standby
 bool           BMEhum_avail = false;                       // no humidity sensor if we have BMP instead of BME
@@ -39,6 +40,8 @@ BME280         bme280;                                     // the pressure senso
 // External Variables 
 extern Settings      mySettings;   // Config
 extern bool          fastMode;     // Sensi
+extern bool          intervalNewData;
+extern bool          availNewData;
 extern unsigned long lastYield;    // Sensi
 extern unsigned long currentTime;  // Sensi
 extern char          tmpStr[256];       // Sensi
@@ -74,6 +77,7 @@ bool initializeBME280() {
     bme280.settings.pressOverSample = bme280_PressureOversampleSlow;
     bme280.settings.humidOverSample = bme280_HumOversampleSlow;
   }
+  intervalNewData = true;
   
   if (mySettings.debuglevel >0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("BM[E/P]280: interval: %lu"), intervalBME280); printSerialTelnetLogln(tmpStr); }
   
@@ -245,6 +249,7 @@ bool updateBME280() {
         if (bme280_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           bme280_avail = false;
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("BME280: reinitialization attempts exceeded, BME280: no longer available")); }
           break; 
         } // give up after ERROR_COUNT tries
@@ -289,7 +294,7 @@ void bme280JSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage2, "not available");
     strcpy(qualityMessage3, "not available");
   }  
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"p\": %5.1f, \"pavg\": %5.1f, \"rH\": %4.1f, \"aH\": %4.1f, \"T\": %5.2f, \"dp_airquality\": \"%s\", \"rH_airquality\": \"%s\", \"T_airquality\": \"%s\" }"), 
              bme280_avail ? "true" : "false", 
              bme280_avail ? bme280_pressure/100.0 : -1.0, 
              bme280_avail ? bme280_pressure24hrs/100.0 : -1.0 , 

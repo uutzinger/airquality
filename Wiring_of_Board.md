@@ -28,3 +28,71 @@
 
 * CCS811 address pin needs to be set to high which is accomplished with connecting adress pin to 3.3V signal
 
+## Wiring
+
+### BME280 rH, p, T, resistance
+| Pin | Connection |
+| --- | ---------- |
+| SDA | D2
+| SCL | D1
+| GND | GND
+| VCC | 3.3V
+| SD0 | N.C. or GND, default address 0x76
+| CSB | N.C. or 3.3V active high, active high
+
+### BME680 rH, p, T, resistance
+| Pin | Connection |
+| --- | ---------- |
+| SDA | D2
+| SCL | D1
+| GND | GND
+| VCC | 3.3V
+| SD0 | 3.3V alternate address 0x77
+| CS  | N.C. or 3.3V active high, active high
+
+### CCS811 tVOC eCO2
+| Pin | Connection |
+| --- | ---------- |
+| SDA |            D2
+| SCL |            D1
+| GND |            GND
+| VCC |            3.3
+| CCS811_WAKE |    D0 active low
+| CCS811_INT  |    D7 active low
+| CCS811_Address | 3.3V address us 0x5B 
+| CCS811_RST     | N.C. active low
+
+### Display
+| Pin | Connection |
+| --- | ---------- |
+| VCC | 5V |
+| GND | GND |
+| SDA | D6 5V with level shifter |
+| SCL | D5 5V  with level shifter |
+
+### SPS30 particulate
+| Pin | Connection |
+| --- | ---------- |
+| VIN | 5V
+| GND | GND
+| SDA | D4 3.3V
+| SCL | D3 3.3V
+| SEL | GND for i2c
+
+### SCD30 CO2
+| Pin | Connection |
+| --- | ---------- |
+| VDD | 3.3V
+| GND | GND
+| SCL | D3
+| SDA | D4
+| RDY | D8 input, active high
+| SEL | GND for i2c
+
+### SGP30 tVOC eCO2
+| Pin | Connection |
+| --- | ---------- |
+| VDD | 3.3
+| GND | GND
+| SCL | D1
+| SDA | D2

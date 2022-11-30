@@ -19,6 +19,7 @@
 
 bool          sgp30_avail  = false;                        // do we have this sensor
 bool          sgp30NewData = false;                        // do we have new data
+bool          sgp30NewDataHandeled = false;                // have we handeled the new data?
 bool          sgp30NewDataWS = false;                      // do we have new data for websocket
 bool          baslineSGP30_valid = false;
 uint8_t       sgp30_i2c[2];                                // the pins for the i2c port, set during initialization
@@ -39,6 +40,8 @@ SGP30         sgp30;
 // External Variables
 extern Settings      mySettings;   // Config
 extern bool          fastMode;     // Sensi
+extern bool          intervalNewData;
+extern bool          availNewData;
 extern unsigned long currentTime;  // Sensi
 extern char          tmpStr[256];  // Sensi
 extern bool          bme68x_avail;
@@ -81,6 +84,8 @@ bool initializeSGP30() {
     snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30: Interval: %lu"), intervalSGP30); 
     R_printSerialTelnetLogln(tmpStr); 
   }
+  intervalNewData = true;
+
   switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
   if (sgp30.begin(*sgp30_port) == false) {
     if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: No SGP30 Detected. Check connections")); }
@@ -102,7 +107,7 @@ bool initializeSGP30() {
   }
   
   if (mySettings.debuglevel > 0) { printSerialTelnetLogln(F("SGP30: initialized")); }
-  delay(50);
+  delay(50); lastYield = millis();
   return(true);
 }
 
@@ -229,6 +234,7 @@ bool updateSGP30() {
         if (sgp30_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           sgp30_avail = false;
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("SGP30: reinitialization attempts exceeded, SGP30: no longer available")); }
           break; 
         } // give up after ERROR_COUNT tries
@@ -277,7 +283,7 @@ void sgp30JSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage1, "not available");
     strcpy(qualityMessage2, "not available");
   } 
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\" }"), 
                        sgp30_avail ? "true" : "false", 
                        sgp30_avail ? sgp30.CO2 : 0, 
                        sgp30_avail ? sgp30.TVOC : 0,

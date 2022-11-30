@@ -33,7 +33,8 @@ some CO2 sensors have humidity and temperature sensors built in.
 
 ### Particle Sensor
 * **SPS30**, Sensirion Digikey $50   
-* SEN54, Sensirion, also measures tVOC, Temp, Hum $35
+* SEN54, Sensirion, also measures tVOC, Temp, Hum $30
+* SEN55, Sensirion, also measured tVOC, NOx, Temp, Hum, 35
 * ZH03, Winzen, PM2.5, PM1 and PM10, 5V serial with fan  
 * ZH03A, ALiexpress $14.5  
 * ZH03B, AliExpress $13  
@@ -48,14 +49,14 @@ some CO2 sensors have humidity and temperature sensors built in.
 ### Volotile Organic Compounds (VOC)
 * **CCS811**, TVOCs, eCO2, NTC option, burn in and run in, AliExpress $10  
 * **SGP30**, SENSIRION, TVOCs, eCO2, minimal run in, AliExpress $11  
-* SGP4x, Sensirion, tVOCS, SGP40 (HVAC) and SGP41 (airtreatment)
+* SGP4x, Sensirion, tVOCS, SGP40 (HVAC) and SGP41 (air treatment)
 
 ### CO2
 * ExplorIR®-W CO2 Sensor, GSS 0-100 CO2, serial out, gaslabab.com $120  
 * Telaire T6613, Amphenol, 0-2000ppm CO2, i2c, Aliexpress $120  
 * MG812, Winzen, CO2 300-10000ppm, electrolyte, 5V analog in  
 * MD62, Winzen, CO2, 0-100%, thermal, full bridge  
-* MH-Z14, Winze, CO2, 0-5% optical, 5V serial 3.3  
+* MH-Z14, Winzen, CO2, 0-5% optical, 5V serial 3.3  
 * MH-Z14A, Winzen, CO2 0-5% +/- 50ppm 5V serial  
 * MH-Z19B, Winzen, CO2 0-2000ppm +/-50ppm, 5V serial, solderless pcb compatible  
 * MH-410D, Winzen, CO2 0-5% +/- 50ppm, 5V serial  

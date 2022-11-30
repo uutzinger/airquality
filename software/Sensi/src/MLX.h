@@ -10,7 +10,6 @@
 // It is possible that traffic on the I2C bus by other sensors wakes it up though.
 #define timeToStableMLX            250                     // time until stable internal readings in ms
 #define fhDelta                    0.5                     // difference from forehead to oral temperature: https://www.mottchildren.org/health-library/tw9223
-#define emissivity                 0.98                    // emissivity of skin
 #define mlx_i2cspeed               I2C_REGULAR             //
 #define mlx_i2cClockStretchLimit   I2C_DEFAULTSTRETCH      //
 

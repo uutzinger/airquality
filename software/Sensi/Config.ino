@@ -44,6 +44,7 @@ void saveConfiguration(const Settings &config) {
       doc["forcedCalibration_SCD30"]      = config.forcedCalibration_SCD30;                  // not used
       doc["tempOffset_MLX_valid"]         = config.tempOffset_MLX_valid;                     // 0xF0 = valid
       doc["tempOffset_MLX"]               = config.tempOffset_MLX;                           // in C
+      doc["emissivity_MLX"]               = config.emissivity;                               // 0..1
       
       D_printSerialTelnet(F("D:JSON:2.."));
       //yieldTime += yieldOS(); 
@@ -66,9 +67,11 @@ void saveConfiguration(const Settings &config) {
       doc["sendMQTTimmediate"]            = config.sendMQTTimmediate;                        // true: update MQTT right away when new data is availablk, otherwise send one unified message
       doc["mqtt_fallback"]                = config.mqtt_fallback;                            // your fallback mqtt server if initial server fails, useful when on private home network
       doc["mqtt_mainTopic"]               = config.mqtt_mainTopic;                           // name of this sensing device for mqtt broker
+      doc["mqtt_interval"]                = config.intervalMQTT;                             // time in between MQTT updates
     
       doc["useLCD"]                       = config.useLCD;                                   // use/not use LCD even if it is connected
-      doc["consumerLCD"]                  = config.consumerLCD;                              // simplified display
+      doc["LCDdisplayType"]               = config.LCDdisplayType;                           // LCD screen layout
+      doc["consumerLCD"]                  = config.notused;                                  // simplified display
       doc["useBacklight"]                 = config.useBacklight;                             // backlight on/off
       doc["useBacklightNight"]            = config.useBacklightNight;                        // backlight at night on/off
       doc["useBlinkNight"]                = config.useBlinkNight;                            // backlight blinking at night on/off
@@ -164,6 +167,7 @@ void loadConfiguration(Settings &config) {
         config.forcedCalibration_SCD30 = doc["forcedCalibration_SCD30"]             | 0.0;
         config.tempOffset_MLX_valid   = doc["tempOffset_MLX_valid"]                 | 0x00;
         config.tempOffset_MLX         = doc["tempOffset_MLX"]                       | 0.0;
+        config.emissivity             = doc["emissivity_MLX"]                       | 0.98;
       
         config.useWiFi                = doc["useWiFi"]                              | true;
         strlcpy(config.ssid1,           doc["ssid1"]                                | "MEDDEV", sizeof(config.ssid1));
@@ -180,9 +184,11 @@ void loadConfiguration(Settings &config) {
         strlcpy(config.mqtt_fallback,   doc["mqtt_fallback"]                        | "192.168.1.1", sizeof(config.mqtt_password));
         strlcpy(config.mqtt_mainTopic,  doc["mqtt_mainTopic"]                       | "Senso", sizeof(config.mqtt_mainTopic));
         config.sendMQTTimmediate =      doc["sendMQTTimmediate"]                    | true;
-        
+        config.intervalMQTT           = doc["mqtt_interval"]                        | 1.0;
+                
         config.useLCD                 = doc["useLCD"]                               | true;
-        config.consumerLCD            = doc["consumerLCD"]                          | true;
+        config.notused                = doc["consumerLCD"]                          | true;
+        config.LCDdisplayType         = doc["LCDdisplayType"]                       | 0;
         config.useBacklight           = doc["useBacklight"]                         | true;
         config.useBacklightNight      = doc["useBacklightNight"]                    | false;
         config.useBlinkNight          = doc["useBlinkNight"]                        | false;

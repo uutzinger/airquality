@@ -15,6 +15,7 @@
 
 bool                   ccs811_avail = false;               // do we have this sensor?
 bool                   ccs811NewData = false;              // do we have new data
+bool                   ccs811NewDataHandeled = false;      // have we handeled the new data?
 bool                   ccs811NewDataWS = false;            // do we have new data for websocket
 uint8_t                ccs811_i2c[2];                      // the pins for the i2c port, set during initialization
 uint8_t                ccs811Mode;                         // operation mode, see above 
@@ -39,6 +40,8 @@ CCS811                 ccs811(0X5B);                       // the sensor, if alt
 // External Variables 
 extern Settings      mySettings;   // Config
 extern bool          fastMode;     // Sensi
+extern bool          intervalNewData;
+extern bool          availNewData;
 extern unsigned long lastYield;    // Sensi
 extern unsigned long currentTime;  // Sensi
 extern char          tmpStr[256];       // Sensi
@@ -84,6 +87,8 @@ bool initializeCCS811(){
   else if ( ccs811Mode == 3 ) { intervalCCS811 = 60000; } 
   else                        { intervalCCS811 =   250; }
   if (mySettings.debuglevel > 0) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("CCS811: Interval: %lu"), intervalCCS811); R_printSerialTelnetLogln(tmpStr); }
+
+  intervalNewData = true;
 
   pinMode(CCS811_WAKE, OUTPUT); // CCS811 not Wake Pin
   pinMode(CCS811interruptPin, INPUT_PULLUP); // CCS811 not Interrupt Pin
@@ -282,6 +287,7 @@ bool updateCCS811() {
         if (ccs811_error_cnt++ > ERROR_COUNT) { 
           success = false; 
           ccs811_avail = false; 
+          availNewData = true;
           if (mySettings.debuglevel > 0) { R_printSerialTelnetLogln(F("CCS811: reinitialization attempts exceeded, CCS811: no longer available")); }
           break;
         } // give up after ERROR_COUNT tries
@@ -325,7 +331,7 @@ void ccs811JSONMQTT(char *payload, size_t len){
     strcpy(qualityMessage1, "not available");
     strcpy(qualityMessage2, "not available");
   }
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\"}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"eCO2\": %hu, \"tVOC\": %hu, \"eCO2_airquality\": \"%s\", \"tVOC_airquality\": \"%s\" }"), 
              ccs811_avail ? "true" : "false", 
              ccs811_avail ? ccs811.getCO2() : 0, 
              ccs811_avail ? ccs811.getTVOC() : 0, 

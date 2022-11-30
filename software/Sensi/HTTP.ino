@@ -180,7 +180,7 @@ void handleTime() {
   yieldTime += yieldOS(); 
 }
 
-// { "date": { "day": 26, "month": 06, "year": 2022}}
+// { "date": { "day": 26, "month": 06, "year": 2022  }}
 void handleDate() {
   char HTTPpayloadStr[64]; 
   dateJSON(HTTPpayloadStr, sizeof(HTTPpayloadStr));

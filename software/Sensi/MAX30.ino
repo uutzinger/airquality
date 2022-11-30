@@ -44,7 +44,7 @@ void max30JSON(char *payLoad, size_t len){
 
 void max30JSONMQTT(char *payLoad, size_t len) {
   // Not Implemented Yet
-  snprintf_P(payLoad, len, PSTR("{ \"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\"}"), 
+  snprintf_P(payLoad, len, PSTR("{ \"avail\": %s, \"HR\": %5.1f, \"O2Sat\": %5.1f, \"MAX_quality\": \"%s\" }"), 
                        max30_avail ? "true" : "false", 
                        -1.0,
                        -1.0,

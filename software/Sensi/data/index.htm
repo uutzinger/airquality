@@ -160,21 +160,24 @@
   getHostname();
   getIP();
   getSystem();
+
+  <!-- limit data request interval, otherwise ESP I2C fails -->
+  
   setInterval(getHostname,    60000);
   setInterval(getIP,          60000);
   setInterval(getDate,        60000);
   setInterval(getTime,        60000);
-  setInterval(getSystem,       5000);
-  setInterval(getDataBME280,   1000);
-  setInterval(getDataBME68x,   5000);
+  setInterval(getSystem,      10000);
+  setInterval(getDataBME280,  10000);
+  setInterval(getDataBME68x,  10000);
   setInterval(getDataCCS811,  10000);
-  // setInterval(getDataMAX,     1000);
-  setInterval(getDataMLX,      1000);
-  setInterval(getDataSCD30,    4000);
-  setInterval(getDataSGP30,    1000);
-  setInterval(getDataSPS30,    5000);
+  // setInterval(getDataMAX,    10000);
+  setInterval(getDataMLX,     10000);
+  setInterval(getDataSCD30,   10000);
+  setInterval(getDataSGP30,   10000);
+  setInterval(getDataSPS30,   10000);
 
-  <!-- { "time": { "hour": 10, "minute": 40, "second": 4, "microsecond": 298377}} -->
+  <!-- { "time": { "hour": 10, "minute": 40, "second": 4, "microsecond": 298377 }} -->
   function getTime() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -189,7 +192,7 @@
     xhttp.send();
   }
 
-  <!-- { "date": { "day": 27, "month": 6, "year": 2022}} -->
+  <!-- { "date": { "day": 27, "month": 6, "year": 2022 }} -->
   function getDate() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -250,6 +253,7 @@
     xhttp.send();
   }
 
+  <!-- { "bme280": { "avail": false, "p":  -1.0, "pavg":  -1.0, "rH": -1.0, "aH": -1.0, "T": -999.00, "dp_airquality": "not available", "rH_airquality": "not available", "T_airquality": "not available" }} -->
   function getDataBME280() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -270,6 +274,7 @@
     xhttp.send();
   }
 
+  <!-- { "bme68x": { "avail": true, "p": 933.1, "pavg": 932.9, "rH": 39.6, "aH":  6.6, "T": 19.08, "resistance": 580664, "dp_airquality": "Normal", "rH_airquality": "Threshold Low", "resistance_airquality": "Normal", "T_airquality": "Very Cold" }} -->
   function getDataBME68x() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -292,6 +297,7 @@
     xhttp.send();
   }
 
+  <!-- { "ccs811": { "avail": true, "eCO2": 2367, "tVOC": 299, "eCO2_airquality": "Poor", "tVOC_airquality": "Threshold" }} -->
   function getDataCCS811() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -308,6 +314,7 @@
     xhttp.send();
   }
 
+  <!-- { "max": } -->
   function getDataMAX() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -322,22 +329,24 @@
     xhttp.send();
   }
 
-    function getDataMLX() {
-      var xhttp = new XMLHttpRequest();
-      xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-          var txt = this.responseText;
-          var obj = JSON.parse(txt);
-          document.getElementById("MLXObject").innerHTML = obj.mlx.To + "&deg;C";
-          document.getElementById("MLXAmbient").innerHTML = obj.mlx.Ta + "&deg;C";
-          document.getElementById("MLXaTq").innerHTML = obj.mlx.T_airquality;
-          document.getElementById("MLXfever").innerHTML = obj.mlx.fever;
-        }  
-      };
-      xhttp.open("GET", "mlx", true);
-      xhttp.send();
-    }
+  <!-- { "mlx": { "avail": true, "To":  19.9, "Ta": 19.21, "fever": "Low", "T_airquality": "Very Cold" }} -->
+  function getDataMLX() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        var txt = this.responseText;
+        var obj = JSON.parse(txt);
+        document.getElementById("MLXObject").innerHTML = obj.mlx.To + "&deg;C";
+        document.getElementById("MLXAmbient").innerHTML = obj.mlx.Ta + "&deg;C";
+        document.getElementById("MLXaTq").innerHTML = obj.mlx.T_airquality;
+        document.getElementById("MLXfever").innerHTML = obj.mlx.fever;
+      }  
+    };
+    xhttp.open("GET", "mlx", true);
+    xhttp.send();
+  }
 
+  <!-- { "scd30": { "avail": true, "CO2": 1185, "rH": 38.8, "aH":  6.5, "T": 19.32, "CO2_airquality": "Threshold", "rH_airquality": "Threshold Low", "T_airquality": "Very Cold" }} -->
   function getDataSCD30() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -357,6 +366,7 @@
     xhttp.send();
   }
 
+  <!-- { "sgp30": { "avail": true, "eCO2": 400, "tVOC": 3845, "eCO2_airquality": "Normal", "tVOC_airquality": "Excessive" }} -->
   function getDataSGP30() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
@@ -373,6 +383,7 @@
     xhttp.send();
   }
 
+  <!-- { "sps30": { "avail": true, "PM1":  3.8, "PM2":  5.2, "PM4":  6.2, "PM10":  6.5, "nPM0": 23.0, "nPM1": 28.6, "nPM2": 30.0, "nPM4": 30.2, "nPM10": 30.2, "PartSize":  0.7, "PM2_airquality": "Normal", "PM10_airquality": "Normal" }} -->
   function getDataSPS30() {
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {

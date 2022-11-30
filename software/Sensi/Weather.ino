@@ -17,6 +17,7 @@ unsigned long weather_lastError;
 bool weather_success = false;
 bool weather_avail = true;                                 // do we have this sensor?
 bool weatherNewData = false;                               // do we have new data
+bool weatherNewDataHandeled = false;                       // have we handeled the new data?
 bool weatherNewDataWS = false;                             // do we have new data for websocket
 
 volatile WiFiStates stateWeather = IS_WAITING;             // keeping track of MQTT state
@@ -66,7 +67,8 @@ bool getWeatherData() {
   //  return false;
   //}
 
-
+  // need modify this as response might take 6 seconds or more to receive.
+  
   if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Weather: get response")); }
   if (http.GET()>0) { // server is responding
     if (mySettings.debuglevel == 3) { R_printSerialTelnetLogln(F("Weather: alloc JSON"));} 
@@ -178,7 +180,7 @@ void weatherJSON(char *payLoad, size_t len){
 }
 
 void weatherJSONMQTT(char *payload, size_t len) {
-  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"description\":\"%s\", \"T\": %5.2f, \"Tmin\": %5.2f, \"Tmax\": %5.2f, \"p\": %d, \"rH\": %d, \"ws\": %4.1f, \"wd\": %d, \"v\": %d}"), 
+  snprintf_P(payload, len, PSTR("{ \"avail\": %s, \"description\":\"%s\", \"T\": %5.2f, \"Tmin\": %5.2f, \"Tmax\": %5.2f, \"p\": %d, \"rH\": %d, \"ws\": %4.1f, \"wd\": %d, \"v\": %d }"), 
             weather_success ? "true"                    : "false", 
             weather_success ? weatherData.description   : "N.A.",
             weather_success ? weatherData.temp          : -1.,
