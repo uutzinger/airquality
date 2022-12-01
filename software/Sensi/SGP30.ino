@@ -146,7 +146,7 @@ bool updateSGP30() {
           // 0x0F80 = 15.5 g/m^3
           // 0x0001 = 1/256 g/m^3
           // 0xFFFF = 256 +256/256 g/m^3
-          if (bme68x_ah > 0.) { sgp30.setHumidity(uint16_t(bme68x_ah * 256.0 + 0.5)); }
+          if (bme68x_ah > 0.) { sgp30.setHumidity(uint16_t(floor(bme68x_ah * 256.0 + 0.5))); }
           if (mySettings.debuglevel >= 2) { R_printSerialTelnetLogln(F("SGP30: humidity updated for eCO2")); }
         } else if (scd30_avail && mySettings.useSCD30) {
             if (scd30_ah > 0.) { sgp30.setHumidity(uint16_t(scd30_ah * 256.0 + 0.5)); }

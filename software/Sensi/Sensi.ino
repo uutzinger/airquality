@@ -119,7 +119,7 @@
 // Sometime:       Support for TFT display
 // Sometime:       Add support for xxx4x sensors from Sensirion, ENS160, BME688...
 //
-// 2022 Novemeber: Rewrote serial input command system and menu
+// 2022 Novemeber: Rewrote serial input command system and menu, SGP30 fixes
 // 2022 October:   Print and delete files on LittleFS, telnet fix, manually set average pressure, jsondate fix,
 //                 throttle MQTT, MQTT interval setting, BME680 not start detection.
 // 2022 September: Changed SPS30 library to a custom rearranged Sensirion library. 
@@ -166,7 +166,7 @@
 /************************************************************************************************************************************/
 // Build Configuration
 /************************************************************************************************************************************/
-#define VER "2.3.0"
+#define VER "2.3.2"
 
 // Debug
 // -----
@@ -176,8 +176,8 @@
 
 // LCD Screen
 // ----------
-#define ADALCD     // we have Adafruit LCD driver
-//#undef ADALCD      // we have non-Adafruit LCD driver
+//#define ADALCD     // we have Adafruit LCD driver
+#undef ADALCD      // we have non-Adafruit LCD driver
 
 // Measure fast or slow
 // --------------------
@@ -2087,6 +2087,7 @@ bool inputHandle() {
     else if (command[0] == 'P') {
       if (textlen > 0) { // subcommand was given
         if (textlen > 1) { strlcpy(value,text+1,sizeof(value)); }  else { value[0] = '\0'; } // value was given
+
         if        (text[0] == 'c') {                                      // force CO2
           if (strlen(value) > 0) {
             tmpuI = strtoul(value, NULL, 10);
@@ -2099,9 +2100,10 @@ bool inputHandle() {
                 mySettings.baselineSGP30_valid = 0xF0;
                 mySettings.baselineeCO2_SGP30 = (uint16_t)tmpuI;
                 snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30 calibration point is: %u"), tmpuI); 
-              }
+              } else { strcpy_P(tmpStr, PSTR("SGP30 not available")); }
             } else { strcpy_P(tmpStr, PSTR("Provided baseline for eCO2 is out of range")); }
-          }
+          } else { strcpy_P(tmpStr, PSTR("SGP30 no baseline provided")); }
+          
         } else if (text[0] == 'v') {                                      // force tVOC
           if (strlen(value) > 0) {
             tmpuI = strtoul(value, NULL, 10);
@@ -2116,8 +2118,18 @@ bool inputHandle() {
                 snprintf_P(tmpStr, sizeof(tmpStr), PSTR("SGP30 tVOC calibration point is: %u"), tmpuI); 
               } else { strcpy_P(tmpStr, PSTR("SGP30 not available")); }
             } else { strcpy_P(tmpStr, PSTR("SGP30 provided baseline for tVOC is out of range")); }
-          } strcpy_P(tmpStr, PSTR("SGP30 no baseline provided"));
-   
+          } else { strcpy_P(tmpStr, PSTR("SGP30 no baseline provided")); }
+
+        } else if (text[0] == 'z') {                                      // zero baseline
+          if (sgp30_avail && mySettings.useSGP30) {
+            switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
+            sgp30.setBaseline((uint16_t)0, (uint16_t)0); // set TVOC baseline
+            mySettings.baselineSGP30_valid = 0xF0;
+            mySettings.baselinetVOC_SGP30 = (uint16_t)0;
+            mySettings.baselineeCO2_SGP30 = (uint16_t)0;
+            strcpy_P(tmpStr, PSTR("SGP30 baseline reset")); 
+          } else { strcpy_P(tmpStr, PSTR("SGP30 not available")); }
+
         } else if (text[0] == 'g') {                                  // get baseline
           if (sgp30_avail && mySettings.useSGP30) {
             switchI2C(sgp30_port, sgp30_i2c[0], sgp30_i2c[1], sgp30_i2cspeed, sgp30_i2cClockStretchLimit);
@@ -2454,7 +2466,7 @@ bool inputHandle() {
           if        (text[1] == 'E') {                                       // save EEPROM
             D_printSerialTelnet(F("D:S:EPRM.."));
             EEPROM.put(0, mySettings);
-            if (EEPROM.commit()) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("EEPROM saved in: %dms"), millis() - tmpTime); } // takes 400ms
+            if (EEPROM.commit()) { snprintf_P(tmpStr, sizeof(tmpStr), PSTR("Settings saved to EEPROM in: %dms"), millis() - tmpTime); } // takes 400ms
             else {snprintf_P(tmpStr, sizeof(tmpStr), PSTR("EEPROM failed to commit"));} 
           } else if (text[1] == 'J') {                                       // save JSON
             D_printSerialTelnet(F("D:S:JSON.."));
@@ -2631,12 +2643,12 @@ void helpMenu() {
     printSerialTelnetLogln(F("==SGP30=================================|==SCD30================================"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| Pc: force eCO2 Gc400 ppm              | Dc: force eCO2 Cc400 ppm             |"));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| Pv: force tVOC Gv100 ppb              | Dt: set temp offset Ct5.0 [C]        |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| Pg: get baseline                      | DT: get temp offset CT               |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("|                                       | Dp: set ambinet pressure Dp5 [mbar]  |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| Pz: set baseline to 0                 | DT: get temp offset CT               |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| Pg: get baseline                      | Dp: set ambinet pressure Dp5 [mbar]  |"));  yieldTime += yieldOS(); 
 
     printSerialTelnetLogln(F("==CCS811================================|==MLX=================================="));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| Cc: force baseline [uint16]           | Xt: set temp offset Xt5.0 [C]        |"));  yieldTime += yieldOS(); 
-    printSerialTelnetLogln(F("| Cb: get baseline [uint16]             |                                      |"));  yieldTime += yieldOS(); 
+    printSerialTelnetLogln(F("| Cb: get baseline [uint16]             | Xe: set emissivity Xe0.98            |"));  yieldTime += yieldOS(); 
 
     printSerialTelnetLogln(F("==LCD===================================|======================================="));  yieldTime += yieldOS(); 
     printSerialTelnetLogln(F("| Li: display layout 1..4 Li4           | 1:simple 2:engr 3:1p 4:1p w time & W |"));  yieldTime += yieldOS(); 
@@ -2978,7 +2990,7 @@ void printSensors() {
     snprintf_P(tmpStr, sizeof(tmpStr),PSTR("MLX Object:%+5.1f[C] MLX Ambient:%+5.1f[C]"), tmpOF, tmpAF); 
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
     float tmpEF = therm.readEmissivity();
-    snprintf_P(tmpStr, sizeof(tmpStr),PSTR("MLX Emissivity:%4.1f MLX Offset:%4.1f"), tmpEF, mlxOffset); 
+    snprintf_P(tmpStr, sizeof(tmpStr),PSTR("MLX Emissivity:%4.2f MLX Offset:%4.1f"), tmpEF, mlxOffset); 
     printSerialTelnetLogln(tmpStr); yieldTime += yieldOS(); 
     checkFever(tmpOF,qualityMessage, 15);
     snprintf_P(tmpStr, sizeof(tmpStr),PSTR("Object temperature is %s, "), qualityMessage);  
